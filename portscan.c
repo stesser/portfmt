@@ -33,7 +33,6 @@
 #if HAVE_CAPSICUM
 # include <sys/capsicum.h>
 #endif
-#include <assert.h>
 #include <dirent.h>
 #if HAVE_ERR
 # include <err.h>
@@ -836,7 +835,7 @@ scan_ports(int portsdir, struct Array *origins, enum ScanFlags flags, struct Reg
 		portscan_log_add_entry(retval, PORTSCAN_LOG_ENTRY_ERROR, "Mk/bsd.options.desc.mk", parser_error_tostring(parser, pool));
 		return;
 	}
-	assert(default_option_descriptions);
+	panic_unless(default_option_descriptions, "no default option descriptions found");
 
 	ssize_t n_threads = sysconf(_SC_NPROCESSORS_ONLN);
 	if (n_threads < 0) {

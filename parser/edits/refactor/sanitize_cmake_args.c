@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>

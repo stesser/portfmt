@@ -28,10 +28,6 @@
 
 #include "config.h"
 
-#include <assert.h>
-#if HAVE_ERR
-# include <err.h>
-#endif
 #include <regex.h>
 #include <stdlib.h>
 
@@ -55,11 +51,7 @@ regexp_init(struct Regexp *regexp, regex_t *regex)
 {
 	regexp->regex = regex;
 	regexp->nmatch = 8;
-	regexp->match = reallocarray(NULL, regexp->nmatch, sizeof(regmatch_t));
-	if (regexp->match == NULL) {
-		warn("reallocarray");
-		abort();
-	}
+	regexp->match = xrecallocarray(NULL, 0, regexp->nmatch, sizeof(regmatch_t));
 }
 
 struct Regexp *
@@ -99,7 +91,7 @@ regexp_free(struct Regexp *regexp)
 size_t
 regexp_length(struct Regexp *regexp, size_t group)
 {
-	assert(regexp->exec > 0);
+	panic_unless(regexp->exec > 0, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch || regexp->match[group].rm_eo < 0 ||
 	    regexp->match[group].rm_so < 0) {
@@ -111,7 +103,7 @@ regexp_length(struct Regexp *regexp, size_t group)
 size_t
 regexp_end(struct Regexp *regexp, size_t group)
 {
-	assert(regexp->exec > 0);
+	panic_unless(regexp->exec > 0, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch || regexp->match[group].rm_eo < 0) {
 		return 0;
@@ -122,7 +114,7 @@ regexp_end(struct Regexp *regexp, size_t group)
 size_t
 regexp_start(struct Regexp *regexp, size_t group)
 {
-	assert(regexp->exec > 0);
+	panic_unless(regexp->exec > 0, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch || regexp->match[group].rm_so < 0) {
 		return 0;
@@ -133,7 +125,7 @@ regexp_start(struct Regexp *regexp, size_t group)
 char *
 regexp_substr(struct Regexp *regexp, struct Mempool *pool, size_t group)
 {
-	assert(regexp->buf != NULL);
+	panic_unless(regexp->exec > 0 && regexp->buf, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch) {
 		return NULL;

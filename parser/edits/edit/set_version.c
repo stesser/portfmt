@@ -30,9 +30,6 @@
 
 #include <sys/param.h>
 #include <ctype.h>
-#if HAVE_ERR
-# include <err.h>
-#endif
 #include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>

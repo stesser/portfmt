@@ -29,10 +29,6 @@
 #include "config.h"
 
 #include <sys/param.h>
-#if HAVE_ERR
-# include <err.h>
-#endif
-#include <assert.h>
 #include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -350,8 +346,7 @@ PARSER_EDIT(insert_variable)
 	}
 
 	ssize_t ptokenslen = array_len(ptokens);
-	assert(insert_after >= 0);
-	assert(insert_after < ptokenslen);
+	panic_unless(insert_after >= 0 && insert_after < ptokenslen, "insert location out of bounds");
 	int insert_flag = 0;
 	ARRAY_FOREACH(ptokens, struct Token *, t) {
 		if (insert_flag) {

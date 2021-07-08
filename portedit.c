@@ -686,5 +686,4 @@ main(int argc, char *argv[])
 	}
 
 	usage();
-	abort();
 }

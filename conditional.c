@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -233,7 +232,7 @@ conditional_tostring(struct Conditional *cond, struct Mempool *pool)
 		type = ".warning";
 		break;
 	}
-	assert(type != NULL);
+	panic_unless(type, "missing string for %d", cond->type);
 
 	return str_dup(pool, type);
 }

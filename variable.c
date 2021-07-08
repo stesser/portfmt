@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include <sys/types.h>
-#include <assert.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -116,8 +115,7 @@ variable_free(struct Variable *var)
 int
 variable_cmp(struct Variable *a, struct Variable *b)
 {
-	assert(a != NULL);
-	assert(b != NULL);
+	panic_unless(a && b, "variable_cmp is not NULL-safe");
 	return strcmp(a->name, b->name);
 }
 
@@ -132,29 +130,24 @@ variable_compare(const void *ap, const void *bp, void *userdata)
 enum VariableModifier
 variable_modifier(struct Variable *var)
 {
-	assert(var != NULL);
 	return var->modifier;
 }
 
 void
 variable_set_modifier(struct Variable *var, enum VariableModifier modifier)
 {
-	assert(var != NULL);
 	var->modifier = modifier;
 }
 
 char *
 variable_name(struct Variable *var)
 {
-	assert(var != NULL);
 	return var->name;
 }
 
 char *
 variable_tostring(struct Variable *var, struct Mempool *pool)
 {
-	assert(var != NULL);
-
 	const char *mod = NULL;
 	switch (var->modifier) {
 	case MODIFIER_APPEND:
@@ -173,6 +166,7 @@ variable_tostring(struct Variable *var, struct Mempool *pool)
 		mod = "!=";
 		break;
 	}
+	panic_unless(mod, "missing string for %d", var->modifier);
 
 	const char *sep = "";
 	if (str_endswith(var->name, "+")) {

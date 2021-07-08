@@ -28,14 +28,10 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <ctype.h>
-#if HAVE_ERR
-# include <err.h>
-#endif
 #include <errno.h>
 #include <math.h>
 #include <regex.h>
@@ -282,8 +278,8 @@ is_empty_line(const char *buf)
 char *
 range_tostring(struct Mempool *pool, struct Range *range)
 {
-	assert(range);
-	assert(range->start < range->end);
+	panic_unless(range, "range_tostring() is not NULL-safe");
+	panic_unless(range->start < range->end, "range is inverted");
 
 	if (range->start == range->end - 1) {
 		return str_printf(pool, "%zu", range->start);
@@ -471,9 +467,8 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 		} else {
 			return str_printf(extpool, "line %s: parse error", lines);
 		}
-	default:
-		abort();
 	}
+	panic("unhandled parser error: %d", parser->error);
 }
 
 void
@@ -492,7 +487,7 @@ parser_append_token(struct Parser *parser, enum TokenType type, const char *data
 void
 parser_enqueue_output(struct Parser *parser, const char *s)
 {
-	assert(s != NULL);
+	panic_unless(s, "parser_enqueue_output() is not NULL-safe");
 	array_append(parser->result, str_dup(NULL, s));
 }
 
@@ -506,7 +501,7 @@ parser_tokenize(struct Parser *parser, const char *line, enum TokenType type, si
 	char *token = NULL;
 	size_t i = start;
 	for (; i < strlen(line); i++) {
-		assert(i >= start);
+		panic_if(i < start, "index went before start");
 		char c = line[i];
 		if (escape) {
 			escape = 0;
@@ -668,9 +663,9 @@ void
 print_newline_array(struct Parser *parser, struct Mempool *pool, struct Array *arr)
 {
 	struct Token *o = array_get(arr, 0);
-	assert(o && token_data(o) != NULL);
-	assert(strlen(token_data(o)) != 0);
-	assert(token_type(o) == VARIABLE_TOKEN);
+	panic_unless(o && token_type(o) == VARIABLE_TOKEN &&
+		     token_data(o) && strlen(token_data(o)) != 0,
+		     "token does not have the right type");
 
 	if (array_len(arr) == 0) {
 		parser_enqueue_output(parser, variable_tostring(token_variable(o), pool));
@@ -807,8 +802,9 @@ parser_output_print_target_command(struct Parser *parser, struct Array *tokens)
 	int wrap_after = 0;
 	ARRAY_FOREACH(tokens, struct Token *, t) {
 		char *word = token_data(t);
-		assert(token_type(t) == TARGET_COMMAND_TOKEN);
-		assert(word && strlen(word) != 0);
+		panic_unless(token_type(t) == TARGET_COMMAND_TOKEN,
+			     "token is not a TARGET_COMMAND_TOKEN");
+		panic_unless(word && strlen(word) != 0, "token data is empty");
 
 		if (command == NULL) {
 			command = word;
@@ -1006,7 +1002,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 	}
 
 	struct Token *t = array_get(arr, 0);
-	assert(token_type(t) == VARIABLE_TOKEN);
+	panic_unless(token_type(t) == VARIABLE_TOKEN, "token is not a VARIABLE_TOKEN");
 	int opt_use = 0;
 	char *helper = NULL;
 	if (is_options_helper(pool, parser, variable_name(token_variable(t)), NULL, &helper, NULL)) {
@@ -1023,7 +1019,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 
 	struct Array *up = mempool_array(pool);
 	ARRAY_FOREACH(arr, struct Token *, t) {
-		assert(token_type(t) == VARIABLE_TOKEN);
+		panic_unless(token_type(t) == VARIABLE_TOKEN, "token is not a VARIABLE_TOKEN");
 		if (!matches_opt_use_prefix(token_data(t))) {
 			array_append(up, t);
 			continue;

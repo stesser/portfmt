@@ -38,6 +38,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <libias/util.h>
+
 #include "portscan/status.h"
 
 static void portscan_status_signal_handler(int);
@@ -117,7 +119,7 @@ portscan_status_print()
 			fprintf(stderr, "[100%%] finished in %ds\n", seconds);
 			break;
 		default:
-			abort();
+			panic("unhandled portscan state: %d", state);
 		}
 		if (interval) {
 			alarm(interval);

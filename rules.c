@@ -29,11 +29,7 @@
 #include "config.h"
 
 #include <sys/param.h>
-#include <assert.h>
 #include <ctype.h>
-#if HAVE_ERR
-# include <err.h>
-#endif
 #include <math.h>
 #include <regex.h>
 #include <stdlib.h>
@@ -1498,7 +1494,7 @@ indent_goalcol(struct Variable *var)
 		varlength += 2;
 		break;
 	default:
-		errx(1, "Unknown variable modifier: %d", variable_modifier(var));
+		panic("unhandled variable modifier: %d", variable_modifier(var));
 	}
 	if (((varlength + 1) % 8) == 0) {
 		varlength++;
@@ -1645,9 +1641,10 @@ compare_tokens(const void *ap, const void *bp, void *userdata)
 	struct Parser *parser = userdata;
 	struct Token *a = *(struct Token**)ap;
 	struct Token *b = *(struct Token**)bp;
-	assert(token_type(a) == VARIABLE_TOKEN);
-	assert(token_type(b) == VARIABLE_TOKEN);
-	assert(variable_cmp(token_variable(a), token_variable(b)) == 0);
+	panic_unless(token_type(a) == VARIABLE_TOKEN && token_type(b) == VARIABLE_TOKEN,
+		     "can only compare two VARIABLE_TOKEN");
+	panic_unless(variable_cmp(token_variable(a), token_variable(b)) == 0,
+		     "can only compare two VARIABLE_TOKEN for the same variable");
 
 	struct Variable *var = token_variable(a);
 
@@ -1682,8 +1679,6 @@ compare_tokens(const void *ap, const void *bp, void *userdata)
 int
 compare_license_perms(struct Parser *parser, struct Variable *var, const char *a, const char *b, int *result)
 {
-	assert(result != NULL);
-
 	// ^(_?LICENSE_PERMS_(-|[A-Z0-9\\._+ ])+|_LICENSE_LIST_PERMS|LICENSE_PERMS)
 	const char *varname = variable_name(var);
 	if (strcmp(varname, "_LICENSE_LIST_PERMS") != 0 &&
@@ -1700,7 +1695,10 @@ compare_license_perms(struct Parser *parser, struct Variable *var, const char *a
 		}
 	}
 
-	*result = compare_rel(license_perms_rel, nitems(license_perms_rel), a, b);
+	if (result) {
+		*result = compare_rel(license_perms_rel, nitems(license_perms_rel), a, b);
+	}
+
 	return 1;
 }
 
@@ -1736,7 +1734,6 @@ int
 compare_plist_files(struct Parser *parser, struct Variable *var, const char *a, const char *b, int *result)
 {
 	SCOPE_MEMPOOL(pool);
-	assert(result != NULL);
 
 	char *helper = NULL;
 	if (is_options_helper(pool, parser, variable_name(var), NULL, &helper, NULL)) {
@@ -1754,59 +1751,63 @@ compare_plist_files(struct Parser *parser, struct Variable *var, const char *a, 
 	/* Ignore plist keywords */
 	char *as = remove_plist_keyword(a, pool);
 	char *bs = remove_plist_keyword(b, pool);
-	*result = strcasecmp(as, bs);
+	if (result) {
+		*result = strcasecmp(as, bs);
+	}
 	return 1;
 }
 
 int
 compare_use_gnome(struct Variable *var, const char *a, const char *b, int *result)
 {
-	assert(result != NULL);
-
 	if (strcmp(variable_name(var), "USE_GNOME") != 0) {
 		return 0;
 	}
 
-	*result = compare_rel(use_gnome_rel, nitems(use_gnome_rel), a, b);
+	if (result) {
+		*result = compare_rel(use_gnome_rel, nitems(use_gnome_rel), a, b);
+	}
 	return 1;
 }
 
 int
 compare_use_kde(struct Variable *var, const char *a, const char *b, int *result)
 {
-	assert(result != NULL);
-
 	if (strcmp(variable_name(var), "USE_KDE") != 0) {
 		return 0;
 	}
 
-	*result = compare_rel(use_kde_rel, nitems(use_kde_rel), a, b);
+	if (result) {
+		*result = compare_rel(use_kde_rel, nitems(use_kde_rel), a, b);
+	}
 	return 1;
 }
 
 int
 compare_use_pyqt(struct Variable *var, const char *a, const char *b, int *result)
 {
-	assert(result != NULL);
-
 	if (strcmp(variable_name(var), "USE_PYQT") != 0) {
 		return 0;
 	}
 
-	*result = compare_rel(use_pyqt_rel, nitems(use_pyqt_rel), a, b);
+	if (result) {
+		*result = compare_rel(use_pyqt_rel, nitems(use_pyqt_rel), a, b);
+	}
+
 	return 1;
 }
 
 int
 compare_use_qt(struct Variable *var, const char *a, const char *b, int *result)
 {
-	assert(result != NULL);
-
 	if (strcmp(variable_name(var), "USE_QT") != 0) {
 		return 0;
 	}
 
-	*result = compare_rel(use_qt_rel, nitems(use_qt_rel), a, b);
+	if (result) {
+		*result = compare_rel(use_qt_rel, nitems(use_qt_rel), a, b);
+	}
+
 	return 1;
 }
 
@@ -2374,12 +2375,11 @@ compare_order(const void *ap, const void *bp, void *userdata)
 		char *aprefix = NULL;
 		char *bhelper = NULL;
 		char *bprefix = NULL;
-		if (!is_flavors_helper(pool, parser, a, &aprefix, &ahelper) ||
-		    !is_flavors_helper(pool, parser, b, &bprefix, &bhelper)) {
-			abort();
-		}
-		assert(ahelper != NULL && aprefix != NULL);
-		assert(bhelper != NULL && bprefix != NULL);
+		panic_unless(is_flavors_helper(pool, parser, a, &aprefix, &ahelper) &&
+			     is_flavors_helper(pool, parser, b, &bprefix, &bhelper),
+			     "is_flavors_helper() failed");
+		panic_unless(ahelper && aprefix && bhelper && bprefix,
+			     "is_flavors_helper() returned invalid values");
 
 		// Only compare if common prefix (helper for the same flavor)
 		int prefix_score = strcmp(aprefix, bprefix);
@@ -2418,10 +2418,8 @@ compare_order(const void *ap, const void *bp, void *userdata)
 			char *bsuffix = NULL;
 			is_shebang_lang(pool, parser, a, &alang, &asuffix);
 			is_shebang_lang(pool, parser, b, &blang, &bsuffix);
-			assert(alang);
-			assert(asuffix);
-			assert(blang);
-			assert(bsuffix);
+			panic_unless(alang && asuffix && blang && bsuffix,
+				     "is_shebang_lang() returned invalid values");
 
 			ssize_t ascore = -1;
 			ssize_t bscore = -1;
@@ -2478,10 +2476,8 @@ compare_order(const void *ap, const void *bp, void *userdata)
 			char *bsuffix = NULL;
 			is_cabal_datadir_vars(pool, parser, a, &aexe, &asuffix);
 			is_cabal_datadir_vars(pool, parser, b, &bexe, &bsuffix);
-			assert(aexe);
-			assert(asuffix);
-			assert(bexe);
-			assert(bsuffix);
+			panic_unless(aexe && asuffix && bexe && bsuffix,
+				     "is_cabal_datadir_vars() returned invalid values");
 
 			ssize_t ascore = -1;
 			ssize_t bscore = -1;
@@ -2523,12 +2519,11 @@ compare_order(const void *ap, const void *bp, void *userdata)
 		char *bhelper = NULL;
 		char *bprefix = NULL;
 		// TODO SUBPKG
-		if (!is_options_helper(pool, parser, a, &aprefix, &ahelper, NULL) ||
-		    !is_options_helper(pool, parser, b, &bprefix, &bhelper, NULL)) {
-			abort();
-		}
-		assert(ahelper != NULL && aprefix != NULL);
-		assert(bhelper != NULL && bprefix != NULL);
+		panic_unless(is_options_helper(pool, parser, a, &aprefix, &ahelper, NULL) &&
+			     is_options_helper(pool, parser, b, &bprefix, &bhelper, NULL),
+			     "is_options_helper() failed");
+		panic_unless(ahelper && aprefix && bhelper && bprefix,
+			     "is_options_helper() returned invalid values");
 
 		// Only compare if common prefix (helper for the same option)
 		int prefix_score = strcmp(aprefix, bprefix);
@@ -2765,16 +2760,14 @@ compare_target_order(const void *ap, const void *bp, void *userdata)
 		} else if (!aoptstate && boptstate) {
 			return 1;
 		} else {
-			// should not happen
-			abort();
+			panic("should not happen");
 		}
 	} else if (aindex < bindex) {
 		return -1;
 	} else if (aindex > bindex) {
 		return 1;
 	} else {
-		// should not happen
-		abort();
+		panic("should not happen");
 	}
 }
 
@@ -2864,7 +2857,7 @@ blocktype_tostring(enum BlockType block)
 		return "WRKSRC block";
 	}
 
-	abort();
+	panic("unhandled block type: %d", block);
 }
 
 int
@@ -2924,7 +2917,7 @@ rules_init()
 			size_t errbuflen = regerror(error, &regular_expressions[i].re, NULL, 0);
 			char *errbuf = xmalloc(errbuflen);
 			regerror(error, &regular_expressions[i].re, errbuf, errbuflen);
-			errx(1, "regcomp: %zu: %s", i, errbuf);
+			panic("regcomp: %zu: %s", i, errbuf);
 		}
 	}
 

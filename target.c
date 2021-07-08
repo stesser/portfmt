@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>

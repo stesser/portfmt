@@ -146,11 +146,9 @@ log_entry_tostring(const struct PortscanLogEntry *entry, struct Mempool *pool)
 		return str_printf(pool, "%-7s %-40s %s\n", "Vv", entry->origin, entry->value);
 	case PORTSCAN_LOG_ENTRY_COMMENT:
 		return str_printf(pool, "%-7c %-40s %s\n", '#', entry->origin, entry->value);
-	default:
-		abort();
 	}
 
-	return NULL;
+	panic("unhandled portscan log entry type: %d", entry->type);
 }
 
 void

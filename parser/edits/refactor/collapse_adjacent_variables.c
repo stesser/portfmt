@@ -80,7 +80,7 @@ next_variable_has_eol_comment(struct Array *tokens, size_t i) {
 		case VARIABLE_END:
 			return 0;
 		default:
-			abort();
+			panic("unhandled token type: %d", token_type(t));
 		}
 	}
 	return 0;

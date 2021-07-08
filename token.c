@@ -269,8 +269,7 @@ token_type_tostring(enum TokenType type)
 		return "variable token";
 	}
 
-	// Never reached
-	abort();
+	panic("unhandle token type: %d", type);
 }
 
 struct Variable *
