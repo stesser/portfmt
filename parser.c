@@ -409,12 +409,6 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 	switch (parser->error) {
 	case PARSER_ERROR_OK:
 		return str_printf(extpool, "line %s: no error", lines);
-	case PARSER_ERROR_BUFFER_TOO_SMALL:
-		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: buffer too small: %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "line %s: buffer too small", lines);
-		}
 	case PARSER_ERROR_DIFFERENCES_FOUND:
 		return str_printf(extpool, "differences found");
 	case PARSER_ERROR_EDIT_FAILED:
@@ -1668,7 +1662,7 @@ var:
 	pos = consume_var(buf);
 	if (pos != 0) {
 		if (pos > strlen(buf)) {
-			parser->error = PARSER_ERROR_BUFFER_TOO_SMALL;
+			parser->error = PARSER_ERROR_UNSPECIFIED;
 			goto next;
 		}
 		char *tmp = str_ndup(NULL, buf, pos);
