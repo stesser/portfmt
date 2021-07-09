@@ -612,7 +612,7 @@ scan_port(struct ScanPortArgs *args)
 		SET_FOREACH(commented_portrevision, char *, comment) {
 			char *msg = str_printf(pool, "commented revision or epoch: %s", comment);
 			if (!set_contains(retval->comments, msg)) {
-				set_add(retval->comments, mempool_move(pool, msg, retval->pool));
+				set_add(retval->comments, str_dup(NULL, msg));
 			}
 		}
 		set_free(commented_portrevision);
