@@ -68,7 +68,11 @@ struct Parser {
 	int skip;
 	enum ParserError error;
 	char *error_msg;
-	char *inbuf;
+	struct {
+		char *buf;
+		size_t len;
+		FILE *stream;
+	} inbuf;
 	char *condname;
 	char *targetname;
 	char *varname;
@@ -84,8 +88,6 @@ struct Parser {
 
 	int read_finished;
 };
-
-#define INBUF_SIZE 131072
 
 static size_t consume_comment(const char *);
 static size_t consume_conditional(const char *);
@@ -331,7 +333,8 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	parser->error_msg = NULL;
 	parser->lines.start = 1;
 	parser->lines.end = 1;
-	parser->inbuf = xmalloc(INBUF_SIZE);
+	parser->inbuf.stream = open_memstream(&parser->inbuf.buf, &parser->inbuf.len);
+	panic_unless(parser->inbuf.stream, "open_memstream failed");
 	parser->settings = *settings;
 	if (settings->filename) {
 		parser->settings.filename = str_dup(NULL, settings->filename);
@@ -380,7 +383,8 @@ parser_free(struct Parser *parser)
 	free(parser->varname);
 	free(parser->settings.filename);
 	free(parser->error_msg);
-	free(parser->inbuf);
+	fclose(parser->inbuf.stream);
+	free(parser->inbuf.buf);
 	free(parser);
 }
 
@@ -1509,6 +1513,8 @@ parser_output_dump_tokens(struct Parser *parser)
 void
 parser_read_line(struct Parser *parser, char *line)
 {
+	SCOPE_MEMPOOL(pool);
+
 	if (parser->error != PARSER_ERROR_OK) {
 		return;
 	}
@@ -1538,15 +1544,17 @@ parser_read_line(struct Parser *parser, char *line)
 		 */
 		for (;isblank(*line); line++);
 		if (strlen(line) < 1) {
-			if (strlcat(parser->inbuf, " ", INBUF_SIZE) >= INBUF_SIZE) {
-				parser->error = PARSER_ERROR_BUFFER_TOO_SMALL;
+			if (fputc(' ', parser->inbuf.stream) < 0) {
+				parser_set_error(parser, PARSER_ERROR_IO,
+					 str_printf(pool, "fputc: %s", strerror(errno)));
 				return;
 			}
 		}
 	}
 
-	if (strlcat(parser->inbuf, line, INBUF_SIZE) >= INBUF_SIZE) {
-		parser->error = PARSER_ERROR_BUFFER_TOO_SMALL;
+	if (fwrite(line, 1, strlen(line), parser->inbuf.stream) < 0) {
+		parser_set_error(parser, PARSER_ERROR_IO,
+				 str_printf(pool, "fwrite: %s", strerror(errno)));
 		return;
 	}
 
@@ -1556,7 +1564,11 @@ parser_read_line(struct Parser *parser, char *line)
 			return;
 		}
 		parser->lines.start = parser->lines.end;
-		memset(parser->inbuf, 0, INBUF_SIZE);
+		fclose(parser->inbuf.stream);
+		free(parser->inbuf.buf);
+		parser->inbuf.buf = NULL;
+		parser->inbuf.stream = open_memstream(&parser->inbuf.buf, &parser->inbuf.len);
+		panic_unless(parser->inbuf.stream, "open_memstream failed");
 	}
 
 	parser->continued = will_continue;
@@ -1588,7 +1600,13 @@ parser_read_internal(struct Parser *parser)
 		return;
 	}
 
-	char *buf = str_trimr(pool, parser->inbuf);
+	if (fflush(parser->inbuf.stream) != 0) {
+		parser_set_error(parser, PARSER_ERROR_IO,
+				 str_printf(pool, "fflush: %s", strerror(errno)));
+		return;
+	}
+
+	char *buf = str_trimr(pool, parser->inbuf.buf);
 	size_t pos;
 
 	pos = consume_comment(buf);
@@ -1678,6 +1696,8 @@ next:
 enum ParserError
 parser_read_finish(struct Parser *parser)
 {
+	SCOPE_MEMPOOL(pool);
+
 	if (parser->error != PARSER_ERROR_OK) {
 		return parser->error;
 	}
@@ -1690,7 +1710,13 @@ parser_read_finish(struct Parser *parser)
 		parser->lines.end++;
 	}
 
-	if (strlen(parser->inbuf) > 0) {
+	if (fflush(parser->inbuf.stream) != 0) {
+		parser_set_error(parser, PARSER_ERROR_IO,
+				 str_printf(pool, "fflush: %s", strerror(errno)));
+		return parser->error;
+	}
+
+	if (parser->inbuf.len > 0) {
 		parser_read_internal(parser);
 		if (parser->error != PARSER_ERROR_OK) {
 			return parser->error;
