@@ -569,7 +569,7 @@ parser_tokenize(struct Parser *parser, const char *line, enum TokenType type, si
 				token = str_trim(pool, str_slice(pool, line, i, -1));
 				parser_append_token(parser, type, token);
 				token = NULL;
-				parser->error = PARSER_ERROR_OK;
+				parser_set_error(parser, PARSER_ERROR_OK, NULL);
 				return;
 			}
 			if (parser->error != PARSER_ERROR_OK) {
@@ -582,7 +582,7 @@ parser_tokenize(struct Parser *parser, const char *line, enum TokenType type, si
 	if (strcmp(token, "") != 0) {
 		parser_append_token(parser, type, token);
 	}
-	parser->error = PARSER_ERROR_OK;
+	parser_set_error(parser, PARSER_ERROR_OK, NULL);
 }
 
 void
@@ -648,7 +648,7 @@ parser_find_goalcols(struct Parser *parser)
 			}
 			break;
 		default:
-			parser->error = PARSER_ERROR_UNHANDLED_TOKEN_TYPE;
+			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
 			return;
 		}
 	}
@@ -670,7 +670,7 @@ print_newline_array(struct Parser *parser, struct Array *arr)
 	if (array_len(arr) == 0) {
 		parser_enqueue_output(parser, variable_tostring(token_variable(o), pool));
 		parser_enqueue_output(parser, "\n");
-		parser->error = PARSER_ERROR_OK;
+		parser_set_error(parser, PARSER_ERROR_OK, NULL);
 		return;
 	}
 
@@ -710,7 +710,7 @@ print_newline_array(struct Parser *parser, struct Array *arr)
 			sep = str_dup(NULL, "\t\t");
 			break;
 		default:
-			parser->error = PARSER_ERROR_UNHANDLED_TOKEN_TYPE;
+			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
 			return;
 		}
 	}
@@ -1313,7 +1313,7 @@ parser_output_reformatted(struct Parser *parser)
 			}
 			break;
 		default:
-			parser->error = PARSER_ERROR_UNHANDLED_TOKEN_TYPE;
+			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
 			return;
 		}
 		if (parser->error != PARSER_ERROR_OK) {
@@ -1375,7 +1375,7 @@ parser_output_diff(struct Parser *parser)
 		char *buf = str_printf(NULL, "%s--- %s\n%s+++ %s%s\n", color_delete, filename, color_add, filename, color_reset);
 		array_append(parser->result, buf);
 		array_append(parser->result, diff_to_patch(p, NULL, NULL, NULL, parser->settings.diff_context, !nocolor));
-		parser->error = PARSER_ERROR_DIFFERENCES_FOUND;
+		parser_set_error(parser, PARSER_ERROR_DIFFERENCES_FOUND, NULL);
 	}
 }
 
@@ -1436,7 +1436,7 @@ parser_output_dump_tokens(struct Parser *parser)
 			type = "comment";
 			break;
 		default:
-			parser->error = PARSER_ERROR_UNHANDLED_TOKEN_TYPE;
+			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
 			return;
 		}
 		if (token_variable(t) &&
@@ -1496,7 +1496,7 @@ parser_output_dump_tokens(struct Parser *parser)
 		array_truncate(vars);
 	}
 
-	parser->error = PARSER_ERROR_OK;
+	parser_set_error(parser, PARSER_ERROR_OK, NULL);
 }
 
 void
@@ -1662,7 +1662,7 @@ var:
 	pos = consume_var(buf);
 	if (pos != 0) {
 		if (pos > strlen(buf)) {
-			parser->error = PARSER_ERROR_UNSPECIFIED;
+			parser_set_error(parser, PARSER_ERROR_UNSPECIFIED, "inbuf overflow");
 			goto next;
 		}
 		char *tmp = str_ndup(NULL, buf, pos);
@@ -1672,7 +1672,7 @@ var:
 	}
 	parser_tokenize(parser, buf, VARIABLE_TOKEN, pos);
 	if (parser->varname == NULL) {
-		parser->error = PARSER_ERROR_UNSPECIFIED;
+		parser_set_error(parser, PARSER_ERROR_UNSPECIFIED, NULL);
 	}
 next:
 	if (parser->varname) {
