@@ -113,8 +113,8 @@ static void parser_propagate_goalcol(struct Parser *, size_t, size_t, int);
 static void parser_read_internal(struct Parser *);
 static void parser_read_line(struct Parser *, char *);
 static void parser_tokenize(struct Parser *, const char *, enum TokenType, size_t);
-static void print_newline_array(struct Parser *, struct Mempool *, struct Array *);
-static void print_token_array(struct Parser *, struct Mempool *, struct Array *);
+static void print_newline_array(struct Parser *, struct Array *);
+static void print_token_array(struct Parser *, struct Array *);
 static char *range_tostring(struct Mempool *, struct Range *);
 
 #include "parser/constants.h"
@@ -664,8 +664,10 @@ parser_find_goalcols(struct Parser *parser)
 }
 
 void
-print_newline_array(struct Parser *parser, struct Mempool *pool, struct Array *arr)
+print_newline_array(struct Parser *parser, struct Array *arr)
 {
+	SCOPE_MEMPOOL(pool);
+
 	struct Token *o = array_get(arr, 0);
 	panic_unless(o && token_type(o) == VARIABLE_TOKEN &&
 		     token_data(o) && strlen(token_data(o)) != 0,
@@ -721,10 +723,12 @@ print_newline_array(struct Parser *parser, struct Mempool *pool, struct Array *a
 }
 
 void
-print_token_array(struct Parser *parser, struct Mempool *pool, struct Array *tokens)
+print_token_array(struct Parser *parser, struct Array *tokens)
 {
+	SCOPE_MEMPOOL(pool);
+
 	if (array_len(tokens) < 2) {
-		print_newline_array(parser, pool, tokens);
+		print_newline_array(parser, tokens);
 		return;
 	}
 
@@ -738,8 +742,8 @@ print_token_array(struct Parser *parser, struct Mempool *pool, struct Array *tok
 		wrapcol = parser->settings.wrapcol - token_goalcol(o) - 2;
 	}
 
-	size_t rowsz = 8192;
-	char *row = mempool_alloc(pool, rowsz);
+	struct Array *row = mempool_array(pool);
+	size_t rowlen = 0;
 	struct Token *token = NULL;
 	ARRAY_FOREACH(tokens, struct Token *, t) {
 		token = t;
@@ -747,40 +751,31 @@ print_token_array(struct Parser *parser, struct Mempool *pool, struct Array *tok
 		if (tokenlen == 0) {
 			continue;
 		}
-		if ((strlen(row) + tokenlen) > wrapcol) {
-			if (strlen(row) == 0) {
+		if ((rowlen + tokenlen) > wrapcol) {
+			if (rowlen == 0) {
 				array_append(arr, token);
 				continue;
 			} else {
-				struct Token *t = token_clone(token, row);
+				struct Token *t = token_clone(token, str_join(pool, row, ""));
 				parser_mark_for_gc(parser, t);
 				array_append(arr, t);
-				row[0] = 0;
+				array_truncate(row);
+				rowlen = 0;
 			}
 		}
-		size_t len;
-		if (strlen(row) == 0) {
-			if ((len = strlcpy(row, token_data(token), rowsz)) >= rowsz) {
-				parser->error = PARSER_ERROR_BUFFER_TOO_SMALL;
-				return;
-			}
-		} else {
-			if ((len = strlcat(row, " ", rowsz)) >= rowsz) {
-				parser->error = PARSER_ERROR_BUFFER_TOO_SMALL;
-				return;
-			}
-			if ((len = strlcat(row, token_data(token), rowsz)) >= rowsz) {
-				parser->error = PARSER_ERROR_BUFFER_TOO_SMALL;
-				return;
-			}
+		if (rowlen > 0) {
+			array_append(row, " ");
+			rowlen++;
 		}
+		array_append(row, token_data(token));
+		rowlen += tokenlen;
 	}
-	if (token && strlen(row) > 0 && array_len(arr) < array_len(tokens)) {
-		struct Token *t = token_clone(token, row);
+	if (token && rowlen > 0 && array_len(arr) < array_len(tokens)) {
+		struct Token *t = token_clone(token, str_join(pool, row, ""));
 		parser_mark_for_gc(parser, t);
 		array_append(arr, t);
 	}
-	print_newline_array(parser, pool, arr);
+	print_newline_array(parser, arr);
 }
 
 void
@@ -1101,9 +1096,9 @@ parser_output_reformatted_helper(struct Parser *parser, struct Mempool *pool, st
 
 	t0 = array_get(arr, 0);
 	if (print_as_newlines(parser, token_variable(t0))) {
-		print_newline_array(parser, pool, arr);
+		print_newline_array(parser, arr);
 	} else {
-		print_token_array(parser, pool, arr);
+		print_token_array(parser, arr);
 	}
 
 cleanup:
@@ -1333,7 +1328,7 @@ parser_output_reformatted(struct Parser *parser)
 		prev = o;
 	}
 	if (array_len(target_arr) > 0) {
-		print_token_array(parser, pool, target_arr);
+		print_token_array(parser, target_arr);
 		array_truncate(target_arr);
 	}
 	parser_output_reformatted_helper(parser, pool, variable_arr);
