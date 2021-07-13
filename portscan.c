@@ -51,14 +51,15 @@
 
 #include <libias/array.h>
 #include <libias/diff.h>
+#include <libias/flow.h>
 #include <libias/io.h>
 #include <libias/map.h>
+#include <libias/mem.h>
 #include <libias/mempool.h>
 #include <libias/mempool/dir.h>
 #include <libias/mempool/file.h>
 #include <libias/set.h>
 #include <libias/str.h>
-#include <libias/util.h>
 
 #include "capsicum_helpers.h"
 #include "conditional.h"

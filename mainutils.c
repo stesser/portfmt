@@ -45,7 +45,6 @@
 #include <libias/mempool.h>
 #include <libias/mempool/file.h>
 #include <libias/str.h>
-#include <libias/util.h>
 
 #include "capsicum_helpers.h"
 #include "mainutils.h"

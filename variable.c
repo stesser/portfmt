@@ -34,9 +34,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libias/flow.h>
+#include <libias/mem.h>
 #include <libias/mempool.h>
 #include <libias/str.h>
-#include <libias/util.h>
 
 #include "regexp.h"
 #include "rules.h"

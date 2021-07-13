@@ -35,8 +35,8 @@
 #include <string.h>
 
 #include <libias/array.h>
+#include <libias/flow.h>
 #include <libias/mempool.h>
-#include <libias/util.h>
 
 #include "conditional.h"
 #include "parser.h"

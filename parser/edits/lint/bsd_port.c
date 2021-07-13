@@ -33,6 +33,7 @@
 #include <stdio.h>
 
 #include <libias/array.h>
+#include <libias/flow.h>
 #include <libias/str.h>
 
 #include "parser.h"

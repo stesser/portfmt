@@ -31,8 +31,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libias/flow.h>
+#include <libias/mem.h>
 #include <libias/str.h>
-#include <libias/util.h>
 
 #include "conditional.h"
 #include "target.h"

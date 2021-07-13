@@ -31,9 +31,10 @@
 #include <regex.h>
 #include <stdlib.h>
 
+#include <libias/flow.h>
+#include <libias/mem.h>
 #include <libias/mempool.h>
 #include <libias/str.h>
-#include <libias/util.h>
 
 #include "regexp.h"
 

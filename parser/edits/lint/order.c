@@ -36,12 +36,14 @@
 #include <string.h>
 
 #include <libias/array.h>
+#include <libias/color.h>
 #include <libias/diff.h>
+#include <libias/flow.h>
 #include <libias/map.h>
+#include <libias/mem.h>
 #include <libias/mempool.h>
 #include <libias/set.h>
 #include <libias/str.h>
-#include <libias/util.h>
 
 #include "conditional.h"
 #include "parser.h"

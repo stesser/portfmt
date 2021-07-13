@@ -33,9 +33,9 @@
 #include <stdio.h>
 
 #include <libias/array.h>
+#include <libias/flow.h>
 #include <libias/mempool.h>
 #include <libias/set.h>
-#include <libias/util.h>
 
 #include "parser.h"
 #include "parser/edits.h"

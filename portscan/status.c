@@ -38,7 +38,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <libias/util.h>
+#include <libias/flow.h>
 
 #include "portscan/status.h"
 

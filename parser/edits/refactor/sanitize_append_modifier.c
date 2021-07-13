@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include <libias/array.h>
+#include <libias/flow.h>
 #include <libias/mempool.h>
 #include <libias/set.h>
 

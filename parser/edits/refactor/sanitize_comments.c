@@ -32,6 +32,7 @@
 #include <stdio.h>
 
 #include <libias/array.h>
+#include <libias/flow.h>
 #include <libias/mempool.h>
 #include <libias/str.h>
 
