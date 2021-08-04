@@ -178,7 +178,7 @@ static struct Array *lookup_origins(struct Mempool *, int, enum ScanFlags, struc
 static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, struct Regexp *, ssize_t, struct PortscanLog *);
 static void usage(void);
 
-static struct option longopts[SCAN_LONGOPT__N] = {
+static struct option longopts[SCAN_LONGOPT__N + 1] = {
 	[SCAN_LONGOPT_ALL] = { "all", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_CATEGORIES] = { "categories", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_CLONES] = { "clones", no_argument, NULL, 1 },
