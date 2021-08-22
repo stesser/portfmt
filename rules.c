@@ -44,6 +44,7 @@
 #include <libias/str.h>
 
 #include "conditional.h"
+#include "constants.h"
 #include "regexp.h"
 #include "rules.h"
 #include "parser.h"
@@ -83,8 +84,6 @@ static struct {
 				  REG_EXTENDED, {} },
 };
 
-#include "generated_rules.h"
-#include "parser/constants.h"
 
 static const char *license_perms_rel[] = {
 	"dist-mirror",
@@ -99,7 +98,6 @@ static const char *license_perms_rel[] = {
 	"no-auto-accept",
 	"none",
 };
-
 
 static const char *target_command_wrap_after_each_token_[] = {
 	"${INSTALL_DATA}",
@@ -1300,20 +1298,20 @@ variable_has_flag(struct Parser *parser, const char *var, int flag)
 static int
 extract_arch_prefix(struct Mempool *pool, const char *var, char **prefix_without_arch, char **prefix_without_arch_osrel)
 {
-	for (size_t i = 0; i < nitems(known_architectures_); i++) {
-		char *suffix = str_printf(pool, "_%s", known_architectures_[i]);
+	for (size_t i = 0; i < known_architectures_len; i++) {
+		char *suffix = str_printf(pool, "_%s", known_architectures[i]);
 		if (str_endswith(var, suffix)) {
 			*prefix_without_arch = str_ndup(pool, var, strlen(var) - strlen(suffix));
 			*prefix_without_arch_osrel = NULL;
 			return 1;
 		}
 	}
-	for (size_t i = 0; i < nitems(known_architectures_); i++) {
-		for (size_t j = 0; j < nitems(freebsd_versions_); j++) {
-			char *suffix = str_printf(pool, "_%s_%d", known_architectures_[i], freebsd_versions_[j]);
+	for (size_t i = 0; i < known_architectures_len; i++) {
+		for (size_t j = 0; j < freebsd_versions_len; j++) {
+			char *suffix = str_printf(pool, "_%s_%d", known_architectures[i], freebsd_versions[j]);
 			if (str_endswith(var, suffix)) {
 				*prefix_without_arch = str_ndup(pool, var, strlen(var) - strlen(suffix));
-				*prefix_without_arch_osrel = str_ndup(pool, var, strlen(var) - strlen(suffix) + strlen(known_architectures_[i]) + 1);
+				*prefix_without_arch_osrel = str_ndup(pool, var, strlen(var) - strlen(suffix) + strlen(known_architectures[i]) + 1);
 				return 1;
 			}
 		}
@@ -1767,7 +1765,7 @@ compare_use_gnome(struct Variable *var, const char *a, const char *b, int *resul
 	}
 
 	if (result) {
-		*result = compare_rel(use_gnome_rel, nitems(use_gnome_rel), a, b);
+		*result = compare_rel(use_gnome_rel, use_gnome_rel_len, a, b);
 	}
 	return 1;
 }
@@ -1780,7 +1778,7 @@ compare_use_kde(struct Variable *var, const char *a, const char *b, int *result)
 	}
 
 	if (result) {
-		*result = compare_rel(use_kde_rel, nitems(use_kde_rel), a, b);
+		*result = compare_rel(use_kde_rel, use_kde_rel_len, a, b);
 	}
 	return 1;
 }
@@ -1793,7 +1791,7 @@ compare_use_pyqt(struct Variable *var, const char *a, const char *b, int *result
 	}
 
 	if (result) {
-		*result = compare_rel(use_pyqt_rel, nitems(use_pyqt_rel), a, b);
+		*result = compare_rel(use_pyqt_rel, use_pyqt_rel_len, a, b);
 	}
 
 	return 1;
@@ -1807,7 +1805,7 @@ compare_use_qt(struct Variable *var, const char *a, const char *b, int *result)
 	}
 
 	if (result) {
-		*result = compare_rel(use_qt_rel, nitems(use_qt_rel), a, b);
+		*result = compare_rel(use_qt_rel, use_qt_rel_len, a, b);
 	}
 
 	return 1;
@@ -2201,8 +2199,8 @@ is_shebang_lang(struct Mempool *pool, struct Parser *parser, const char *var, ch
 		return 0;
 	}
 
-	for (size_t i = 0; i < nitems(static_shebang_langs_); i++) {
-		const char *lang = static_shebang_langs_[i];
+	for (size_t i = 0; i < static_shebang_langs_len; i++) {
+		const char *lang = static_shebang_langs[i];
 		if (is_shebang_lang_helper(pool, var, lang, prefix, suffix)) {
 			return 1;
 		}
@@ -2425,8 +2423,8 @@ compare_order(const void *ap, const void *bp, void *userdata)
 
 			ssize_t ascore = -1;
 			ssize_t bscore = -1;
-			for (size_t i = 0; i < nitems(static_shebang_langs_); i++) {
-				const char *lang = static_shebang_langs_[i];
+			for (size_t i = 0; i < static_shebang_langs_len; i++) {
+				const char *lang = static_shebang_langs[i];
 				if (strcmp(alang, lang) == 0) {
 					ascore = i;
 				}

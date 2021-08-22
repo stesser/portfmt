@@ -54,6 +54,7 @@
 #include <libias/str.h>
 
 #include "conditional.h"
+#include "constants.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "regexp.h"
@@ -118,8 +119,6 @@ static void parser_tokenize(struct Parser *, const char *, enum TokenType, size_
 static void print_newline_array(struct Parser *, struct Array *);
 static void print_token_array(struct Parser *, struct Array *);
 static char *range_tostring(struct Mempool *, struct Range *);
-
-#include "parser/constants.h"
 
 size_t
 consume_comment(const char *buf)
@@ -2022,8 +2021,8 @@ parser_metadata_port_options(struct Parser *parser)
 	parser->metadata_valid[PARSER_METADATA_OPTIONS] = 1;
 
 #define FOR_EACH_ARCH(f, var) \
-	for (size_t i = 0; i < nitems(known_architectures_); i++) { \
-		char *buf = str_printf(pool, "%s_%s", var, known_architectures_[i]); \
+	for (size_t i = 0; i < known_architectures_len; i++) { \
+		char *buf = str_printf(pool, "%s_%s", var, known_architectures[i]); \
 		f(parser, buf); \
 	}
 
@@ -2120,10 +2119,10 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 			parser_meta_values(parser, "FLAVORS", parser->metadata[PARSER_METADATA_FLAVORS]);
 			struct Set *uses = parser_metadata(parser, PARSER_METADATA_USES);
 			// XXX: Does not take into account USE_PYTHON=noflavors etc.
-			for (size_t i = 0; i < nitems(static_flavors_); i++) {
-				if (set_contains(uses, (void*)static_flavors_[i].uses) &&
-				    !set_contains(parser->metadata[PARSER_METADATA_FLAVORS], (void*)static_flavors_[i].flavor)) {
-					set_add(parser->metadata[PARSER_METADATA_FLAVORS], str_dup(NULL, static_flavors_[i].flavor));
+			for (size_t i = 0; i < static_flavors_len; i++) {
+				if (set_contains(uses, (void*)static_flavors[i].uses) &&
+				    !set_contains(parser->metadata[PARSER_METADATA_FLAVORS], (void*)static_flavors[i].flavor)) {
+					set_add(parser->metadata[PARSER_METADATA_FLAVORS], str_dup(NULL, static_flavors[i].flavor));
 				}
 			}
 			break;
