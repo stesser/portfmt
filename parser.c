@@ -1535,7 +1535,7 @@ parser_read_line(struct Parser *parser, char *line)
 		 */
 		for (;isblank(*line); line++);
 		if (strlen(line) < 1) {
-			if (fputc(' ', parser->inbuf.stream) < 0) {
+			if (fputc(' ', parser->inbuf.stream) != ' ') {
 				parser_set_error(parser, PARSER_ERROR_IO,
 					 str_printf(pool, "fputc: %s", strerror(errno)));
 				return;
@@ -1543,7 +1543,8 @@ parser_read_line(struct Parser *parser, char *line)
 		}
 	}
 
-	if (fwrite(line, 1, strlen(line), parser->inbuf.stream) < 0) {
+	fwrite(line, 1, strlen(line), parser->inbuf.stream);
+	if (ferror(parser->inbuf.stream)) {
 		parser_set_error(parser, PARSER_ERROR_IO,
 				 str_printf(pool, "fwrite: %s", strerror(errno)));
 		return;
