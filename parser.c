@@ -114,7 +114,7 @@ static void parser_output_reformatted(struct Parser *);
 static void parser_output_diff(struct Parser *);
 static void parser_propagate_goalcol(struct Parser *, size_t, size_t, int);
 static void parser_read_internal(struct Parser *);
-static void parser_read_line(struct Parser *, char *);
+static void parser_read_line(struct Parser *, char *, size_t);
 static void parser_tokenize(struct Parser *, const char *, enum TokenType, size_t);
 static void print_newline_array(struct Parser *, struct Array *);
 static void print_token_array(struct Parser *, struct Array *);
@@ -1501,7 +1501,7 @@ parser_output_dump_tokens(struct Parser *parser)
 }
 
 void
-parser_read_line(struct Parser *parser, char *line)
+parser_read_line(struct Parser *parser, char *line, size_t linelen)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -1509,9 +1509,7 @@ parser_read_line(struct Parser *parser, char *line)
 		return;
 	}
 
-	size_t linelen = strlen(line);
-
-	array_append(parser->rawlines, str_dup(NULL, line));
+	array_append(parser->rawlines, str_ndup(NULL, line, linelen));
 
 	parser->lines.end++;
 
@@ -1573,7 +1571,7 @@ parser_read_from_file(struct Parser *parser, FILE *fp)
 	}
 
 	LINE_FOREACH(fp, line) {
-		parser_read_line(parser, line);
+		parser_read_line(parser, line, line_len);
 		if (parser->error != PARSER_ERROR_OK) {
 			return parser->error;
 		}
@@ -1822,7 +1820,7 @@ parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 	char *buf, *bufp, *line;
 	buf = bufp = str_ndup(NULL, input, len);
 	while ((line = strsep(&bufp, "\n")) != NULL) {
-		parser_read_line(parser, line);
+		parser_read_line(parser, line, strlen(line));
 		if (parser->error != PARSER_ERROR_OK) {
 			break;
 		}
