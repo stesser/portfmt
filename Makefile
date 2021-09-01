@@ -160,40 +160,42 @@ test: all ${TESTS}
 	@${SH} libias/tests/run.sh ${TESTS}
 
 tag:
-	@date=$$(git log -1 --pretty=format:%cd --date=format:%Y-%m-%d $${tag}); \
-	tag=g$$(git log -1 --pretty=format:%cd --date=format:%Y%m%d); \
-	title="## [$${tag}] - $${date}"; \
+	@[ -z "${V}" ] && echo "must set V" && exit 1; \
+	date=$$(git log -1 --pretty=format:%cd --date=format:%Y-%m-%d HEAD); \
+	title="## [${V}] - $${date}"; \
 	if ! grep -Fq "$${title}" CHANGELOG.md; then \
-		echo "# portfmt $${tag}"; \
+		echo "# portfmt ${V}"; \
 		awk '/^## Unreleased$$/{x=1;next}x{if($$1=="##"){exit}else if($$1=="###"){$$1="##"};print}' \
 			CHANGELOG.md >RELNOTES.md.new; \
 		awk "/^## Unreleased$$/{print;printf\"\n$${title}\n\";next}{print}" \
 			CHANGELOG.md >CHANGELOG.md.new; \
 		mv CHANGELOG.md.new CHANGELOG.md; \
-		echo "portfmt $${tag}" >RELNOTES.md; \
+		echo "portfmt ${V}" >RELNOTES.md; \
 		cat RELNOTES.md.new >>RELNOTES.md; \
 		rm -f RELNOTES.md.new; \
 	fi; \
-	git commit -m "Release $${tag}" CHANGELOG.md; \
-	git tag $${tag}
+	git commit -m "Release ${V}" CHANGELOG.md; \
+	git tag v${V}
 
 release:
 	@tag=$$(git tag --points-at HEAD); \
 	if [ -z "$$tag" ]; then echo "create a tag first"; exit 1; fi; \
+	V=$$(echo $${tag} | sed 's,^v,,'); \
 	git ls-files --recurse-submodules . ':!:libias/tests' | \
-		bsdtar --files-from=- -s ",^,portfmt-$${tag}/," --options lzip:compression-level=9 \
-			--uid 0 --gid 0 -caf portfmt-$${tag}.tar.lz; \
-	sha256 portfmt-$${tag}.tar.lz >portfmt-$${tag}.tar.lz.SHA256 || \
-	sha256sum --tag portfmt-$${tag}.tar.lz >portfmt-$${tag}.tar.lz.SHA256; \
-	printf "SIZE (%s) = %s\n" portfmt-$${tag}.tar.lz $$(wc -c <portfmt-$${tag}.tar.lz) \
-		>>portfmt-$${tag}.tar.lz.SHA256
+		bsdtar --files-from=- -s ",^,portfmt-$${V}/," --options lzip:compression-level=9 \
+			--uid 0 --gid 0 -caf portfmt-$${V}.tar.lz; \
+	sha256 portfmt-$${V}.tar.lz >portfmt-$${V}.tar.lz.SHA256 || \
+	sha256sum --tag portfmt-$${V}.tar.lz >portfmt-$${V}.tar.lz.SHA256; \
+	printf "SIZE (%s) = %s\n" portfmt-$${V}.tar.lz $$(wc -c <portfmt-$${V}.tar.lz) \
+		>>portfmt-$${V}.tar.lz.SHA256
 
 publish:
 	@tag=$$(git tag --points-at HEAD); \
 	if [ -z "$$tag" ]; then echo "create a tag first"; exit 1; fi; \
+	V=$$(echo $${tag} | sed 's,^v,,'); \
 	git push --follow-tags origin; \
 	hub release create -F RELNOTES.md $${tag} \
-		-a portfmt-$${tag}.tar.lz \
-		-a portfmt-$${tag}.tar.lz.SHA256
+		-a portfmt-$${V}.tar.lz \
+		-a portfmt-$${V}.tar.lz.SHA256
 
 .PHONY: all clean debug deps install install-symlinks lint publish release regen-rules tag test
