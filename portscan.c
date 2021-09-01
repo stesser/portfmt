@@ -53,6 +53,7 @@
 #include <libias/diff.h>
 #include <libias/flow.h>
 #include <libias/io.h>
+#include <libias/io/dir.h>
 #include <libias/map.h>
 #include <libias/mem.h>
 #include <libias/mempool.h>
