@@ -322,16 +322,14 @@ check_variable_order(struct Parser *parser, struct Array *tokens, int no_color)
 		row(pool, target, "", NULL);
 		row(pool, target, str_printf(pool, "# %s", blocktype_tostring(BLOCK_UNKNOWN)), NULL);
 		row(pool, target, "# WARNING:", NULL);
-		row(pool, target, "# Portclippy did not recognize the following variables.", NULL);
-		row(pool, target, "# They could be local variables only, misspellings of", NULL);
-		row(pool, target, "# framework variables, or Portclippy needs to be made aware", NULL);
-		row(pool, target, "# of them.  Please double check them.", NULL);
+		row(pool, target, "# The following variables were not recognized.", NULL);
+		row(pool, target, "# They could just be typos or Portclippy needs to be made aware of them.", NULL);
+		row(pool, target, "# Please double check them.", NULL);
 		row(pool, target, "#", NULL);
 		row(pool, target, "# Prefix them with an _ to tell Portclippy to ignore them.", NULL);
-		row(pool, target, "# This is also an important signal for other contributors", NULL);
-		row(pool, target, "# who are working on your port.  It removes any doubt of", NULL);
-		row(pool, target, "# whether they are framework variables or not and whether", NULL);
-		row(pool, target, "# they are safe to remove/rename or not.", NULL);
+		row(pool, target, "#", NULL);
+		row(pool, target, "# If in doubt please report this on portfmt's bug tracker:", NULL);
+		row(pool, target, "# https://github.com/t6/portfmt/issues", NULL);
 	}
 	ARRAY_FOREACH(unknowns, char *, var) {
 		struct Set *uses_candidates = NULL;
