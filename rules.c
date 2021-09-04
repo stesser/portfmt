@@ -1317,18 +1317,6 @@ extract_arch_prefix(struct Mempool *pool, const char *var, char **prefix_without
 	return 0;
 }
 
-static int
-is_referenced_var_lookup(struct Mempool *pool, struct Parser *parser, const char *var, struct Array **tokens)
-{
-	*tokens = NULL;
-	if (parser_lookup_variable(parser, var, PARSER_LOOKUP_FIRST, pool, tokens, NULL) ||
-	    (*var == '_' && parser_lookup_variable(parser, var + 1, PARSER_LOOKUP_FIRST, pool, tokens, NULL))) {
-		return 1;
-	} else {
-		return 0;
-	}
-}
-
 static void
 is_referenced_var_cb(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
@@ -1345,27 +1333,34 @@ is_referenced_var(struct Parser *parser, const char *var)
 
 	SCOPE_MEMPOOL(pool);
 
-	char *prefix = NULL;
-	char *prefix_without_osrel = NULL;
-	if (extract_arch_prefix(pool, var, &prefix, &prefix_without_osrel)) {
-		struct Array *tokens = NULL;
-		if (is_referenced_var_lookup(pool, parser, prefix, &tokens)) {
-			if (array_find(tokens, str_printf(pool, "${%s_${ARCH}}", prefix), str_compare, NULL) != -1) {
-				return 1;
-			}
-		}
-		if (prefix_without_osrel && is_referenced_var_lookup(pool, parser, prefix_without_osrel, &tokens)) {
-			if (array_find(tokens, str_printf(pool, "${%s_${ARCH}_${OSREL:R}}", prefix), str_compare, NULL) != -1) {
-				return 1;
-			}
-		}
-	} else {
+	{
 		// TODO: This is broken in many ways but will reduce
 		// the number of false positives from portclippy/portscan
 
 		struct Array *candidates = mempool_array(pool);
 		struct Array *cond_candidates = mempool_array(pool);
 		size_t varlen = strlen(var);
+
+		{
+			char *var_without_arch = NULL;
+			char *var_without_arch_osrel = NULL;
+			if (extract_arch_prefix(pool, var, &var_without_arch, &var_without_arch_osrel)) {
+				array_append(candidates, str_printf(pool, "${%s_${ARCH}}", var_without_arch));
+				array_append(candidates, str_printf(pool, "${%s_${ARCH}:", var_without_arch));
+				array_append(cond_candidates, str_printf(pool, "defined(%s_${ARCH})", var_without_arch));
+				array_append(cond_candidates, str_printf(pool, "!defined(%s_${ARCH})", var_without_arch));
+				array_append(cond_candidates, str_printf(pool, "empty(%s_${ARCH})", var_without_arch));
+				array_append(cond_candidates, str_printf(pool, "!empty(%s_${ARCH})", var_without_arch));
+				if (var_without_arch_osrel) {
+					array_append(candidates, str_printf(pool, "${%s_${ARCH}_${OSREL:R}}", var_without_arch_osrel));
+					array_append(candidates, str_printf(pool, "${%s_${ARCH}_${OSREL:R}}:", var_without_arch_osrel));
+					array_append(cond_candidates, str_printf(pool, "defined(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
+					array_append(cond_candidates, str_printf(pool, "!defined(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
+					array_append(cond_candidates, str_printf(pool, "empty(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
+					array_append(cond_candidates, str_printf(pool, "!empty(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
+				}
+			}
+		}
 
 		struct Set *flavors = parser_metadata(parser, PARSER_METADATA_FLAVORS);
 		SET_FOREACH(flavors, const char *, flavor) {
