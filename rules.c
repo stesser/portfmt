@@ -1364,6 +1364,7 @@ is_referenced_var(struct Parser *parser, const char *var)
 		// the number of false positives from portclippy/portscan
 
 		struct Array *candidates = mempool_array(pool);
+		struct Array *cond_candidates = mempool_array(pool);
 		size_t varlen = strlen(var);
 
 		struct Set *flavors = parser_metadata(parser, PARSER_METADATA_FLAVORS);
@@ -1373,20 +1374,20 @@ is_referenced_var(struct Parser *parser, const char *var)
 				char *var_without_flavor = str_slice(pool, var, 0, varlen - flavorlen - 1);
 				array_append(candidates, str_printf(pool, "${%s_${FLAVOR}}", var_without_flavor));
 				array_append(candidates, str_printf(pool, "${%s_${FLAVOR}:", var_without_flavor));
-				array_append(candidates, str_printf(pool, "defined(%s_${FLAVOR})", var_without_flavor));
-				array_append(candidates, str_printf(pool, "!defined(%s_${FLAVOR})", var_without_flavor));
-				array_append(candidates, str_printf(pool, "empty(%s_${FLAVOR})", var_without_flavor));
-				array_append(candidates, str_printf(pool, "!empty(%s_${FLAVOR})", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "defined(%s_${FLAVOR})", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "!defined(%s_${FLAVOR})", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "empty(%s_${FLAVOR})", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "!empty(%s_${FLAVOR})", var_without_flavor));
 			}
 
 			if (str_startswith(var, flavor) && *(var + flavorlen) == '_') {
 				char *var_without_flavor = str_slice(pool, var, flavorlen + 1, varlen);
 				array_append(candidates, str_printf(pool, "${${FLAVOR}_%s}", var_without_flavor));
 				array_append(candidates, str_printf(pool, "${${FLAVOR}_%s:", var_without_flavor));
-				array_append(candidates, str_printf(pool, "defined(${FLAVOR}_%s)", var_without_flavor));
-				array_append(candidates, str_printf(pool, "!defined(${FLAVOR}_%s)", var_without_flavor));
-				array_append(candidates, str_printf(pool, "empty(${FLAVOR}_%s)", var_without_flavor));
-				array_append(candidates, str_printf(pool, "!empty(${FLAVOR}_%s)", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "defined(${FLAVOR}_%s)", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "!defined(${FLAVOR}_%s)", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "empty(${FLAVOR}_%s)", var_without_flavor));
+				array_append(cond_candidates, str_printf(pool, "!empty(${FLAVOR}_%s)", var_without_flavor));
 			}
 		}
 
@@ -1400,10 +1401,10 @@ is_referenced_var(struct Parser *parser, const char *var)
 			}
 			array_append(candidates, str_printf(pool, "${%s_${CHOSEN_COMPILER_TYPE}}", var_without_compiler_type));
 			array_append(candidates, str_printf(pool, "${%s_${CHOSEN_COMPILER_TYPE}:", var_without_compiler_type));
-			array_append(candidates, str_printf(pool, "defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-			array_append(candidates, str_printf(pool, "!defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-			array_append(candidates, str_printf(pool, "empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-			array_append(candidates, str_printf(pool, "!empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(cond_candidates, str_printf(pool, "defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(cond_candidates, str_printf(pool, "!defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(cond_candidates, str_printf(pool, "empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(cond_candidates, str_printf(pool, "!empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
 		}
 
 		struct Array *tokens = mempool_array(pool);
@@ -1423,12 +1424,17 @@ is_referenced_var(struct Parser *parser, const char *var)
 
 		array_truncate(tokens);
 		parser_edit(parser, pool, output_conditional_token, &param);
-		array_append(candidates, str_printf(pool, "defined(%s)", var));
-		array_append(candidates, str_printf(pool, "!defined(%s)", var));
-		array_append(candidates, str_printf(pool, "empty(%s)", var));
-		array_append(candidates, str_printf(pool, "!empty(%s)", var));
+		array_append(cond_candidates, str_printf(pool, "defined(%s)", var));
+		array_append(cond_candidates, str_printf(pool, "!defined(%s)", var));
+		array_append(cond_candidates, str_printf(pool, "empty(%s)", var));
+		array_append(cond_candidates, str_printf(pool, "!empty(%s)", var));
 		ARRAY_FOREACH(tokens, const char *, token) {
 			ARRAY_FOREACH(candidates, const char *, candidate) {
+				if (strstr(token, candidate)) {
+					return 1;
+				}
+			}
+			ARRAY_FOREACH(cond_candidates, const char *, candidate) {
 				if (strstr(token, candidate)) {
 					return 1;
 				}
