@@ -833,15 +833,7 @@ static struct VariableOrderEntry variable_order_[] = {
 	{ BLOCK_MAKE, "MAKEFILE", VAR_DEFAULT, {} },
 	{ BLOCK_MAKE, "MAKE_CMD", VAR_DEFAULT, {} },
 	{ BLOCK_MAKE, "MAKE_ARGS", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
-	// MAKE_ARGS_arch/gcc/clang is not a framework
-	// but is in common use so list it here too.
-	{ BLOCK_MAKE, "MAKE_ARGS_clang", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
-	{ BLOCK_MAKE, "MAKE_ARGS_gcc", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
-	VAR_FOR_EACH_ARCH(BLOCK_MAKE, "MAKE_ARGS_", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {}),
 	{ BLOCK_MAKE, "MAKE_ENV", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
-	{ BLOCK_MAKE, "MAKE_ENV_clang", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
-	{ BLOCK_MAKE, "MAKE_ENV_gcc", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
-	VAR_FOR_EACH_ARCH(BLOCK_MAKE, "MAKE_ENV_", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {}),
 	{ BLOCK_MAKE, "SCRIPTS_ENV", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
 	{ BLOCK_MAKE, "DESTDIRNAME", VAR_DEFAULT, {} },
 	{ BLOCK_MAKE, "MAKE_FLAGS", VAR_DEFAULT, {} },
@@ -856,16 +848,9 @@ static struct VariableOrderEntry variable_order_[] = {
 	{ BLOCK_MAKE, "DO_MAKE_TEST", VAR_IGNORE_WRAPCOL, {} },
 
 	{ BLOCK_CFLAGS, "CFLAGS", VAR_DEFAULT, {} },
-	{ BLOCK_CFLAGS, "CFLAGS_clang", VAR_DEFAULT, {} },
-	{ BLOCK_CFLAGS, "CFLAGS_gcc", VAR_DEFAULT, {} },
 	VAR_FOR_EACH_ARCH(BLOCK_CFLAGS, "CFLAGS_", VAR_DEFAULT, {}),
 	{ BLOCK_CFLAGS, "CPPFLAGS", VAR_DEFAULT, {} },
-	{ BLOCK_CFLAGS, "CPPFLAGS_clang", VAR_DEFAULT, {} },
-	{ BLOCK_CFLAGS, "CPPFLAGS_gcc", VAR_DEFAULT, {} },
-	VAR_FOR_EACH_ARCH(BLOCK_CFLAGS, "CPPFLAGS_", VAR_DEFAULT, {}),
 	{ BLOCK_CFLAGS, "CXXFLAGS", VAR_DEFAULT, {} },
-	{ BLOCK_CFLAGS, "CXXFLAGS_clang", VAR_DEFAULT, {} },
-	{ BLOCK_CFLAGS, "CXXFLAGS_gcc", VAR_DEFAULT, {} },
 	VAR_FOR_EACH_ARCH(BLOCK_CFLAGS, "CXXFLAGS_", VAR_DEFAULT, {}),
 	{ BLOCK_CFLAGS, "DEBUG_FLAGS", VAR_DEFAULT, {} },
 	{ BLOCK_CFLAGS, "DPADD", VAR_DEFAULT, {} },
@@ -942,7 +927,6 @@ static struct VariableOrderEntry variable_order_[] = {
 	{ BLOCK_STANDARD, "DESKTOP_ENTRIES", VAR_PRINT_AS_NEWLINES | VAR_SKIP_GOALCOL, {} },
 	{ BLOCK_STANDARD, "DESKTOPDIR", VAR_DEFAULT, {} },
 	{ BLOCK_STANDARD, "EXTRA_PATCHES", VAR_DEFAULT, {} },
-	VAR_FOR_EACH_ARCH(BLOCK_STANDARD, "EXTRA_PATCHES_", VAR_DEFAULT, {}),
 	{ BLOCK_STANDARD, "EXTRACT_CMD", VAR_DEFAULT, {} },
 	{ BLOCK_STANDARD, "EXTRACT_BEFORE_ARGS", VAR_SKIP_GOALCOL, {} },
 	{ BLOCK_STANDARD, "EXTRACT_AFTER_ARGS", VAR_SKIP_GOALCOL, {} },
@@ -1195,15 +1179,28 @@ static struct VariableOrderEntry special_variables_[] = {
 	{ BLOCK_UNKNOWN, "_IPXE_BUILDCFG", VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "_SRHT_TUPLE", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
 	{ BLOCK_UNKNOWN, "CARGO_CARGO_RUN", VAR_IGNORE_WRAPCOL, { "cargo" } },
+	{ BLOCK_UNKNOWN, "CFLAGS_clang", VAR_DEFAULT, {} },
+	{ BLOCK_UNKNOWN, "CFLAGS_gcc", VAR_DEFAULT, {} },
+	{ BLOCK_UNKNOWN, "CPPFLAGS_clang", VAR_DEFAULT, {} },
+	{ BLOCK_UNKNOWN, "CPPFLAGS_gcc", VAR_DEFAULT, {} },
 	VAR_FOR_EACH_ARCH(BLOCK_UNKNOWN, "CONFIGURE_ARGS_", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {}),
 	VAR_FOR_EACH_ARCH(BLOCK_UNKNOWN, "CONFIGURE_ENV_", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {}),
+	{ BLOCK_UNKNOWN, "CXXFLAGS_clang", VAR_DEFAULT, {} },
+	{ BLOCK_UNKNOWN, "CXXFLAGS_gcc", VAR_DEFAULT, {} },
 	{ BLOCK_UNKNOWN, "CO_ENV", VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "D4P_ENV", VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "DEV_ERROR", VAR_IGNORE_WRAPCOL | VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "DEV_WARNING", VAR_IGNORE_WRAPCOL | VAR_PRINT_AS_NEWLINES, {} },
+	VAR_FOR_EACH_ARCH(BLOCK_UNKNOWN, "EXTRA_PATCHES_", VAR_DEFAULT, {}),
 	{ BLOCK_UNKNOWN, "GN_ARGS", VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "GO_ENV", VAR_PRINT_AS_NEWLINES, { "go" } },
 	{ BLOCK_UNKNOWN, "IPXE_BUILDCFG", VAR_PRINT_AS_NEWLINES, {} },
+	VAR_FOR_EACH_ARCH(BLOCK_UNKNOWN, "MAKE_ARGS_", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {}),
+	{ BLOCK_UNKNOWN, "MAKE_ARGS_clang", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
+	{ BLOCK_UNKNOWN, "MAKE_ARGS_gcc", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
+	VAR_FOR_EACH_ARCH(BLOCK_UNKNOWN, "MAKE_ENV_", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {}),
+	{ BLOCK_UNKNOWN, "MAKE_ENV_clang", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
+	{ BLOCK_UNKNOWN, "MAKE_ENV_gcc", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
 	{ BLOCK_UNKNOWN, "MASTER_SITES_ABBREVS", VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "MOZ_OPTIONS", VAR_PRINT_AS_NEWLINES, {} },
 	{ BLOCK_UNKNOWN, "QA_ENV", VAR_PRINT_AS_NEWLINES, {} },
@@ -1362,32 +1359,57 @@ is_referenced_var(struct Parser *parser, const char *var)
 				return 1;
 			}
 		}
-	} else if (str_startswith(var, "COMMENT_")) {
-		const char *flavor = var + strlen("COMMENT_");
-		struct Array *tokens = NULL;
-		struct Set *flavors = parser_metadata(parser, PARSER_METADATA_FLAVORS);
-		if (set_contains(flavors, flavor) &&
-		    parser_lookup_variable(parser, "COMMENT", PARSER_LOOKUP_DEFAULT, pool, &tokens, NULL) &&
-		    array_find(tokens, "${COMMENT_${FLAVOR}}", str_compare, NULL) != -1) {
-			return 1;
-		}
-	} else if (str_endswith(var, "_COMMENT")) {
-		const char *flavor = str_slice(pool, var, 0, strlen(var) - strlen("_COMMENT"));
-		struct Array *tokens = NULL;
-		struct Set *flavors = parser_metadata(parser, PARSER_METADATA_FLAVORS);
-		if (set_contains(flavors, flavor) &&
-		    parser_lookup_variable(parser, "COMMENT", PARSER_LOOKUP_DEFAULT, pool, &tokens, NULL) &&
-		    array_find(tokens, "${${FLAVOR}_COMMENT}", str_compare, NULL) != -1) {
-			return 1;
-		}
 	} else {
+		// TODO: This is broken in many ways but will reduce
+		// the number of false positives from portclippy/portscan
+
+		struct Array *candidates = mempool_array(pool);
+		size_t varlen = strlen(var);
+
+		struct Set *flavors = parser_metadata(parser, PARSER_METADATA_FLAVORS);
+		SET_FOREACH(flavors, const char *, flavor) {
+			size_t flavorlen = strlen(flavor);
+			if (varlen > flavorlen && str_endswith(var, flavor) && *(var + varlen - flavorlen - 1) == '_') {
+				char *var_without_flavor = str_slice(pool, var, 0, varlen - flavorlen - 1);
+				array_append(candidates, str_printf(pool, "${%s_${FLAVOR}}", var_without_flavor));
+				array_append(candidates, str_printf(pool, "${%s_${FLAVOR}:", var_without_flavor));
+				array_append(candidates, str_printf(pool, "defined(%s_${FLAVOR})", var_without_flavor));
+				array_append(candidates, str_printf(pool, "!defined(%s_${FLAVOR})", var_without_flavor));
+				array_append(candidates, str_printf(pool, "empty(%s_${FLAVOR})", var_without_flavor));
+				array_append(candidates, str_printf(pool, "!empty(%s_${FLAVOR})", var_without_flavor));
+			}
+
+			if (str_startswith(var, flavor) && *(var + flavorlen) == '_') {
+				char *var_without_flavor = str_slice(pool, var, flavorlen + 1, varlen);
+				array_append(candidates, str_printf(pool, "${${FLAVOR}_%s}", var_without_flavor));
+				array_append(candidates, str_printf(pool, "${${FLAVOR}_%s:", var_without_flavor));
+				array_append(candidates, str_printf(pool, "defined(${FLAVOR}_%s)", var_without_flavor));
+				array_append(candidates, str_printf(pool, "!defined(${FLAVOR}_%s)", var_without_flavor));
+				array_append(candidates, str_printf(pool, "empty(${FLAVOR}_%s)", var_without_flavor));
+				array_append(candidates, str_printf(pool, "!empty(${FLAVOR}_%s)", var_without_flavor));
+			}
+		}
+
+		if ((str_endswith(var, "_clang") || str_endswith(var, "_gcc")) &&
+		    set_contains(parser_metadata(parser, PARSER_METADATA_USES), "compiler")) {
+			char *var_without_compiler_type;
+			if (str_endswith(var, "_clang")) {
+				var_without_compiler_type = str_slice(pool, var, 0, varlen - strlen("_clang"));
+			} else {
+				var_without_compiler_type = str_slice(pool, var, 0, varlen - strlen("_gcc"));
+			}
+			array_append(candidates, str_printf(pool, "${%s_${CHOSEN_COMPILER_TYPE}}", var_without_compiler_type));
+			array_append(candidates, str_printf(pool, "${%s_${CHOSEN_COMPILER_TYPE}:", var_without_compiler_type));
+			array_append(candidates, str_printf(pool, "defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(candidates, str_printf(pool, "!defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(candidates, str_printf(pool, "empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+			array_append(candidates, str_printf(pool, "!empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
+		}
+
 		struct Array *tokens = mempool_array(pool);
 		struct ParserEditOutput param = { NULL, NULL, NULL, NULL, is_referenced_var_cb, tokens, 0 };
 		parser_edit(parser, pool, output_target_command_token, &param);
 		parser_edit(parser, pool, output_variable_value, &param);
-		// TODO: This is broken in many ways but will reduce
-		// the number of false positives from portclippy/portscan
-		struct Array *candidates = mempool_array(pool);
 		array_append(candidates, str_printf(pool, "${%s}", var));
 		array_append(candidates, str_printf(pool, "$(%s)", var));
 		array_append(candidates, str_printf(pool, "${%s:", var));
