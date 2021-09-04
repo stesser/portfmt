@@ -1836,10 +1836,11 @@ parser_mark_for_gc(struct Parser *parser, struct Token *t)
 	mempool_add(parser->tokengc, t, token_free);
 }
 
-void
+struct Token *
 parser_mark_edited(struct Parser *parser, struct Token *t)
 {
 	set_add(parser->edited, t);
+	return t;
 }
 
 enum ParserError

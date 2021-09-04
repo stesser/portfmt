@@ -128,7 +128,7 @@ struct Target *parser_lookup_target(struct Parser *, const char *, struct Mempoo
 struct Variable *parser_lookup_variable(struct Parser *, const char *, enum ParserLookupVariableBehavior, struct Mempool *, struct Array **, struct Array **);
 struct Variable *parser_lookup_variable_str(struct Parser *, const char *, enum ParserLookupVariableBehavior, struct Mempool *, char **, char **);
 void parser_mark_for_gc(struct Parser *, struct Token *);
-void parser_mark_edited(struct Parser *, struct Token *);
+struct Token *parser_mark_edited(struct Parser *, struct Token *);
 void *parser_metadata(struct Parser *, enum ParserMetadata);
 enum ParserError parser_merge(struct Parser *, struct Parser *, enum ParserMergeBehavior);
 struct ParserSettings parser_settings(struct Parser *);
