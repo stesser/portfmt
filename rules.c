@@ -1324,6 +1324,26 @@ is_referenced_var_cb(struct Mempool *extpool, const char *key, const char *value
 	array_append(tokens, value);
 }
 
+static void
+add_referenced_var_candidates(struct Mempool *pool, struct Array *candidates, struct Array *cond_candidates, const char *stem, const char *ref)
+{
+	array_append(candidates, str_printf(pool, "${%s_${%s}}", stem, ref));
+	array_append(candidates, str_printf(pool, "$(%s_${%s})", stem, ref));
+	array_append(candidates, str_printf(pool, "${%s_${%s}:", stem, ref));
+	array_append(cond_candidates, str_printf(pool, "defined(%s_${%s})", stem, ref));
+	array_append(cond_candidates, str_printf(pool, "!defined(%s_${%s})", stem, ref));
+	array_append(cond_candidates, str_printf(pool, "empty(%s_${%s})", stem, ref));
+	array_append(cond_candidates, str_printf(pool, "!empty(%s_${%s})", stem, ref));
+
+	array_append(candidates, str_printf(pool, "${${%s}_%s}", ref, stem));
+	array_append(candidates, str_printf(pool, "$(${%s}_%s)", ref, stem));
+	array_append(candidates, str_printf(pool, "${${%s}_%s:", ref, stem));
+	array_append(cond_candidates, str_printf(pool, "defined(${%s}_%s)", ref, stem));
+	array_append(cond_candidates, str_printf(pool, "!defined(${%s}_%s)", ref, stem));
+	array_append(cond_candidates, str_printf(pool, "empty(${%s}_%s)", ref, stem));
+	array_append(cond_candidates, str_printf(pool, "!empty(${%s}_%s)", ref, stem));
+}
+
 int
 is_referenced_var(struct Parser *parser, const char *var)
 {
@@ -1333,106 +1353,80 @@ is_referenced_var(struct Parser *parser, const char *var)
 
 	SCOPE_MEMPOOL(pool);
 
+	// TODO: This is broken in many ways but will reduce
+	// the number of false positives from portclippy/portscan
+
+	struct Array *candidates = mempool_array(pool);
+	struct Array *cond_candidates = mempool_array(pool);
+	size_t varlen = strlen(var);
+
+	array_append(candidates, str_printf(pool, "${%s}", var));
+	array_append(candidates, str_printf(pool, "$(%s)", var));
+	array_append(candidates, str_printf(pool, "${%s:", var));
+	array_append(cond_candidates, str_printf(pool, "defined(%s)", var));
+	array_append(cond_candidates, str_printf(pool, "!defined(%s)", var));
+	array_append(cond_candidates, str_printf(pool, "empty(%s)", var));
+	array_append(cond_candidates, str_printf(pool, "!empty(%s)", var));
+
 	{
-		// TODO: This is broken in many ways but will reduce
-		// the number of false positives from portclippy/portscan
-
-		struct Array *candidates = mempool_array(pool);
-		struct Array *cond_candidates = mempool_array(pool);
-		size_t varlen = strlen(var);
-
-		{
-			char *var_without_arch = NULL;
-			char *var_without_arch_osrel = NULL;
-			if (extract_arch_prefix(pool, var, &var_without_arch, &var_without_arch_osrel)) {
-				array_append(candidates, str_printf(pool, "${%s_${ARCH}}", var_without_arch));
-				array_append(candidates, str_printf(pool, "${%s_${ARCH}:", var_without_arch));
-				array_append(cond_candidates, str_printf(pool, "defined(%s_${ARCH})", var_without_arch));
-				array_append(cond_candidates, str_printf(pool, "!defined(%s_${ARCH})", var_without_arch));
-				array_append(cond_candidates, str_printf(pool, "empty(%s_${ARCH})", var_without_arch));
-				array_append(cond_candidates, str_printf(pool, "!empty(%s_${ARCH})", var_without_arch));
-				if (var_without_arch_osrel) {
-					array_append(candidates, str_printf(pool, "${%s_${ARCH}_${OSREL:R}}", var_without_arch_osrel));
-					array_append(candidates, str_printf(pool, "${%s_${ARCH}_${OSREL:R}}:", var_without_arch_osrel));
-					array_append(cond_candidates, str_printf(pool, "defined(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
-					array_append(cond_candidates, str_printf(pool, "!defined(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
-					array_append(cond_candidates, str_printf(pool, "empty(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
-					array_append(cond_candidates, str_printf(pool, "!empty(%s_${ARCH}_${OSREL:R})", var_without_arch_osrel));
-				}
+		char *var_without_arch = NULL;
+		char *var_without_arch_osrel = NULL;
+		if (extract_arch_prefix(pool, var, &var_without_arch, &var_without_arch_osrel)) {
+			add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_arch, "ARCH");
+			if (var_without_arch_osrel) {
+				add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_arch, "ARCH}_${OSREL:R");
 			}
 		}
+	}
 
-		struct Set *flavors = parser_metadata(parser, PARSER_METADATA_FLAVORS);
-		SET_FOREACH(flavors, const char *, flavor) {
-			size_t flavorlen = strlen(flavor);
-			if (varlen > flavorlen && str_endswith(var, flavor) && *(var + varlen - flavorlen - 1) == '_') {
-				char *var_without_flavor = str_slice(pool, var, 0, varlen - flavorlen - 1);
-				array_append(candidates, str_printf(pool, "${%s_${FLAVOR}}", var_without_flavor));
-				array_append(candidates, str_printf(pool, "${%s_${FLAVOR}:", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "defined(%s_${FLAVOR})", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "!defined(%s_${FLAVOR})", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "empty(%s_${FLAVOR})", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "!empty(%s_${FLAVOR})", var_without_flavor));
-			}
-
-			if (str_startswith(var, flavor) && *(var + flavorlen) == '_') {
-				char *var_without_flavor = str_slice(pool, var, flavorlen + 1, varlen);
-				array_append(candidates, str_printf(pool, "${${FLAVOR}_%s}", var_without_flavor));
-				array_append(candidates, str_printf(pool, "${${FLAVOR}_%s:", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "defined(${FLAVOR}_%s)", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "!defined(${FLAVOR}_%s)", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "empty(${FLAVOR}_%s)", var_without_flavor));
-				array_append(cond_candidates, str_printf(pool, "!empty(${FLAVOR}_%s)", var_without_flavor));
-			}
+	SET_FOREACH(parser_metadata(parser, PARSER_METADATA_FLAVORS), const char *, flavor) {
+		size_t flavorlen = strlen(flavor);
+		char *var_without_flavor;
+		if (varlen > flavorlen && str_endswith(var, flavor) && *(var + varlen - flavorlen - 1) == '_') {
+			var_without_flavor = str_slice(pool, var, 0, varlen - flavorlen - 1);
+		} else if (str_startswith(var, flavor) && *(var + flavorlen) == '_') {
+			var_without_flavor = str_slice(pool, var, flavorlen + 1, varlen);
+		} else {
+			continue;
 		}
 
-		if ((str_endswith(var, "_clang") || str_endswith(var, "_gcc")) &&
-		    set_contains(parser_metadata(parser, PARSER_METADATA_USES), "compiler")) {
-			char *var_without_compiler_type;
-			if (str_endswith(var, "_clang")) {
-				var_without_compiler_type = str_slice(pool, var, 0, varlen - strlen("_clang"));
-			} else {
-				var_without_compiler_type = str_slice(pool, var, 0, varlen - strlen("_gcc"));
-			}
-			array_append(candidates, str_printf(pool, "${%s_${CHOSEN_COMPILER_TYPE}}", var_without_compiler_type));
-			array_append(candidates, str_printf(pool, "${%s_${CHOSEN_COMPILER_TYPE}:", var_without_compiler_type));
-			array_append(cond_candidates, str_printf(pool, "defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-			array_append(cond_candidates, str_printf(pool, "!defined(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-			array_append(cond_candidates, str_printf(pool, "empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-			array_append(cond_candidates, str_printf(pool, "!empty(%s_${CHOSEN_COMPILER_TYPE})", var_without_compiler_type));
-		}
+		add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_flavor, "FLAVOR");
+	}
 
-		struct Array *tokens = mempool_array(pool);
-		struct ParserEditOutput param = { NULL, NULL, NULL, NULL, is_referenced_var_cb, tokens, 0 };
-		parser_edit(parser, pool, output_target_command_token, &param);
-		parser_edit(parser, pool, output_variable_value, &param);
-		array_append(candidates, str_printf(pool, "${%s}", var));
-		array_append(candidates, str_printf(pool, "$(%s)", var));
-		array_append(candidates, str_printf(pool, "${%s:", var));
-		ARRAY_FOREACH(tokens, const char *, token) {
-			ARRAY_FOREACH(candidates, const char *, candidate) {
-				if (strstr(token, candidate)) {
-					return 1;
-				}
+	if ((str_endswith(var, "_clang") || str_endswith(var, "_gcc")) &&
+	    set_contains(parser_metadata(parser, PARSER_METADATA_USES), "compiler")) {
+		char *var_without_compiler_type;
+		if (str_endswith(var, "_clang")) {
+			var_without_compiler_type = str_slice(pool, var, 0, varlen - strlen("_clang"));
+		} else {
+			var_without_compiler_type = str_slice(pool, var, 0, varlen - strlen("_gcc"));
+		}
+		add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_compiler_type, "CHOSEN_COMPILER_TYPE");
+	}
+
+	struct Array *tokens = mempool_array(pool);
+	struct ParserEditOutput param = { NULL, NULL, NULL, NULL, is_referenced_var_cb, tokens, 0 };
+	parser_edit(parser, pool, output_target_command_token, &param);
+	parser_edit(parser, pool, output_variable_value, &param);
+	ARRAY_FOREACH(tokens, const char *, token) {
+		ARRAY_FOREACH(candidates, const char *, candidate) {
+			if (strstr(token, candidate)) {
+				return 1;
 			}
 		}
+	}
 
-		array_truncate(tokens);
-		parser_edit(parser, pool, output_conditional_token, &param);
-		array_append(cond_candidates, str_printf(pool, "defined(%s)", var));
-		array_append(cond_candidates, str_printf(pool, "!defined(%s)", var));
-		array_append(cond_candidates, str_printf(pool, "empty(%s)", var));
-		array_append(cond_candidates, str_printf(pool, "!empty(%s)", var));
-		ARRAY_FOREACH(tokens, const char *, token) {
-			ARRAY_FOREACH(candidates, const char *, candidate) {
-				if (strstr(token, candidate)) {
-					return 1;
-				}
+	array_truncate(tokens);
+	parser_edit(parser, pool, output_conditional_token, &param);
+	ARRAY_FOREACH(tokens, const char *, token) {
+		ARRAY_FOREACH(candidates, const char *, candidate) {
+			if (strstr(token, candidate)) {
+				return 1;
 			}
-			ARRAY_FOREACH(cond_candidates, const char *, candidate) {
-				if (strstr(token, candidate)) {
-					return 1;
-				}
+		}
+		ARRAY_FOREACH(cond_candidates, const char *, candidate) {
+			if (strstr(token, candidate)) {
+				return 1;
 			}
 		}
 	}
