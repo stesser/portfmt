@@ -53,6 +53,7 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "conditional.h"
 #include "constants.h"
 #include "parser.h"
@@ -313,6 +314,7 @@ parser_init_settings(struct ParserSettings *settings)
 	settings->target_command_format_threshold = 8;
 	settings->target_command_format_wrapcol = 65;
 	settings->wrapcol = 80;
+	settings->debug_level = 0;
 }
 
 struct Parser *
@@ -1377,8 +1379,8 @@ parser_output_diff(struct Parser *parser)
 	}
 }
 
-void
-parser_output_dump_tokens(struct Parser *parser)
+static void
+parser_output_dump_tokens_helper(struct Parser *parser)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -1467,7 +1469,7 @@ parser_output_dump_tokens(struct Parser *parser)
 
 		ARRAY_FOREACH(vars, char *, var) {
 			ssize_t len = maxvarlen - strlen(var);
-			char *range = range_tostring(pool, token_lines(t));
+			const char *range = range_tostring(pool, token_lines(t));
 			char *tokentype;
 			if (array_len(vars) > 1) {
 				tokentype = str_printf(pool, "%s#%zu", type, var_index + 1);
@@ -1495,6 +1497,34 @@ parser_output_dump_tokens(struct Parser *parser)
 	}
 
 	parser_set_error(parser, PARSER_ERROR_OK, NULL);
+}
+
+void
+parser_output_dump_tokens(struct Parser *parser)
+{
+	SCOPE_MEMPOOL(pool);
+
+	if (parser->settings.debug_level == 1) {
+		parser_output_dump_tokens_helper(parser);
+	} else if (parser->settings.debug_level == 2) {
+		struct ASTNode *root = ast_from_token_stream(parser->tokens);
+		mempool_add(pool, root, ast_free);
+		size_t len = 0;
+		char *buf = NULL;
+		FILE *f = open_memstream(&buf, &len);
+		panic_unless(f, "open_memstream: %s", strerror(errno));
+		ast_node_print(root, f);
+		fclose(f);
+		parser_enqueue_output(parser, buf);
+		free(buf);
+	} else {
+		struct ASTNode *root = ast_from_token_stream(parser->tokens);
+		mempool_add(pool, root, ast_free);
+		struct Array *tokens = ast_to_token_stream(root, parser->tokengc);
+		array_free(parser->tokens);
+		parser->tokens = tokens;
+		parser_output_dump_tokens_helper(parser);
+	}
 }
 
 void

@@ -100,6 +100,7 @@ struct ParserSettings {
 	size_t diff_context;
 	size_t target_command_format_wrapcol;
 	size_t wrapcol;
+	int debug_level;
 };
 
 struct Array;

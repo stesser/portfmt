@@ -12,7 +12,8 @@ LDADD+=		-lm ${LDADD_EXECINFO}
 SUBPACKAGES?=	1
 CPPFLAGS+=	-DPORTFMT_SUBPACKAGES=${SUBPACKAGES}
 
-OBJS=		conditional.o \
+OBJS=		ast.o \
+		conditional.o \
 		constants.o \
 		mainutils.o \
 		parser.o \
@@ -84,10 +85,11 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 	${CC} ${LDFLAGS} -o bin/portscan portscan.o libportfmt.a libias/libias.a ${LDADD} -lpthread
 
 #
+ast.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/stack.h libias/str.h ast.h conditional.h target.h token.h variable.h
 conditional.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h conditional.h regexp.h rules.h
 constants.o: config.h constants.h
 mainutils.o: config.h libias/array.h libias/mempool.h libias/mempool/file.h libias/str.h capsicum_helpers.h mainutils.h parser.h
-parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h conditional.h constants.h parser.h parser/edits.h regexp.h rules.h target.h token.h variable.h
+parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h conditional.h constants.h parser.h parser/edits.h regexp.h rules.h target.h token.h variable.h
 parser/edits/edit/bump_revision.o: config.h libias/array.h libias/mempool.h libias/str.h parser.h parser/edits.h rules.h token.h variable.h
 parser/edits/edit/merge.o: config.h libias/array.h libias/flow.h libias/mempool.h conditional.h parser.h parser/edits.h rules.h token.h variable.h
 parser/edits/edit/set_version.o: config.h libias/array.h libias/mempool.h libias/str.h parser.h parser/edits.h rules.h token.h variable.h

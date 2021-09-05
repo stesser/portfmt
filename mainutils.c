@@ -101,6 +101,7 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 			break;
 		case 'd':
 			settings->behavior |= PARSER_OUTPUT_DUMP_TOKENS;
+			settings->debug_level++;
 			break;
 		case 'e':
 			if (expressions && optarg) {
