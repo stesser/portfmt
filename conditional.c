@@ -47,7 +47,7 @@ struct Conditional {
 };
 
 struct Conditional *
-conditional_new(char *s)
+conditional_new(const char *s)
 {
 	SCOPE_MEMPOOL(pool);
 

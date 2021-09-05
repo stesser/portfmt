@@ -52,7 +52,7 @@ struct Token {
 
 struct Token *
 token_new(enum TokenType type, struct Range *lines, const char *data,
-	  char *varname, char *condname, char *targetname)
+	  const char *varname, const char *condname, const char *targetname)
 {
 	if (((type == VARIABLE_END || type == VARIABLE_START ||
 	      type == VARIABLE_TOKEN) && varname == NULL) ||

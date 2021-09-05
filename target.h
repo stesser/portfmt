@@ -30,7 +30,7 @@
 struct Array;
 struct Target;
 
-struct Target *target_new(char *);
+struct Target *target_new(const char *);
 struct Target *target_clone(struct Target *);
 void target_free(struct Target *);
 const char *target_comment(struct Target *);

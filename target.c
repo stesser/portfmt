@@ -148,7 +148,7 @@ consume_names(struct Mempool *pool, const char *buf, struct Array *names, int de
 }
 
 struct Target *
-target_new(char *buf)
+target_new(const char *buf)
 {
 	struct Mempool *pool = mempool_new();
 	struct Array *names = mempool_array(pool);

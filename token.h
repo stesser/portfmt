@@ -52,7 +52,7 @@ struct Token;
 struct Variable;
 struct Target;
 
-struct Token *token_new(enum TokenType, struct Range *, const char *, char *, char *, char *);
+struct Token *token_new(enum TokenType, struct Range *, const char *, const char *, const char *, const char *);
 struct Token *token_new_comment(struct Range *, const char *, struct Conditional *);
 struct Token *token_new_variable_end(struct Range *, struct Variable *);
 struct Token *token_new_variable_start(struct Range *, struct Variable *);
