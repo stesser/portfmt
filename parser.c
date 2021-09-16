@@ -293,14 +293,57 @@ range_tostring(struct Mempool *pool, struct Range *range)
 }
 
 static int
-parser_is_category_makefile(struct Parser *parser)
+parser_is_category_makefile(struct Parser *parser, struct ASTNode *node)
 {
-	ARRAY_FOREACH(parser->tokens, struct Token *, t) {
-		if (token_type(t) == CONDITIONAL_TOKEN &&
-		    conditional_type(token_conditional(t)) == COND_INCLUDE &&
-		    strcmp(token_data(t), "<bsd.port.subdir.mk>") == 0) {
+	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
+		return 0;
+	}
+
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			if (parser_is_category_makefile(parser, child)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			if (parser_is_category_makefile(parser, child)) {
+				return 1;
+			}
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			if (parser_is_category_makefile(parser, child)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			if (parser_is_category_makefile(parser, child)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			if (parser_is_category_makefile(parser, child)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) > 0 &&
+		    strcmp(array_get(node->flatexpr.words, 0), "<bsd.port.subdir.mk>") == 0) {
 			return 1;
 		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_VARIABLE:
+		break;
 	}
 
 	return 0;
@@ -1139,91 +1182,70 @@ parser_output_edited_insert_empty(struct Parser *parser, struct Token *prev)
 	}
 }
 
-static int
-category_makefile_compare(const void *ap, const void *bp, void *userdata)
-{
-	struct Token *a = *(struct Token**)ap;
-	struct Token *b = *(struct Token**)bp;
-	return strcmp(token_data(a), token_data(b));
-}
-
 static void
-parser_output_category_makefile_reformatted(struct Parser *parser)
+parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNode *node)
 {
+	if (parser->error != PARSER_ERROR_OK) {
+		return;
+	}
+
+	SCOPE_MEMPOOL(pool);
 	// Category Makefiles have a strict layout so we can simply
 	// dump everything out but also verify everything when doing so.
 	// We do not support editing/formatting the top level Makefile.
 	const char *indent = "    ";
-	SCOPE_MEMPOOL(pool);
-	struct Array *tokens = mempool_array(pool);
-	ARRAY_FOREACH(parser->tokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case CONDITIONAL_END: {
-			size_t tokens_len = array_len(tokens);
-			ARRAY_FOREACH(tokens, struct Token *, o) {
-				parser_enqueue_output(parser, token_data(o));
-				if ((o_index + 1) < tokens_len) {
+
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			parser_output_category_makefile_reformatted(parser, child);
+		}
+		return;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) > 0 &&
+		    strcmp(array_get(node->flatexpr.words, 0), "<bsd.port.subdir.mk>") == 0) {
+			parser_enqueue_output(parser, ".include <bsd.port.subdir.mk>\n");
+			return;
+		}
+	case AST_NODE_EXPR_IF:
+	case AST_NODE_EXPR_FOR:
+	case AST_NODE_TARGET:
+	case AST_NODE_TARGET_COMMAND:
+		parser_set_error(parser, PARSER_ERROR_UNSPECIFIED,
+				 "unsupported node type in category Makefile"); // TODO
+		return;
+	case AST_NODE_COMMENT:
+		ARRAY_FOREACH(node->comment.lines, const char *, line) {
+			parser_enqueue_output(parser, line);
+			parser_enqueue_output(parser, "\n");
+		}
+		return;
+	case AST_NODE_VARIABLE:
+		if (strcmp(node->variable.name, "COMMENT") == 0) {
+			parser_enqueue_output(parser, indent);
+			parser_enqueue_output(parser, "COMMENT = ");
+			ARRAY_FOREACH(node->variable.words, const char *, word) {
+				parser_enqueue_output(parser, word);
+				if ((word_index + 1) < array_len(node->variable.words)) {
 					parser_enqueue_output(parser, " ");
 				}
 			}
 			parser_enqueue_output(parser, "\n");
-			break;
-		} case CONDITIONAL_START:
-			if (conditional_type(token_conditional(t)) != COND_INCLUDE) {
-				parser_set_error(parser, PARSER_ERROR_UNSPECIFIED,
-						 str_printf(pool, "unsupported conditional in category Makefile: %s",
-							conditional_tostring(token_conditional(t), pool)));
-				return;
-			}
-			array_truncate(tokens);
-			break;
-		case CONDITIONAL_TOKEN:
-			array_append(tokens, t);
-			break;
-		case VARIABLE_START:
-			array_truncate(tokens);
-			break;
-		case VARIABLE_END: {
-			const char *varname = variable_name(token_variable(t));
-			if (strcmp(varname, "COMMENT") == 0) {
+		} else if (strcmp(node->variable.name, "SUBDIR") == 0) {
+			array_sort(node->variable.words, str_compare, NULL);
+			ARRAY_FOREACH(node->variable.words, const char *, word) {
 				parser_enqueue_output(parser, indent);
-				parser_enqueue_output(parser, varname);
-				parser_enqueue_output(parser, " = ");
-				size_t tokens_len = array_len(tokens);
-				ARRAY_FOREACH(tokens, struct Token *, o) {
-					parser_enqueue_output(parser, token_data(o));
-					if ((o_index + 1) < tokens_len) {
-						parser_enqueue_output(parser, " ");
-					}
-				}
+				parser_enqueue_output(parser, "SUBDIR += ");
+				parser_enqueue_output(parser, word);
 				parser_enqueue_output(parser, "\n");
-			} else if (strcmp(varname, "SUBDIR") == 0) {
-				array_sort(tokens, category_makefile_compare, NULL);
-				ARRAY_FOREACH(tokens, struct Token *, o) {
-					parser_enqueue_output(parser, indent);
-					parser_enqueue_output(parser, varname);
-					parser_enqueue_output(parser, " += ");
-					parser_enqueue_output(parser, token_data(o));
-					parser_enqueue_output(parser, "\n");
-				}
-			} else {
-				parser_set_error(parser, PARSER_ERROR_UNSPECIFIED,
-						 str_printf(pool, "unsupported variable in category Makefile: %s", varname));
-				return;
 			}
-			break;
-		} case VARIABLE_TOKEN: {
-			array_append(tokens, t);
-			break;
-		} case COMMENT:
-			parser_enqueue_output(parser, token_data(t));
-			parser_enqueue_output(parser, "\n");
-			break;
-		default:
-			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE,
-					 str_printf(pool, "%s", token_type_tostring(token_type(t))));
+		} else {
+			parser_set_error(parser, PARSER_ERROR_UNSPECIFIED,
+					 str_printf(pool, "unsupported variable in category Makefile: %s", node->variable.name));
 			return;
 		}
+		return;
 	}
 }
 
@@ -1237,8 +1259,8 @@ parser_output_reformatted(struct Parser *parser)
 		return;
 	}
 
-	if (parser_is_category_makefile(parser)) {
-		parser_output_category_makefile_reformatted(parser);
+	if (parser_is_category_makefile(parser, parser->ast)) {
+		parser_output_category_makefile_reformatted(parser, parser->ast);
 		return;
 	}
 
@@ -1760,7 +1782,7 @@ parser_read_finish(struct Parser *parser)
 	// To properly support editing category Makefiles always
 	// collapse all the SUBDIR into one assignment regardless
 	// of settings.
-	if ((parser_is_category_makefile(parser) ||
+	if ((parser_is_category_makefile(parser, parser->ast) ||
 	     parser->settings.behavior & PARSER_COLLAPSE_ADJACENT_VARIABLES) &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_collapse_adjacent_variables, NULL)) {
 		return parser->error;
@@ -2336,7 +2358,7 @@ parser_lookup_variable_str(struct Parser *parser, const char *name, enum ParserL
 enum ParserError
 parser_merge(struct Parser *parser, struct Parser *subparser, enum ParserMergeBehavior settings)
 {
-	if (parser_is_category_makefile(parser)) {
+	if (parser_is_category_makefile(parser, parser->ast)) {
 		settings &= ~PARSER_MERGE_AFTER_LAST_IN_GROUP;
 	}
 	struct ParserEdit params = { subparser, NULL, settings };
