@@ -76,35 +76,40 @@ enum RegularExpression {
 	RE_CONDITIONAL = 0,
 };
 
+struct CompareTokensData {
+	struct Parser *parser;
+	const char *var;
+};
+
 struct Mempool;
 struct Parser;
 struct Set;
 struct Token;
-struct Variable;
+enum ASTNodeVariableModifier;
 struct Match;
 
 const char *blocktype_tostring(enum BlockType);
 int compare_order(const void *, const void *, void *);
 int compare_target_order(const void *, const void *, void *);
 int compare_tokens(const void *, const void *, void *);
-int ignore_wrap_col(struct Parser *, struct Variable *);
-int indent_goalcol(struct Variable *);
-int is_comment(struct Token *);
+int ignore_wrap_col(struct Parser *, const char *, enum ASTNodeVariableModifier);
+int indent_goalcol(const char *, enum ASTNodeVariableModifier);
+int is_comment(const char *);
 int is_referenced_var(struct Parser *, const char *);
 int is_include_bsd_port_mk(struct Token *);
 int is_known_target(struct Parser *, const char *);
 int is_special_source(const char *);
 int is_special_target(const char *);
 int is_options_helper(struct Mempool *, struct Parser *, const char *, char **, char **, char **);
-int leave_unformatted(struct Parser *, struct Variable *);
+int leave_unformatted(struct Parser *, const char *);
 regex_t *regex(enum RegularExpression);
 int matches(enum RegularExpression, const char *);
-int print_as_newlines(struct Parser *, struct Variable *);
+int print_as_newlines(struct Parser *, const char *);
 void rules_init(void);
-int should_sort(struct Parser *, struct Variable *);
+int should_sort(struct Parser *, const char *, enum ASTNodeVariableModifier);
 int skip_conditional(struct Token *, int *);
-int skip_dedup(struct Parser *, struct Variable *);
-int skip_goalcol(struct Parser *, struct Variable *);
+int skip_dedup(struct Parser *, const char *, enum ASTNodeVariableModifier);
+int skip_goalcol(struct Parser *, const char *);
 int target_command_wrap_after_each_token(const char *);
 int target_command_should_wrap(const char *);
 enum BlockType variable_order_block(struct Parser *, const char *, struct Mempool *, struct Set **);

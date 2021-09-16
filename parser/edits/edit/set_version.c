@@ -39,6 +39,7 @@
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
@@ -165,7 +166,7 @@ PARSER_EDIT(edit_set_version)
 		struct Variable *rev_var;
 		if (strcmp(version, newversion) != 0 &&
 		    (rev_var = parser_lookup_variable_str(parser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, &revision, NULL))) {
-			rev_opt = variable_modifier(rev_var) == MODIFIER_OPTIONAL;
+			rev_opt = variable_modifier(rev_var) == AST_NODE_VARIABLE_MODIFIER_OPTIONAL;
 			const char *errstr = NULL;
 			rev = strtonum(revision, 0, INT_MAX, &errstr);
 			if (errstr != NULL) {

@@ -38,6 +38,7 @@
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
@@ -53,7 +54,7 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 	struct Variable *var;
 	if (strcmp(variable, "PORTEPOCH") == 0) {
 		if ((var = parser_lookup_variable(parser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, NULL, NULL)) &&
-		    variable_modifier(var) == MODIFIER_OPTIONAL) {
+		    variable_modifier(var) == AST_NODE_VARIABLE_MODIFIER_OPTIONAL) {
 			array_append(script, "PORTREVISION=0\n");
 		} else {
 			array_append(script, "PORTREVISION!=\n");

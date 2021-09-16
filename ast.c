@@ -60,7 +60,7 @@ static enum ASTNodeExprFlatType conditional_to_flatexpr[] = {
 	[COND_WARNING] = AST_NODE_EXPR_WARNING,
 };
 
-static const char *ASTNodeExprFlatType_identifier[] = {
+const char *ASTNodeExprFlatType_identifier[] = {
 	[AST_NODE_EXPR_DINCLUDE] = "dinclude",
 	[AST_NODE_EXPR_ERROR] = "error",
 	[AST_NODE_EXPR_EXPORT_ENV] = "export-env",
@@ -112,15 +112,7 @@ static const char *ASTNodeTargetType_tostring[] = {
 	[AST_NODE_TARGET_UNASSOCIATED] = "AST_NODE_TARGET_UNASSOCIATED",
 };
 
-static enum ASTNodeVariableModifier VariableModifier_to_ASTNodeVariableModifier[] = {
-	[MODIFIER_APPEND] = AST_NODE_VARIABLE_MODIFIER_APPEND,
-	[MODIFIER_ASSIGN] = AST_NODE_VARIABLE_MODIFIER_ASSIGN,
-	[MODIFIER_EXPAND] = AST_NODE_VARIABLE_MODIFIER_EXPAND,
-	[MODIFIER_OPTIONAL] = AST_NODE_VARIABLE_MODIFIER_OPTIONAL,
-	[MODIFIER_SHELL] = AST_NODE_VARIABLE_MODIFIER_SHELL,
-};
-
-static const char *ASTNodeVariableModifier_tostring_human[] = {
+const char *ASTNodeVariableModifier_humanize[] = {
 	[AST_NODE_VARIABLE_MODIFIER_APPEND] = "+=",
 	[AST_NODE_VARIABLE_MODIFIER_ASSIGN] = "=",
 	[AST_NODE_VARIABLE_MODIFIER_EXPAND] = ":=",
@@ -370,7 +362,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			line_start,
 			line_end,
 			node->variable.name,
-			ASTNodeVariableModifier_tostring_human[node->variable.modifier],
+			ASTNodeVariableModifier_humanize[node->variable.modifier],
 			str_join(pool, node->variable.words, ", "));
 		break;
 	}
@@ -595,7 +587,11 @@ ast_from_token_stream(struct Array *tokens)
 				.target = target,
 			});
 			node->edited = token_edited(t);
+			node->line_end = node->line_start;
 			ARRAY_FOREACH(current_target_cmds, struct Token *, t) {
+				if (t_index == 0) {
+					node->line_start = *((struct ASTNodeLineRange *)token_lines(t));
+				}
 				if (token_edited(t)) {
 					node->edited = 1;
 				}
@@ -611,12 +607,20 @@ ast_from_token_stream(struct Array *tokens)
 			array_append(current_var, t);
 			break;
 		case VARIABLE_END: {
+			struct ASTNodeLineRange *range = (struct ASTNodeLineRange *)array_get(current_var, 0);
+			unless (range) {
+				range = (struct ASTNodeLineRange *)token_lines(t);
+			}
 			struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_VARIABLE, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeVariable){
 				.name = variable_name(token_variable(t)),
-				.modifier = VariableModifier_to_ASTNodeVariableModifier[variable_modifier(token_variable(t))],
+				.modifier = variable_modifier(token_variable(t)),
 			});
 			node->edited = token_edited(t);
+			node->line_end = node->line_start;
 			ARRAY_FOREACH(current_var, struct Token *, t) {
+				if (t_index == 0) {
+					node->line_start = *((struct ASTNodeLineRange *)token_lines(t));
+				}
 				if (token_edited(t)) {
 					node->edited = 1;
 				}
@@ -795,12 +799,12 @@ ast_to_token_stream_helper(struct ASTNode *node, struct Mempool *extpool, struct
 		if (str_endswith(node->variable.name, "+")) {
 			space = " ";
 		}
-		const char *varname = str_printf(pool, "%s%s%s", node->variable.name, space, ASTNodeVariableModifier_tostring_human[node->variable.modifier]);
+		const char *varname = str_printf(pool, "%s%s%s", node->variable.name, space, ASTNodeVariableModifier_humanize[node->variable.modifier]);
 		token_to_stream(extpool, tokens, VARIABLE_START, node->edited, &node->line_start, NULL, varname, NULL, NULL);
 		ARRAY_FOREACH(node->variable.words, const char *, word) {
 			token_to_stream(extpool, tokens, VARIABLE_TOKEN, node->edited, &node->line_start, word, varname, NULL, NULL);
 		}
-		token_to_stream(extpool, tokens, VARIABLE_END, node->edited, &node->line_start, NULL, varname, NULL, NULL);
+		token_to_stream(extpool, tokens, VARIABLE_END, node->edited, &node->line_end, NULL, varname, NULL, NULL);
 		break;
 	} }
 }

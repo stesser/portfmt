@@ -39,6 +39,7 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
@@ -71,7 +72,7 @@ PARSER_EDIT(refactor_dedup_tokens)
 			set_truncate(seen);
 			set_truncate(uses);
 			action = DEFAULT;
-			if (skip_dedup(parser, token_variable(t))) {
+			if (skip_dedup(parser, variable_name(token_variable(t)), variable_modifier(token_variable(t)))) {
 				action = SKIP;
 			} else {
 				// XXX: Handle *_DEPENDS (turn 'RUN_DEPENDS=foo>=1.5.6:misc/foo foo>0:misc/foo'
@@ -91,7 +92,7 @@ PARSER_EDIT(refactor_dedup_tokens)
 			if (action == SKIP) {
 				array_append(tokens, t);
 			} else {
-				if (is_comment(t)) {
+				if (is_comment(token_data(t))) {
 					action = APPEND;
 				}
 				if (action == APPEND) {

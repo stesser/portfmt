@@ -38,6 +38,7 @@
 #include <libias/mempool.h>
 #include <libias/set.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
@@ -75,8 +76,8 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 				    strcmp(variable_name(token_variable(o)), "CFLAGS") != 0 &&
 				    strcmp(variable_name(token_variable(o)), "LDFLAGS") != 0 &&
 				    strcmp(variable_name(token_variable(o)), "RUSTFLAGS") != 0 &&
-				    variable_modifier(token_variable(o)) == MODIFIER_APPEND) {
-					variable_set_modifier(token_variable(o), MODIFIER_ASSIGN);
+				    variable_modifier(token_variable(o)) == AST_NODE_VARIABLE_MODIFIER_APPEND) {
+					variable_set_modifier(token_variable(o), AST_NODE_VARIABLE_MODIFIER_ASSIGN);
 					parser_mark_edited(parser, o);
 				}
 			}

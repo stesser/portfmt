@@ -637,7 +637,7 @@ parser_propagate_goalcol(struct Parser *parser, size_t start, size_t end,
 	moving_goalcol = MAX(16, moving_goalcol);
 	for (size_t k = start; k <= end; k++) {
 		struct Token *t = array_get(parser->tokens, k);
-		if (token_variable(t) && !skip_goalcol(parser, token_variable(t))) {
+		if (token_variable(t) && !skip_goalcol(parser, variable_name(token_variable(t)))) {
 			token_set_goalcol(t, moving_goalcol);
 		}
 	}
@@ -662,10 +662,10 @@ parser_find_goalcols(struct Parser *parser)
 			tokens_end = t_index;
 
 			struct Variable *var = token_variable(t);
-			if (var && skip_goalcol(parser, var)) {
-				token_set_goalcol(t, indent_goalcol(var));
+			if (var && skip_goalcol(parser, variable_name(var))) {
+				token_set_goalcol(t, indent_goalcol(variable_name(var), variable_modifier(var)));
 			} else {
-				moving_goalcol = MAX(indent_goalcol(var), moving_goalcol);
+				moving_goalcol = MAX(indent_goalcol(variable_name(var), variable_modifier(var)), moving_goalcol);
 			}
 			break;
 		case TARGET_END:
@@ -682,7 +682,7 @@ parser_find_goalcols(struct Parser *parser)
 			 * treat variables after them as part of the
 			 * same block, i.e., indent them the same way.
 			 */
-			if (is_comment(t)) {
+			if (is_comment(token_data(t))) {
 				continue;
 			}
 			if (tokens_start != -1) {
@@ -736,7 +736,7 @@ print_newline_array(struct Parser *parser, struct Array *arr)
 		parser_enqueue_output(parser, sep);
 		parser_enqueue_output(parser, line);
 		// Do not wrap end of line comments
-		if (next && is_comment(next)) {
+		if (next && is_comment(token_data(next))) {
 			sep = str_dup(pool, " ");
 			continue;
 		}
@@ -774,7 +774,7 @@ print_token_array(struct Parser *parser, struct Array *tokens)
 	struct Array *arr = mempool_array(pool);
 	struct Token *o = array_get(tokens, 0);
 	size_t wrapcol;
-	if (token_variable(o) && ignore_wrap_col(parser, token_variable(o))) {
+	if (token_variable(o) && ignore_wrap_col(parser, variable_name(token_variable(o)), variable_modifier(token_variable(o)))) {
 		wrapcol = 99999999;
 	} else {
 		/* Minus ' \' at end of line */
@@ -1115,7 +1115,7 @@ parser_output_reformatted_helper(struct Parser *parser, struct Mempool *pool, st
 
 	/* Leave variables unformatted that have $\ in them. */
 	if ((array_len(arr) == 1 && strstr(token_data(t0), "$\001") != NULL) ||
-	    (leave_unformatted(parser, token_variable(t0)) &&
+	    (leave_unformatted(parser, variable_name(token_variable(t0))) &&
 	     !token_edited(t0))) {
 		parser_output_print_rawlines(parser, token_lines(t0));
 		goto cleanup;
@@ -1128,13 +1128,13 @@ parser_output_reformatted_helper(struct Parser *parser, struct Mempool *pool, st
 	}
 
 	if (!(parser->settings.behavior & PARSER_UNSORTED_VARIABLES) &&
-	    should_sort(parser, token_variable(t0))) {
+	    should_sort(parser, variable_name(token_variable(t0)), variable_modifier(token_variable(t0)))) {
 		arr = parser_output_sort_opt_use(parser, pool, arr);
 		array_sort(arr, compare_tokens, parser);
 	}
 
 	t0 = array_get(arr, 0);
-	if (print_as_newlines(parser, token_variable(t0))) {
+	if (print_as_newlines(parser, variable_name(token_variable(t0)))) {
 		print_newline_array(parser, arr);
 	} else {
 		print_token_array(parser, arr);
@@ -2289,7 +2289,7 @@ parser_lookup_variable(struct Parser *parser, const char *name, enum ParserLooku
 			break;
 		case VARIABLE_TOKEN:
 			if (strcmp(variable_name(token_variable(t)), name) == 0) {
-				if (is_comment(t)) {
+				if (is_comment(token_data(t))) {
 					array_append(comments, token_data(t));
 				} else {
 					array_append(tokens, token_data(t));

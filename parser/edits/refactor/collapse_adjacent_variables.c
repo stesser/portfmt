@@ -37,6 +37,7 @@
 #include <libias/mempool.h>
 #include <libias/set.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
@@ -46,8 +47,8 @@
 static int
 has_valid_modifier(struct Variable *var) {
 	switch (variable_modifier(var)) {
-	case MODIFIER_APPEND:
-	case MODIFIER_ASSIGN:
+	case AST_NODE_VARIABLE_MODIFIER_APPEND:
+	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
 		return 1;
 	default:
 		return 0;
@@ -73,7 +74,7 @@ next_variable_has_eol_comment(struct Array *tokens, size_t i) {
 		struct Token *t = array_get(tokens, i);
 		switch (token_type(t)) {
 		case VARIABLE_TOKEN:
-			if (is_comment(t)) {
+			if (is_comment(token_data(t))) {
 				return 1;
 			}
 			break;
@@ -119,7 +120,7 @@ PARSER_EDIT(refactor_collapse_adjacent_variables)
 			last_token = t;
 			break;
 		case VARIABLE_END:
-			if ((!last_token || !is_comment(last_token)) &&
+			if ((!last_token || !is_comment(token_data(last_token))) &&
 			    !next_variable_has_eol_comment(ptokens, t_index)) {
 				last_end = t;
 			}

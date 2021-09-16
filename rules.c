@@ -43,6 +43,7 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "conditional.h"
 #include "constants.h"
 #include "regexp.h"
@@ -52,14 +53,14 @@
 #include "token.h"
 #include "variable.h"
 
-static int case_sensitive_sort(struct Parser *, struct Variable *);
+static int case_sensitive_sort(struct Parser *, const char *);
 static int compare_rel(const char *[], size_t, const char *, const char *);
-static int compare_license_perms(struct Parser *, struct Variable *, const char *, const char *, int *);
-static int compare_plist_files(struct Parser *, struct Variable *, const char *, const char *, int *);
-static int compare_use_gnome(struct Variable *, const char *, const char *, int *);
-static int compare_use_kde(struct Variable *, const char *, const char *, int *);
-static int compare_use_pyqt(struct Variable *, const char *, const char *, int *);
-static int compare_use_qt(struct Variable *, const char *, const char *, int *);
+static int compare_license_perms(struct Parser *, const char *, const char *, const char *, int *);
+static int compare_plist_files(struct Parser *, const char *, const char *, const char *, int *);
+static int compare_use_gnome(const char *, const char *, const char *, int *);
+static int compare_use_kde(const char *, const char *, const char *, int *);
+static int compare_use_pyqt(const char *, const char *, const char *, int *);
+static int compare_use_qt(const char *, const char *, const char *, int *);
 static char *extract_subpkg(struct Mempool *, struct Parser *, const char *, char **);
 static int is_cabal_datadir_vars(struct Mempool *, struct Parser *, const char *, char **, char **);
 static int is_flavors_helper(struct Mempool *, struct Parser *, const char *, char **, char **);
@@ -1485,11 +1486,9 @@ matches_license_name(struct Parser *parser, const char *var)
 }
 
 int
-ignore_wrap_col(struct Parser *parser, struct Variable *var)
+ignore_wrap_col(struct Parser *parser, const char *varname, enum ASTNodeVariableModifier modifier)
 {
-	const char *varname = variable_name(var);
-
-	if (variable_modifier(var) == MODIFIER_SHELL ||
+	if (modifier == AST_NODE_VARIABLE_MODIFIER_SHELL ||
 	    matches_license_name(parser, varname)) {
 		return 1;
 	}
@@ -1498,21 +1497,21 @@ ignore_wrap_col(struct Parser *parser, struct Variable *var)
 }
 
 int
-indent_goalcol(struct Variable *var)
+indent_goalcol(const char *var, enum ASTNodeVariableModifier modifier)
 {
-	size_t varlength = strlen(variable_name(var)) + 1;
-	switch (variable_modifier(var)) {
-	case MODIFIER_ASSIGN:
+	size_t varlength = strlen(var) + 1;
+	switch (modifier) {
+	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
 		varlength += 1;
 		break;
-	case MODIFIER_APPEND:
-	case MODIFIER_EXPAND:
-	case MODIFIER_OPTIONAL:
-	case MODIFIER_SHELL:
+	case AST_NODE_VARIABLE_MODIFIER_APPEND:
+	case AST_NODE_VARIABLE_MODIFIER_EXPAND:
+	case AST_NODE_VARIABLE_MODIFIER_OPTIONAL:
+	case AST_NODE_VARIABLE_MODIFIER_SHELL:
 		varlength += 2;
 		break;
 	default:
-		panic("unhandled variable modifier: %d", variable_modifier(var));
+		panic("unhandled variable modifier: %d", modifier);
 	}
 	if (((varlength + 1) % 8) == 0) {
 		varlength++;
@@ -1521,13 +1520,13 @@ indent_goalcol(struct Variable *var)
 }
 
 int
-is_comment(struct Token *token)
+is_comment(const char *token)
 {
-	if (token == NULL || token_data(token) == NULL) {
+	if (token == NULL) {
 		return 0;
 	}
 
-	char *datap = token_data(token);
+	const char *datap = token;
 	for (; *datap != 0 && isspace(*datap); datap++);
 	return *datap == '#';
 }
@@ -1545,33 +1544,33 @@ is_include_bsd_port_mk(struct Token *t)
 }
 
 int
-case_sensitive_sort(struct Parser *parser, struct Variable *var)
+case_sensitive_sort(struct Parser *parser, const char *var)
 {
-	return variable_has_flag(parser, variable_name(var), VAR_CASE_SENSITIVE_SORT);
+	return variable_has_flag(parser, var, VAR_CASE_SENSITIVE_SORT);
 }
 
 int
-leave_unformatted(struct Parser *parser, struct Variable *var)
+leave_unformatted(struct Parser *parser, const char *var)
 {
-	return variable_has_flag(parser, variable_name(var), VAR_LEAVE_UNFORMATTED);
+	return variable_has_flag(parser, var, VAR_LEAVE_UNFORMATTED);
 }
 
 int
-should_sort(struct Parser *parser, struct Variable *var)
+should_sort(struct Parser *parser, const char *var, enum ASTNodeVariableModifier modifier)
 {
-	if (variable_modifier(var) == MODIFIER_SHELL) {
+	if (modifier == AST_NODE_VARIABLE_MODIFIER_SHELL) {
 		return 0;
 	}
 	if ((parser_settings(parser).behavior & PARSER_ALWAYS_SORT_VARIABLES)) {
 		return 1;
 	}
-	return variable_has_flag(parser, variable_name(var), VAR_SORTED);
+	return variable_has_flag(parser, var, VAR_SORTED);
 }
 
 int
-print_as_newlines(struct Parser *parser, struct Variable *var)
+print_as_newlines(struct Parser *parser, const char *var)
 {
-	return variable_has_flag(parser, variable_name(var), VAR_PRINT_AS_NEWLINES);
+	return variable_has_flag(parser, var, VAR_PRINT_AS_NEWLINES);
 }
 
 int
@@ -1610,16 +1609,14 @@ skip_conditional(struct Token *t, int *ignore)
 }
 
 int
-skip_dedup(struct Parser *parser, struct Variable *var)
+skip_dedup(struct Parser *parser, const char *var, enum ASTNodeVariableModifier modifier)
 {
-	return !should_sort(parser, var) && !variable_has_flag(parser, variable_name(var), VAR_DEDUP);
+	return !should_sort(parser, var, modifier) && !variable_has_flag(parser, var, VAR_DEDUP);
 }
 
 int
-skip_goalcol(struct Parser *parser, struct Variable *var)
+skip_goalcol(struct Parser *parser, const char *varname)
 {
-	const char *varname = variable_name(var);
-
 	if (matches_license_name(parser, varname)) {
 		return 1;
 	}
@@ -1656,15 +1653,9 @@ compare_rel(const char *rel[], size_t rellen, const char *a, const char *b)
 int
 compare_tokens(const void *ap, const void *bp, void *userdata)
 {
-	struct Parser *parser = userdata;
-	struct Token *a = *(struct Token**)ap;
-	struct Token *b = *(struct Token**)bp;
-	panic_unless(token_type(a) == VARIABLE_TOKEN && token_type(b) == VARIABLE_TOKEN,
-		     "can only compare two VARIABLE_TOKEN");
-	panic_unless(variable_cmp(token_variable(a), token_variable(b)) == 0,
-		     "can only compare two VARIABLE_TOKEN for the same variable");
-
-	struct Variable *var = token_variable(a);
+	struct CompareTokensData *data = userdata;
+	const char *a = *(const char**)ap;
+	const char *b = *(const char**)bp;
 
 	/* End-of-line comments always go last */
 	if (is_comment(a) && is_comment(b)) {
@@ -1678,27 +1669,26 @@ compare_tokens(const void *ap, const void *bp, void *userdata)
 	}
 
 	int result;
-	if (compare_license_perms(parser, var, token_data(a), token_data(b), &result) ||
-	    compare_plist_files(parser, var, token_data(a), token_data(b), &result) ||
-	    compare_use_gnome(var, token_data(a), token_data(b), &result) ||
-	    compare_use_kde(var, token_data(a), token_data(b), &result) ||
-	    compare_use_pyqt(var, token_data(a), token_data(b), &result) ||
-	    compare_use_qt(var, token_data(a), token_data(b), &result)) {
+	if (compare_license_perms(data->parser, data->var, a, b, &result) ||
+	    compare_plist_files(data->parser, data->var, a, b, &result) ||
+	    compare_use_gnome(data->var, a, b, &result) ||
+	    compare_use_kde(data->var, a, b, &result) ||
+	    compare_use_pyqt(data->var, a, b, &result) ||
+	    compare_use_qt(data->var, a, b, &result)) {
 		return result;
 	}
 
-	if (case_sensitive_sort(parser, var)) {
-		return strcmp(token_data(a), token_data(b));
+	if (case_sensitive_sort(data->parser, data->var)) {
+		return strcmp(a, b);
 	} else {
-		return strcasecmp(token_data(a), token_data(b));
+		return strcasecmp(a, b);
 	}
 }
 
 int
-compare_license_perms(struct Parser *parser, struct Variable *var, const char *a, const char *b, int *result)
+compare_license_perms(struct Parser *parser, const char *varname, const char *a, const char *b, int *result)
 {
 	// ^(_?LICENSE_PERMS_(-|[A-Z0-9\\._+ ])+|_LICENSE_LIST_PERMS|LICENSE_PERMS)
-	const char *varname = variable_name(var);
 	if (strcmp(varname, "_LICENSE_LIST_PERMS") != 0 &&
 	    strcmp(varname, "LICENSE_PERMS") != 0) {
 		if (str_startswith(varname, "_LICENSE_PERMS_")) {
@@ -1749,20 +1739,19 @@ remove_plist_keyword(const char *s, struct Mempool *pool)
 }
 
 int
-compare_plist_files(struct Parser *parser, struct Variable *var, const char *a, const char *b, int *result)
+compare_plist_files(struct Parser *parser, const char *varname, const char *a, const char *b, int *result)
 {
 	SCOPE_MEMPOOL(pool);
 
 	char *helper = NULL;
-	if (is_options_helper(pool, parser, variable_name(var), NULL, &helper, NULL)) {
+	if (is_options_helper(pool, parser, varname, NULL, &helper, NULL)) {
 		if (strcmp(helper, "PLIST_FILES_OFF") != 0 &&
 		    strcmp(helper, "PLIST_FILES") != 0 &&
 		    strcmp(helper, "PLIST_DIRS_OFF") != 0 &&
 		    strcmp(helper, "PLIST_DIRS") != 0) {
 			return 0;
 		}
-	} else if (strcmp(variable_name(var), "PLIST_FILES") != 0 &&
-	    strcmp(variable_name(var), "PLIST_DIRS") != 0) {
+	} else if (strcmp(varname, "PLIST_FILES") != 0 && strcmp(varname, "PLIST_DIRS") != 0) {
 		return 0;
 	}
 
@@ -1776,9 +1765,9 @@ compare_plist_files(struct Parser *parser, struct Variable *var, const char *a, 
 }
 
 int
-compare_use_gnome(struct Variable *var, const char *a, const char *b, int *result)
+compare_use_gnome(const char *var, const char *a, const char *b, int *result)
 {
-	if (strcmp(variable_name(var), "USE_GNOME") != 0) {
+	if (strcmp(var, "USE_GNOME") != 0) {
 		return 0;
 	}
 
@@ -1789,9 +1778,9 @@ compare_use_gnome(struct Variable *var, const char *a, const char *b, int *resul
 }
 
 int
-compare_use_kde(struct Variable *var, const char *a, const char *b, int *result)
+compare_use_kde(const char *var, const char *a, const char *b, int *result)
 {
-	if (strcmp(variable_name(var), "USE_KDE") != 0) {
+	if (strcmp(var, "USE_KDE") != 0) {
 		return 0;
 	}
 
@@ -1802,9 +1791,9 @@ compare_use_kde(struct Variable *var, const char *a, const char *b, int *result)
 }
 
 int
-compare_use_pyqt(struct Variable *var, const char *a, const char *b, int *result)
+compare_use_pyqt(const char *var, const char *a, const char *b, int *result)
 {
-	if (strcmp(variable_name(var), "USE_PYQT") != 0) {
+	if (strcmp(var, "USE_PYQT") != 0) {
 		return 0;
 	}
 
@@ -1816,9 +1805,9 @@ compare_use_pyqt(struct Variable *var, const char *a, const char *b, int *result
 }
 
 int
-compare_use_qt(struct Variable *var, const char *a, const char *b, int *result)
+compare_use_qt(const char *var, const char *a, const char *b, int *result)
 {
-	if (strcmp(variable_name(var), "USE_QT") != 0) {
+	if (strcmp(var, "USE_QT") != 0) {
 		return 0;
 	}
 

@@ -53,7 +53,7 @@ preserve_eol_comment(struct Token *t)
 		return 0;
 	}
 
-	if (!is_comment(t)) {
+	if (!is_comment(token_data(t))) {
 		return 1;
 	}
 

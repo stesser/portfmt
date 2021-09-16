@@ -39,6 +39,7 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "conditional.h"
 #include "parser.h"
 #include "parser/edits.h"
@@ -91,7 +92,7 @@ PARSER_EDIT(lint_clones)
 			break;
 		case VARIABLE_START: {
 			struct Variable *v = token_variable(t);
-			if (variable_modifier(v) == MODIFIER_ASSIGN) {
+			if (variable_modifier(v) == AST_NODE_VARIABLE_MODIFIER_ASSIGN) {
 				char *name = variable_name(v);
 				if (in_conditional > 0) {
 					set_add(seen_in_cond, name);

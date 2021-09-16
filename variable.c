@@ -39,13 +39,14 @@
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "regexp.h"
 #include "rules.h"
 #include "variable.h"
 
 struct Variable {
 	char *name;
-	enum VariableModifier modifier;
+	enum ASTNodeVariableModifier modifier;
 };
 
 struct Variable *
@@ -62,20 +63,20 @@ variable_new(const char *buf)
 		return NULL;
 	}
 
-	enum VariableModifier mod = MODIFIER_ASSIGN;
+	enum ASTNodeVariableModifier mod = AST_NODE_VARIABLE_MODIFIER_ASSIGN;
 	size_t i = 2;
 	switch (buf[len - 2]) {
 	case ':':
-		mod = MODIFIER_EXPAND;
+		mod = AST_NODE_VARIABLE_MODIFIER_EXPAND;
 		break;
 	case '!':
-		mod = MODIFIER_SHELL;
+		mod = AST_NODE_VARIABLE_MODIFIER_SHELL;
 		break;
 	case '?':
-		mod = MODIFIER_OPTIONAL;
+		mod = AST_NODE_VARIABLE_MODIFIER_OPTIONAL;
 		break;
 	case '+':
-		mod = MODIFIER_APPEND;
+		mod = AST_NODE_VARIABLE_MODIFIER_APPEND;
 		break;
 	default:
 		i = 1;
@@ -128,14 +129,14 @@ variable_compare(const void *ap, const void *bp, void *userdata)
 	return variable_cmp(a, b);
 }
 
-enum VariableModifier
+enum ASTNodeVariableModifier
 variable_modifier(struct Variable *var)
 {
 	return var->modifier;
 }
 
 void
-variable_set_modifier(struct Variable *var, enum VariableModifier modifier)
+variable_set_modifier(struct Variable *var, enum ASTNodeVariableModifier modifier)
 {
 	var->modifier = modifier;
 }
@@ -151,19 +152,19 @@ variable_tostring(struct Variable *var, struct Mempool *pool)
 {
 	const char *mod = NULL;
 	switch (var->modifier) {
-	case MODIFIER_APPEND:
+	case AST_NODE_VARIABLE_MODIFIER_APPEND:
 		mod = "+=";
 		break;
-	case MODIFIER_ASSIGN:
+	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
 		mod = "=";
 		break;
-	case MODIFIER_EXPAND:
+	case AST_NODE_VARIABLE_MODIFIER_EXPAND:
 		mod = ":=";
 		break;
-	case MODIFIER_OPTIONAL:
+	case AST_NODE_VARIABLE_MODIFIER_OPTIONAL:
 		mod = "?=";
 		break;
-	case MODIFIER_SHELL:
+	case AST_NODE_VARIABLE_MODIFIER_SHELL:
 		mod = "!=";
 		break;
 	}

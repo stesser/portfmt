@@ -30,20 +30,12 @@
 struct Variable;
 struct Mempool;
 
-enum VariableModifier {
-	MODIFIER_APPEND = 0,
-	MODIFIER_ASSIGN,
-	MODIFIER_EXPAND,
-	MODIFIER_OPTIONAL,
-	MODIFIER_SHELL,
-};
-
 struct Variable *variable_new(const char *);
 struct Variable *variable_clone(struct Variable *);
 int variable_cmp(struct Variable *, struct Variable *);
 int variable_compare(const void *, const void *, void *);
 void variable_free(struct Variable *);
-enum VariableModifier variable_modifier(struct Variable *);
-void variable_set_modifier(struct Variable *, enum VariableModifier);
+enum ASTNodeVariableModifier variable_modifier(struct Variable *);
+void variable_set_modifier(struct Variable *, enum ASTNodeVariableModifier);
 char *variable_name(struct Variable *);
 char *variable_tostring(struct Variable *, struct Mempool *);

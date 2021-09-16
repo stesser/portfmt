@@ -38,6 +38,7 @@
 #include <libias/flow.h>
 #include <libias/mempool.h>
 
+#include "ast.h"
 #include "conditional.h"
 #include "parser.h"
 #include "parser/edits.h"
@@ -64,9 +65,9 @@ static PARSER_EDIT(extract_tokens);
 static PARSER_EDIT(insert_variable);
 static PARSER_EDIT(merge_existent_var);
 static void append_tokens(struct Parser *, struct Array *, struct Array *);
-static void append_values(struct Parser *, struct Array *, enum VariableModifier, struct VariableMergeParameter *);
-static void append_values_last(struct Parser *, struct Array *, enum VariableModifier, struct VariableMergeParameter *);
-static void assign_values(struct Parser *, struct Array *, enum VariableModifier, const struct VariableMergeParameter *);
+static void append_values(struct Parser *, struct Array *, enum ASTNodeVariableModifier, struct VariableMergeParameter *);
+static void append_values_last(struct Parser *, struct Array *, enum ASTNodeVariableModifier, struct VariableMergeParameter *);
+static void assign_values(struct Parser *, struct Array *, enum ASTNodeVariableModifier, const struct VariableMergeParameter *);
 
 PARSER_EDIT(extract_tokens)
 {
@@ -76,7 +77,7 @@ PARSER_EDIT(extract_tokens)
 }
 
 void
-append_values(struct Parser *parser, struct Array *tokens, enum VariableModifier mod, struct VariableMergeParameter *params)
+append_values(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableModifier mod, struct VariableMergeParameter *params)
 {
 	ARRAY_FOREACH(params->values, struct Token *, v) {
 		switch (token_type(v)) {
@@ -95,7 +96,7 @@ append_values(struct Parser *parser, struct Array *tokens, enum VariableModifier
 }
 
 void
-append_values_last(struct Parser *parser, struct Array *tokens, enum VariableModifier mod, struct VariableMergeParameter *params)
+append_values_last(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableModifier mod, struct VariableMergeParameter *params)
 {
 	struct Token *last_token = array_get(tokens, array_len(tokens) - 1);
 	if (last_token) {
@@ -103,29 +104,29 @@ append_values_last(struct Parser *parser, struct Array *tokens, enum VariableMod
 		struct Token *t;
 		if (token_type(last_token) == VARIABLE_END) {
 			params->var = variable_clone(params->var);
-			variable_set_modifier(params->var, MODIFIER_APPEND);
+			variable_set_modifier(params->var, AST_NODE_VARIABLE_MODIFIER_APPEND);
 
 			t = token_new_variable_start(lines, params->var);
 			array_append(tokens, t);
 			parser_mark_edited(parser, t);
 
-			append_values(parser, tokens, MODIFIER_APPEND, params);
+			append_values(parser, tokens, AST_NODE_VARIABLE_MODIFIER_APPEND, params);
 
 			t = token_new_variable_end(lines, params->var);
 			array_append(tokens, t);
 			parser_mark_edited(parser, t);
-		} else if (is_comment(last_token)) {
+		} else if (is_comment(token_data(last_token))) {
 			t = token_new_variable_end(lines, params->var);
 			array_append(tokens, t);
 			parser_mark_edited(parser, t);
 
 			params->var = variable_clone(params->var);
-			variable_set_modifier(params->var, MODIFIER_APPEND);
+			variable_set_modifier(params->var, AST_NODE_VARIABLE_MODIFIER_APPEND);
 			t = token_new_variable_start(lines, params->var);
 			array_append(tokens, t);
 			parser_mark_edited(parser, t);
 
-			append_values(parser, tokens, MODIFIER_APPEND, params);
+			append_values(parser, tokens, AST_NODE_VARIABLE_MODIFIER_APPEND, params);
 		} else {
 			append_values(parser, tokens, mod, params);
 		}
@@ -135,7 +136,7 @@ append_values_last(struct Parser *parser, struct Array *tokens, enum VariableMod
 }
 
 void
-assign_values(struct Parser *parser, struct Array *tokens, enum VariableModifier mod, const struct VariableMergeParameter *params)
+assign_values(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableModifier mod, const struct VariableMergeParameter *params)
 {
 	ARRAY_FOREACH(params->values, struct Token *, v) {
 		switch (token_type(v)) {
@@ -429,7 +430,7 @@ PARSER_EDIT(merge_existent_var)
 	struct Array *tokens = array_new();
 
 	int found = 0;
-	enum VariableModifier mod = variable_modifier(params->var);
+	enum ASTNodeVariableModifier mod = variable_modifier(params->var);
 	size_t last_occ = array_len(ptokens) + 1;
 	int skip = 0;
 	ARRAY_FOREACH(ptokens, struct Token *, t) {
@@ -443,15 +444,15 @@ PARSER_EDIT(merge_existent_var)
 			if (variable_cmp(params->var, token_variable(t)) == 0) {
 				last_occ = find_last_occurrence_of_var(parser, ptokens, params, t_index);
 				found = 1;
-				if (mod == MODIFIER_ASSIGN ||
-				    (mod == MODIFIER_OPTIONAL && (params->behavior & PARSER_MERGE_OPTIONAL_LIKE_ASSIGN))) {
+				if (mod == AST_NODE_VARIABLE_MODIFIER_ASSIGN ||
+				    (mod == AST_NODE_VARIABLE_MODIFIER_OPTIONAL && (params->behavior & PARSER_MERGE_OPTIONAL_LIKE_ASSIGN))) {
 					append_tokens(parser, tokens, params->nonvars);
 					assign_values(parser, tokens, variable_modifier(token_variable(t)), params);
-				} else if (mod == MODIFIER_APPEND) {
+				} else if (mod == AST_NODE_VARIABLE_MODIFIER_APPEND) {
 					append_tokens(parser, tokens, params->nonvars);
 					array_append(tokens, t);
 					parser_mark_edited(parser, t);
-				} else if (mod == MODIFIER_SHELL) {
+				} else if (mod == AST_NODE_VARIABLE_MODIFIER_SHELL) {
 					parser_mark_for_gc(parser, t);
 				}
 			} else {
@@ -460,11 +461,11 @@ PARSER_EDIT(merge_existent_var)
 			break;
 		case VARIABLE_TOKEN:
 			if (found) {
-				if (mod == MODIFIER_ASSIGN || mod == MODIFIER_OPTIONAL) {
+				if (mod == AST_NODE_VARIABLE_MODIFIER_ASSIGN || mod == AST_NODE_VARIABLE_MODIFIER_OPTIONAL) {
 					// nada
-				} else if (mod == MODIFIER_SHELL) {
+				} else if (mod == AST_NODE_VARIABLE_MODIFIER_SHELL) {
 					parser_mark_for_gc(parser, t);
-				} else if (mod == MODIFIER_APPEND) {
+				} else if (mod == AST_NODE_VARIABLE_MODIFIER_APPEND) {
 					array_append(tokens, t);
 					parser_mark_edited(parser, t);
 				}
@@ -475,7 +476,7 @@ PARSER_EDIT(merge_existent_var)
 		case VARIABLE_END:
 			if (found) {
 				found = 0;
-				if (mod == MODIFIER_APPEND) {
+				if (mod == AST_NODE_VARIABLE_MODIFIER_APPEND) {
 					if (params->behavior & PARSER_MERGE_AFTER_LAST_IN_GROUP) {
 						if (t_index == last_occ) {
 							append_values_last(parser, tokens, variable_modifier(token_variable(t)), params);
@@ -489,7 +490,7 @@ PARSER_EDIT(merge_existent_var)
 						append_values(parser, tokens, variable_modifier(token_variable(t)), params);
 						array_append(tokens, t);
 					}
-				} else if (mod == MODIFIER_SHELL) {
+				} else if (mod == AST_NODE_VARIABLE_MODIFIER_SHELL) {
 					parser_mark_for_gc(parser, t);
 				}
 			} else {
@@ -533,19 +534,19 @@ PARSER_EDIT(edit_merge)
 		case VARIABLE_START:
 			var = token_variable(t);
 			switch (variable_modifier(var)) {
-			case MODIFIER_SHELL:
+			case AST_NODE_VARIABLE_MODIFIER_SHELL:
 				if (!(params->merge_behavior & PARSER_MERGE_SHELL_IS_DELETE)) {
 					break;
 				}
 				/* fallthrough */
-			case MODIFIER_OPTIONAL:
-				if (variable_modifier(var) == MODIFIER_OPTIONAL &&
+			case AST_NODE_VARIABLE_MODIFIER_OPTIONAL:
+				if (variable_modifier(var) == AST_NODE_VARIABLE_MODIFIER_OPTIONAL &&
 				    !(params->merge_behavior & PARSER_MERGE_OPTIONAL_LIKE_ASSIGN)) {
 					break;
 				}
 				/* fallthrough */
-			case MODIFIER_APPEND:
-			case MODIFIER_ASSIGN: {
+			case AST_NODE_VARIABLE_MODIFIER_APPEND:
+			case AST_NODE_VARIABLE_MODIFIER_ASSIGN: {
 				enum ParserLookupVariableBehavior behavior = PARSER_LOOKUP_DEFAULT;
 				if (params->merge_behavior & PARSER_MERGE_IGNORE_VARIABLES_IN_CONDITIONALS) {
 					behavior |= PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS;

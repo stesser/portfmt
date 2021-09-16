@@ -186,6 +186,9 @@ struct ASTNode {
 	};
 };
 
+extern const char *ASTNodeExprFlatType_identifier[];
+extern const char *ASTNodeVariableModifier_humanize[];
+
 struct ASTNode *ast_from_token_stream(struct Array *);
 struct Array *ast_to_token_stream(struct ASTNode *, struct Mempool *);
 void ast_free(struct ASTNode *);
