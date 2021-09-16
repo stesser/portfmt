@@ -47,6 +47,7 @@ struct Token {
 	struct Variable *var;
 	struct Target *target;
 	int goalcol;
+	int edited;
 	struct Range lines;
 };
 
@@ -214,6 +215,18 @@ char *
 token_data(struct Token *token)
 {
 	return token->data;
+}
+
+int
+token_edited(struct Token *token)
+{
+	return token->edited;
+}
+
+void
+token_mark_edited(struct Token *token)
+{
+	token->edited = 1;
 }
 
 int

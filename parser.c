@@ -80,7 +80,6 @@ struct Parser {
 	char *targetname;
 	char *varname;
 
-	struct Set *edited;
 	struct Mempool *pool;
 	struct Mempool *tokengc;
 	struct Array *tokens;
@@ -323,7 +322,6 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 
 	struct Parser *parser = xmalloc(sizeof(struct Parser));
 
-	parser->edited = set_new(NULL, NULL, NULL);
 	parser->pool = mempool_new();
 	parser->tokengc = mempool_new_unique();
 	parser->rawlines = array_new();
@@ -375,7 +373,6 @@ parser_free(struct Parser *parser)
 
 	mempool_free(parser->pool);
 	mempool_free(parser->tokengc);
-	set_free(parser->edited);
 	parser_metadata_free(parser);
 	array_free(parser->tokens);
 
@@ -898,7 +895,7 @@ parser_output_print_target_command(struct Parser *parser, struct Array *tokens)
 	if (!(parser->settings.behavior & PARSER_FORMAT_TARGET_COMMANDS) ||
 	    complexity > parser->settings.target_command_format_threshold) {
 		struct Token *t = array_get(tokens, 0);
-		if (!set_contains(parser->edited, t)) {
+		if (!token_edited(t)) {
 			parser_output_print_rawlines(parser, token_lines(t));
 			return;
 		}
@@ -1072,12 +1069,12 @@ parser_output_reformatted_helper(struct Parser *parser, struct Mempool *pool, st
 	/* Leave variables unformatted that have $\ in them. */
 	if ((array_len(arr) == 1 && strstr(token_data(t0), "$\001") != NULL) ||
 	    (leave_unformatted(parser, token_variable(t0)) &&
-	     !set_contains(parser->edited, t0))) {
+	     !token_edited(t0))) {
 		parser_output_print_rawlines(parser, token_lines(t0));
 		goto cleanup;
 	}
 
-	if (!set_contains(parser->edited, t0) &&
+	if (!token_edited(t0) &&
 	    (parser->settings.behavior & PARSER_OUTPUT_EDITED)) {
 		parser_output_print_rawlines(parser, token_lines(t0));
 		goto cleanup;
@@ -1245,7 +1242,7 @@ parser_output_reformatted(struct Parser *parser)
 	struct Array *variable_arr = mempool_array(pool);
 	struct Token *prev = NULL;
 	ARRAY_FOREACH(parser->tokens, struct Token *, o) {
-		int edited = set_contains(parser->edited, o);
+		int edited = token_edited(o);
 		switch (token_type(o)) {
 		case CONDITIONAL_END:
 			if (edited) {
@@ -1839,7 +1836,7 @@ parser_mark_for_gc(struct Parser *parser, struct Token *t)
 struct Token *
 parser_mark_edited(struct Parser *parser, struct Token *t)
 {
-	set_add(parser->edited, t);
+	token_mark_edited(t);
 	return t;
 }
 

@@ -62,6 +62,8 @@ struct Token *token_as_comment(struct Token *);
 struct Token *token_clone(struct Token *, const char *);
 struct Conditional *token_conditional(struct Token *);
 char *token_data(struct Token *);
+int token_edited(struct Token *);
+void token_mark_edited(struct Token *);
 int token_goalcol(struct Token *);
 struct Range *token_lines(struct Token *);
 struct Target *token_target(struct Token *);
