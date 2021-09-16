@@ -83,6 +83,7 @@ struct Parser {
 
 	struct Mempool *pool;
 	struct Mempool *tokengc;
+	struct ASTNode *ast;
 	struct Array *tokens;
 	struct Array *result;
 	struct Array *rawlines;
@@ -385,6 +386,7 @@ parser_free(struct Parser *parser)
 	free(parser->error_msg);
 	fclose(parser->inbuf.stream);
 	free(parser->inbuf.buf);
+	ast_free(parser->ast);
 	free(parser);
 }
 
@@ -1778,6 +1780,9 @@ parser_read_finish(struct Parser *parser)
 		return parser->error;
 	}
 
+	ast_free(parser->ast);
+	parser->ast = ast_from_token_stream(parser->tokens);
+
 	return parser->error;
 }
 
@@ -1888,6 +1893,9 @@ parser_edit(struct Parser *parser, struct Mempool *extpool, ParserEditFn f, void
 		array_free(parser->tokens);
 		parser->tokens = tokens;
 	}
+
+	ast_free(parser->ast);
+	parser->ast = ast_from_token_stream(parser->tokens);
 
 	if (parser->error != PARSER_ERROR_OK) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, parser_error_tostring(parser, pool));
