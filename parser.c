@@ -93,6 +93,11 @@ struct Parser {
 	int read_finished;
 };
 
+struct ParserFindGoalcolsState {
+	int moving_goalcol;
+	struct Array *nodes;
+};
+
 static size_t consume_comment(const char *);
 static size_t consume_conditional(const char *);
 static size_t consume_target(const char *);
@@ -108,17 +113,17 @@ static void parser_metadata_port_options(struct Parser *);
 static void parser_output_dump_tokens(struct Parser *);
 static void parser_output_prepare(struct Parser *);
 static void parser_output_print_rawlines(struct Parser *, struct Range *);
-static void parser_output_print_target_command(struct Parser *, struct Array *);
-static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct Array *);
-static struct Array *parser_output_reformatted_helper(struct Parser *, struct Mempool *, struct Array *);
+static void parser_output_print_target_command(struct Parser *, struct ASTNode *);
+static void parser_output_print_variable(struct Parser *, struct Mempool *, struct ASTNode *);
+static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTNodeVariable *, struct Array *);
 static void parser_output_reformatted(struct Parser *);
 static void parser_output_diff(struct Parser *);
-static void parser_propagate_goalcol(struct Parser *, size_t, size_t, int);
+static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
 static void parser_read_internal(struct Parser *);
 static void parser_read_line(struct Parser *, char *, size_t);
 static void parser_tokenize(struct Parser *, const char *, enum TokenType, size_t);
-static void print_newline_array(struct Parser *, struct Array *);
-static void print_token_array(struct Parser *, struct Array *);
+static void print_newline_array(struct Parser *, struct ASTNode *, struct Array *);
+static void print_token_array(struct Parser *, struct ASTNode *, struct Array *);
 static char *range_tostring(struct Mempool *, struct Range *);
 
 size_t
@@ -630,163 +635,156 @@ parser_tokenize(struct Parser *parser, const char *line, enum TokenType type, si
 	parser_set_error(parser, PARSER_ERROR_OK, NULL);
 }
 
-void
-parser_propagate_goalcol(struct Parser *parser, size_t start, size_t end,
-			 int moving_goalcol)
+
+static void
+parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 {
-	moving_goalcol = MAX(16, moving_goalcol);
-	for (size_t k = start; k <= end; k++) {
-		struct Token *t = array_get(parser->tokens, k);
-		if (token_variable(t) && !skip_goalcol(parser, variable_name(token_variable(t)))) {
-			token_set_goalcol(t, moving_goalcol);
+	this->moving_goalcol = MAX(16, this->moving_goalcol);
+	ARRAY_FOREACH(this->nodes, struct ASTNode *, node) {
+		node->meta.goalcol = this->moving_goalcol;
+	}
+
+	this->moving_goalcol = 0;
+	array_truncate(this->nodes);
+}
+
+static void
+parser_find_goalcols_helper(struct Parser *parser, struct ASTNode *node, struct ParserFindGoalcolsState *this)
+{
+	if (parser->error != PARSER_ERROR_OK) {
+		return;
+	}
+
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			parser_find_goalcols_helper(parser, child, this);
 		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			parser_find_goalcols_helper(parser, child, this);
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			parser_find_goalcols_helper(parser, child, this);
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			parser_find_goalcols_helper(parser, child, this);
+		}
+		break;
+	case AST_NODE_TARGET:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	case AST_NODE_COMMENT:
+		/* Ignore comments in between variables and
+		 * treat variables after them as part of the
+		 * same block, i.e., indent them the same way.
+		 */
+		ARRAY_FOREACH(node->comment.lines, const char *, line) {
+			if (!is_comment(line) && array_len(this->nodes) > 0) {
+				parser_propagate_goalcol(this);
+			}
+		}
+		break;
+	case AST_NODE_VARIABLE:
+		if (array_len(node->variable.words) > 0) {
+			if (skip_goalcol(parser, node->variable.name)) {
+				node->meta.goalcol = indent_goalcol(node->variable.name, node->variable.modifier);
+			} else {
+				array_append(this->nodes, node);
+				this->moving_goalcol = MAX(indent_goalcol(node->variable.name, node->variable.modifier), this->moving_goalcol);
+			}
+		}
+		break;
 	}
 }
 
 void
 parser_find_goalcols(struct Parser *parser)
 {
-	int moving_goalcol = 0;
-	size_t last = 0;
-	ssize_t tokens_start = -1;
-	ssize_t tokens_end = -1;
-	ARRAY_FOREACH(parser->tokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_END:
-		case VARIABLE_START:
-			break;
-		case VARIABLE_TOKEN:
-			if (tokens_start == -1) {
-				tokens_start = t_index;
-			}
-			tokens_end = t_index;
-
-			struct Variable *var = token_variable(t);
-			if (var && skip_goalcol(parser, variable_name(var))) {
-				token_set_goalcol(t, indent_goalcol(variable_name(var), variable_modifier(var)));
-			} else {
-				moving_goalcol = MAX(indent_goalcol(variable_name(var), variable_modifier(var)), moving_goalcol);
-			}
-			break;
-		case TARGET_END:
-		case TARGET_START:
-		case CONDITIONAL_END:
-		case CONDITIONAL_START:
-		case CONDITIONAL_TOKEN:
-		case TARGET_COMMAND_END:
-		case TARGET_COMMAND_START:
-		case TARGET_COMMAND_TOKEN:
-			break;
-		case COMMENT:
-			/* Ignore comments in between variables and
-			 * treat variables after them as part of the
-			 * same block, i.e., indent them the same way.
-			 */
-			if (is_comment(token_data(t))) {
-				continue;
-			}
-			if (tokens_start != -1) {
-				parser_propagate_goalcol(parser, last, tokens_end, moving_goalcol);
-				moving_goalcol = 0;
-				last = t_index;
-				tokens_start = -1;
-			}
-			break;
-		default:
-			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
-			return;
-		}
-	}
-	if (tokens_start != -1) {
-		parser_propagate_goalcol(parser, last, tokens_end, moving_goalcol);
-	}
+	SCOPE_MEMPOOL(pool);
+	struct ParserFindGoalcolsState this = {
+		.moving_goalcol = 0,
+		.nodes = mempool_array(pool),
+	};
+	parser_find_goalcols_helper(parser, parser->ast, &this);
+	parser_propagate_goalcol(&this);
 }
 
 void
-print_newline_array(struct Parser *parser, struct Array *arr)
+print_newline_array(struct Parser *parser, struct ASTNode *node, struct Array *arr)
 {
 	SCOPE_MEMPOOL(pool);
 
-	struct Token *o = array_get(arr, 0);
-	panic_unless(o && token_type(o) == VARIABLE_TOKEN &&
-		     token_data(o) && strlen(token_data(o)) != 0,
-		     "token does not have the right type");
+	size_t startlen = strlen(node->variable.name);
+	parser_enqueue_output(parser, node->variable.name);
+	if (str_endswith(node->variable.name, "+")) {
+		startlen++;
+		parser_enqueue_output(parser, " ");
+	}
+	parser_enqueue_output(parser, ASTNodeVariableModifier_humanize[node->variable.modifier]);
+	startlen += strlen(ASTNodeVariableModifier_humanize[node->variable.modifier]);
 
 	if (array_len(arr) == 0) {
-		parser_enqueue_output(parser, variable_tostring(token_variable(o), pool));
 		parser_enqueue_output(parser, "\n");
 		parser_set_error(parser, PARSER_ERROR_OK, NULL);
 		return;
 	}
 
-	char *start = variable_tostring(token_variable(o), pool);
-	parser_enqueue_output(parser, start);
-	size_t ntabs = ceil((MAX(16, token_goalcol(o)) - strlen(start)) / 8.0);
+	size_t ntabs = ceil((MAX(16, node->meta.goalcol) - startlen) / 8.0);
 	char *sep = str_repeat(pool, "\t", ntabs);
 	const char *end = " \\\n";
-	ARRAY_FOREACH(arr, struct Token *, o) {
-		struct Token *next = array_get(arr, o_index + 1);
-		char *line = token_data(o);
+	ARRAY_FOREACH(arr, const char *, line) {
+		const char *next = array_get(arr, line_index + 1);
 		if (!line || strlen(line) == 0) {
 			continue;
 		}
-		if (o_index == array_len(arr) - 1) {
+		if (line_index == array_len(arr) - 1) {
 			end = "\n";
 		}
 		parser_enqueue_output(parser, sep);
 		parser_enqueue_output(parser, line);
 		// Do not wrap end of line comments
-		if (next && is_comment(token_data(next))) {
+		if (next && is_comment(next)) {
 			sep = str_dup(pool, " ");
 			continue;
 		}
 		parser_enqueue_output(parser, end);
-		switch (token_type(o)) {
-		case VARIABLE_TOKEN:
-			if (o_index == 0) {
-				size_t ntabs = ceil(MAX(16, token_goalcol(o)) / 8.0);
-				sep = str_repeat(pool, "\t", ntabs);
-			}
-			break;
-		case CONDITIONAL_TOKEN:
-			sep = str_dup(NULL, "\t");
-			break;
-		case TARGET_COMMAND_TOKEN:
-			sep = str_dup(NULL, "\t\t");
-			break;
-		default:
-			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
-			return;
+		if (line_index == 0) {
+			size_t ntabs = ceil(MAX(16, node->meta.goalcol) / 8.0);
+			sep = str_repeat(pool, "\t", ntabs);
 		}
 	}
 }
 
 void
-print_token_array(struct Parser *parser, struct Array *tokens)
+print_token_array(struct Parser *parser, struct ASTNode *node, struct Array *tokens)
 {
 	SCOPE_MEMPOOL(pool);
 
 	if (array_len(tokens) < 2) {
-		print_newline_array(parser, tokens);
+		print_newline_array(parser, node, tokens);
 		return;
 	}
 
 	struct Array *arr = mempool_array(pool);
-	struct Token *o = array_get(tokens, 0);
 	size_t wrapcol;
-	if (token_variable(o) && ignore_wrap_col(parser, variable_name(token_variable(o)), variable_modifier(token_variable(o)))) {
+	if (ignore_wrap_col(parser, node->variable.name, node->variable.modifier)) {
 		wrapcol = 99999999;
 	} else {
 		/* Minus ' \' at end of line */
-		wrapcol = parser->settings.wrapcol - token_goalcol(o) - 2;
+		wrapcol = parser->settings.wrapcol - node->meta.goalcol - 2;
 	}
 
 	struct Array *row = mempool_array(pool);
 	size_t rowlen = 0;
-	struct Token *token = NULL;
-	ARRAY_FOREACH(tokens, struct Token *, t) {
+	const char *token = NULL;
+	ARRAY_FOREACH(tokens, const char *, t) {
 		token = t;
-		size_t tokenlen = strlen(token_data(token));
+		size_t tokenlen = strlen(token);
 		if (tokenlen == 0) {
 			continue;
 		}
@@ -795,9 +793,7 @@ print_token_array(struct Parser *parser, struct Array *tokens)
 				array_append(arr, token);
 				continue;
 			} else {
-				struct Token *t = token_clone(token, str_join(pool, row, ""));
-				parser_mark_for_gc(parser, t);
-				array_append(arr, t);
+				array_append(arr, str_join(pool, row, ""));
 				array_truncate(row);
 				rowlen = 0;
 			}
@@ -806,15 +802,13 @@ print_token_array(struct Parser *parser, struct Array *tokens)
 			array_append(row, " ");
 			rowlen++;
 		}
-		array_append(row, token_data(token));
+		array_append(row, token);
 		rowlen += tokenlen;
 	}
 	if (token && rowlen > 0 && array_len(arr) < array_len(tokens)) {
-		struct Token *t = token_clone(token, str_join(pool, row, ""));
-		parser_mark_for_gc(parser, t);
-		array_append(arr, t);
+		array_append(arr, str_join(pool, row, ""));
 	}
-	print_newline_array(parser, arr);
+	print_newline_array(parser, node, arr);
 }
 
 void
@@ -827,22 +821,19 @@ parser_output_print_rawlines(struct Parser *parser, struct Range *lines)
 }
 
 void
-parser_output_print_target_command(struct Parser *parser, struct Array *tokens)
+parser_output_print_target_command(struct Parser *parser, struct ASTNode *node)
 {
-	if (array_len(tokens) == 0) {
+	if (array_len(node->targetcommand.words) == 0) {
 		return;
 	}
 
 	SCOPE_MEMPOOL(pool);
 	struct Array *commands = mempool_array(pool);
 	struct Array *merge = mempool_array(pool);
-	char *command = NULL;
+	const char *command = NULL;
 	int wrap_after = 0;
-	ARRAY_FOREACH(tokens, struct Token *, t) {
-		char *word = token_data(t);
-		panic_unless(token_type(t) == TARGET_COMMAND_TOKEN,
-			     "token is not a TARGET_COMMAND_TOKEN");
-		panic_unless(word && strlen(word) != 0, "token data is empty");
+	ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
+		panic_unless(word && strlen(word) != 0, "target command token is empty");
 
 		if (command == NULL) {
 			command = word;
@@ -941,9 +932,9 @@ parser_output_print_target_command(struct Parser *parser, struct Array *tokens)
 
 	if (!(parser->settings.behavior & PARSER_FORMAT_TARGET_COMMANDS) ||
 	    complexity > parser->settings.target_command_format_threshold) {
-		struct Token *t = array_get(tokens, 0);
-		if (!token_edited(t)) {
-			parser_output_print_rawlines(parser, token_lines(t));
+		if (!node->edited) {
+			struct Range range = { .start = node->line_start.a, node->line_end.b };
+			parser_output_print_rawlines(parser, &range);
 			return;
 		}
 	}
@@ -958,7 +949,7 @@ parser_output_print_target_command(struct Parser *parser, struct Array *tokens)
 
 		parser_enqueue_output(parser, word);
 		if (wrapped) {
-			if (word_index == array_len(tokens) - 1) {
+			if (word_index == array_len(node->targetcommand.words) - 1) {
 				parser_enqueue_output(parser, endline);
 			} else {
 				if (strcmp(word, "") != 0) {
@@ -967,7 +958,7 @@ parser_output_print_target_command(struct Parser *parser, struct Array *tokens)
 				parser_enqueue_output(parser, endnext);
 			}
 		} else {
-			if (word_index == array_len(tokens) - 1) {
+			if (word_index == array_len(node->targetcommand.words) - 1) {
 				parser_enqueue_output(parser, endline);
 			} else {
 				parser_enqueue_output(parser, endword);
@@ -1033,17 +1024,15 @@ matches_opt_use_prefix(const char *s)
 }
 
 struct Array *
-parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct Array *arr)
+parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct ASTNodeVariable *var, struct Array *arr)
 {
 	if (array_len(arr) == 0) {
 		return arr;
 	}
 
-	struct Token *t = array_get(arr, 0);
-	panic_unless(token_type(t) == VARIABLE_TOKEN, "token is not a VARIABLE_TOKEN");
 	int opt_use = 0;
 	char *helper = NULL;
-	if (is_options_helper(pool, parser, variable_name(token_variable(t)), NULL, &helper, NULL)) {
+	if (is_options_helper(pool, parser, var->name, NULL, &helper, NULL)) {
 		if (strcmp(helper, "USE") == 0 || strcmp(helper, "USE_OFF") == 0)  {
 			opt_use = 1;
 		} else if (strcmp(helper, "VARS") == 0 || strcmp(helper, "VARS_OFF") == 0) {
@@ -1056,129 +1045,95 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 	}
 
 	struct Array *up = mempool_array(pool);
-	ARRAY_FOREACH(arr, struct Token *, t) {
-		panic_unless(token_type(t) == VARIABLE_TOKEN, "token is not a VARIABLE_TOKEN");
-		if (!matches_opt_use_prefix(token_data(t))) {
+	ARRAY_FOREACH(arr, const char *, t) {
+		if (!matches_opt_use_prefix(t)) {
 			array_append(up, t);
 			continue;
 		}
-		char *suffix = strchr(token_data(t), '=');
-		if (suffix == NULL ) {
+		char *suffix = strchr(t, '=');
+		if (suffix == NULL) {
 			array_append(up, t);
 			continue;
 		}
 		suffix++;
 
-		char *prefix = str_map(pool, token_data(t), suffix - token_data(t), toupper);
+		char *prefix = str_map(pool, t, suffix - t, toupper);
+		enum ASTNodeVariableModifier mod = AST_NODE_VARIABLE_MODIFIER_ASSIGN;
+		if ((suffix - t) >= 1 && prefix[suffix - t - 1] == '=') {
+			prefix[suffix - t - 1] = 0;
+		}
+		if ((suffix - t) >= 2 && prefix[suffix - t - 2] == '+') {
+			mod = AST_NODE_VARIABLE_MODIFIER_APPEND;
+			prefix[suffix - t - 2] = 0;
+		}
 		struct Array *buf = mempool_array(pool);
 		if (opt_use) {
 			struct Array *values = mempool_array(pool);
 			char *var = str_printf(pool, "USE_%s", prefix);
 			array_append(buf, prefix);
+			array_append(buf, ASTNodeVariableModifier_humanize[mod]);
 			char *s, *token;
 			s = str_dup(pool, suffix);
 			while ((token = strsep(&s, ",")) != NULL) {
-				struct Variable *v = mempool_add(pool, variable_new(var), variable_free);
-				struct Token *t2 = token_new_variable_token(token_lines(t), v, token);
-				if (t2 != NULL) {
-					mempool_add(pool, t2, token_free);
-					array_append(values, t2);
-				}
+				array_append(values, str_dup(pool, token));
 			}
-
-			array_sort(values, compare_tokens, parser);
-			ARRAY_FOREACH(values, struct Token *, t2) {
-				array_append(buf, token_data(t2));
+			struct CompareTokensData data = {
+				.parser = parser,
+				.var = var,
+			};
+			array_sort(values, compare_tokens, &data);
+			ARRAY_FOREACH(values, const char *, t2) {
+				array_append(buf, t2);
 				if (t2_index < array_len(values) - 1) {
 					array_append(buf, ",");
 				}
 			}
 		} else {
 			array_append(buf, prefix);
+			array_append(buf, ASTNodeVariableModifier_humanize[mod]);
 			array_append(buf, suffix);
 		}
 
-		struct Token *t2 = token_clone(t, str_join(pool, buf, ""));
-		parser_mark_for_gc(parser, t2);
-		array_append(up, t2);
+		array_append(up, str_join(pool, buf, ""));
 	}
 	return up;
 }
 
-struct Array *
-parser_output_reformatted_helper(struct Parser *parser, struct Mempool *pool, struct Array *arr)
+void
+parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct ASTNode *node)
 {
-	if (array_len(arr) == 0) {
-		return arr;
-	}
-	struct Token *t0 = array_get(arr, 0);
+	panic_unless(node->type == AST_NODE_VARIABLE, "expected AST_NODE_VARIABLE");
+	struct Array *words = node->variable.words;
 
 	/* Leave variables unformatted that have $\ in them. */
-	if ((array_len(arr) == 1 && strstr(token_data(t0), "$\001") != NULL) ||
-	    (leave_unformatted(parser, variable_name(token_variable(t0))) &&
-	     !token_edited(t0))) {
-		parser_output_print_rawlines(parser, token_lines(t0));
-		goto cleanup;
+	struct Range range = { .start = node->line_start.a, node->line_end.b };
+	if ((array_len(words) == 1 && strstr(array_get(words, 0), "$\001") != NULL) ||
+	    (leave_unformatted(parser, node->variable.name) &&
+	     !node->edited)) {
+		parser_output_print_rawlines(parser, &range);
+		return;
 	}
 
-	if (!token_edited(t0) &&
+	if (!node->edited &&
 	    (parser->settings.behavior & PARSER_OUTPUT_EDITED)) {
-		parser_output_print_rawlines(parser, token_lines(t0));
-		goto cleanup;
+		parser_output_print_rawlines(parser, &range);
+		return;
 	}
 
 	if (!(parser->settings.behavior & PARSER_UNSORTED_VARIABLES) &&
-	    should_sort(parser, variable_name(token_variable(t0)), variable_modifier(token_variable(t0)))) {
-		arr = parser_output_sort_opt_use(parser, pool, arr);
-		array_sort(arr, compare_tokens, parser);
+	    should_sort(parser, node->variable.name, node->variable.modifier)) {
+		words = parser_output_sort_opt_use(parser, pool, &node->variable, words);
+		struct CompareTokensData data = {
+			.parser = parser,
+			.var = node->variable.name,
+		};
+		array_sort(words, compare_tokens, &data);
 	}
 
-	t0 = array_get(arr, 0);
-	if (print_as_newlines(parser, variable_name(token_variable(t0)))) {
-		print_newline_array(parser, arr);
+	if (print_as_newlines(parser, node->variable.name)) {
+		print_newline_array(parser, node, words);
 	} else {
-		print_token_array(parser, arr);
-	}
-
-cleanup:
-	array_truncate(arr);
-	return arr;
-}
-
-static void
-parser_output_edited_insert_empty(struct Parser *parser, struct Token *prev)
-{
-	switch (token_type(prev)) {
-	case CONDITIONAL_END: {
-		enum ConditionalType type = conditional_type(token_conditional(prev));
-		switch (type) {
-		case COND_ENDFOR:
-		case COND_ENDIF:
-		case COND_ERROR:
-		case COND_EXPORT_ENV:
-		case COND_EXPORT_LITERAL:
-		case COND_EXPORT:
-		case COND_INCLUDE_POSIX:
-		case COND_INCLUDE:
-		case COND_SINCLUDE:
-		case COND_UNDEF:
-		case COND_UNEXPORT_ENV:
-		case COND_UNEXPORT:
-		case COND_WARNING:
-			parser_enqueue_output(parser, "\n");
-			break;
-		default:
-			break;
-		}
-		break;
-	} case COMMENT:
-	case TARGET_COMMAND_END:
-	case TARGET_END:
-	case TARGET_START:
-		break;
-	default:
-		parser_enqueue_output(parser, "\n");
-		break;
+		print_token_array(parser, node, words);
 	}
 }
 
@@ -1249,11 +1204,125 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNod
 	}
 }
 
-void
-parser_output_reformatted(struct Parser *parser)
+static void
+parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
 {
 	SCOPE_MEMPOOL(pool);
 
+	int edited = node->edited;
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			parser_output_reformatted_helper(parser, child);
+		}
+		break;
+	case AST_NODE_COMMENT:
+		if (edited) {
+			ARRAY_FOREACH(node->comment.lines, const char *, line) {
+				parser_enqueue_output(parser, line);
+				parser_enqueue_output(parser, "\n");
+			}
+		} else {
+			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (edited) {
+			const char *name = ASTNodeExprFlatType_identifier[node->flatexpr.type];
+			const char *dot;
+			switch (node->flatexpr.type) {
+			case AST_NODE_EXPR_INCLUDE_POSIX:
+				dot = "";
+				break;
+			default:
+				dot = ".";
+				break;
+			}
+			// TODO: Apply some formatting like line breaks instead of just one long forever line???
+			parser_enqueue_output(parser, str_printf(pool, "%s%s%s %s\n",
+				dot, str_repeat(pool, " ", node->flatexpr.indent), name, str_join(pool, node->flatexpr.words, " ")));
+		} else {
+			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		if (edited) {
+			const char *indent = str_repeat(pool, " ", node->forexpr.indent);
+			// TODO: Apply some formatting like line breaks instead of just one long forever line???
+			parser_enqueue_output(parser, str_printf(pool, ".%sfor %s in %s\n",
+				indent,
+				str_join(pool, node->forexpr.bindings, " "),
+				str_join(pool, node->forexpr.words, " ")));
+			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+				parser_output_reformatted_helper(parser, child);
+			}
+			parser_enqueue_output(parser, str_printf(pool, ".%sendfor\n", indent));
+		} else {
+			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+				parser_output_reformatted_helper(parser, child);
+			}
+			parser_output_print_rawlines(parser, (struct Range *)&node->line_end);
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		if (edited) {
+			// TODO
+		} else {
+			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+				parser_output_reformatted_helper(parser, child);
+			}
+			if (array_len(node->ifexpr.orelse) > 0) {
+				struct ASTNode *next = array_get(node->ifexpr.orelse, 0);
+				if (next && next->type == AST_NODE_EXPR_IF && next->ifexpr.type == AST_NODE_EXPR_IF_ELSE) {
+					parser_output_print_rawlines(parser, (struct Range *)&next->line_start); // .else
+					ARRAY_FOREACH(next->ifexpr.body, struct ASTNode *, child) {
+						parser_output_reformatted_helper(parser, child);
+					}
+				} else {
+					ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+						parser_output_reformatted_helper(parser, child);
+					}
+				}
+			}
+			unless (node->ifexpr.ifparent) { // .endif
+				parser_output_print_rawlines(parser, (struct Range *)&node->line_end);
+			}
+		}
+		break;
+	case AST_NODE_TARGET:
+		if (edited) {
+			const char *sep = "";
+			if (array_len(node->target.dependencies) > 0) {
+				sep = " ";
+			}
+			parser_enqueue_output(parser, str_printf(pool, "%s:%s%s\n",
+				str_join(pool, node->target.sources, " "),
+				sep,
+				str_join(pool, node->target.dependencies, " ")));
+			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+				parser_output_reformatted_helper(parser, child);
+			}
+		} else {
+			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+				parser_output_reformatted_helper(parser, child);
+			}
+		}
+		break;
+	case AST_NODE_TARGET_COMMAND:
+		parser_output_print_target_command(parser, node);
+		break;
+	case AST_NODE_VARIABLE:
+			parser_output_print_variable(parser, pool, node);
+		break;
+	}
+}
+
+void
+parser_output_reformatted(struct Parser *parser)
+{
 	parser_find_goalcols(parser);
 	if (parser->error != PARSER_ERROR_OK) {
 		return;
@@ -1261,95 +1330,9 @@ parser_output_reformatted(struct Parser *parser)
 
 	if (parser_is_category_makefile(parser, parser->ast)) {
 		parser_output_category_makefile_reformatted(parser, parser->ast);
-		return;
+	} else {
+		parser_output_reformatted_helper(parser, parser->ast);
 	}
-
-	struct Array *target_arr = mempool_array(pool);
-	struct Array *variable_arr = mempool_array(pool);
-	struct Token *prev = NULL;
-	ARRAY_FOREACH(parser->tokens, struct Token *, o) {
-		int edited = token_edited(o);
-		switch (token_type(o)) {
-		case CONDITIONAL_END:
-			if (edited) {
-				parser_enqueue_output(parser, "\n");
-			} else {
-				parser_output_print_rawlines(parser, token_lines(o));
-			}
-			break;
-		case CONDITIONAL_START:
-			if (edited && prev) {
-				parser_output_edited_insert_empty(parser, prev);
-			}
-			break;
-		case CONDITIONAL_TOKEN:
-			if (edited) {
-				parser_enqueue_output(parser, token_data(o));
-				parser_enqueue_output(parser, " ");
-			}
-			break;
-		case VARIABLE_END:
-			if (array_len(variable_arr) == 0) {
-				parser_enqueue_output(parser, variable_tostring(token_variable(o), pool));
-				parser_enqueue_output(parser, "\n");
-				array_truncate(variable_arr);
-			} else {
-				variable_arr = parser_output_reformatted_helper(parser, pool, variable_arr);
-			}
-			break;
-		case VARIABLE_START:
-			array_truncate(variable_arr);
-			break;
-		case VARIABLE_TOKEN:
-			array_append(variable_arr, o);
-			break;
-		case TARGET_COMMAND_END:
-			parser_output_print_target_command(parser, target_arr);
-			array_truncate(target_arr);
-			break;
-		case TARGET_COMMAND_START:
-			array_truncate(target_arr);
-			break;
-		case TARGET_COMMAND_TOKEN:
-			array_append(target_arr, o);
-			break;
-		case TARGET_END:
-			break;
-		case COMMENT:
-			variable_arr = parser_output_reformatted_helper(parser, pool, variable_arr);
-			if (edited) {
-				parser_enqueue_output(parser, token_data(o));
-				parser_enqueue_output(parser, "\n");
-			} else {
-				parser_output_print_rawlines(parser, token_lines(o));
-			}
-			break;
-		case TARGET_START:
-			variable_arr = parser_output_reformatted_helper(parser, pool, variable_arr);
-			if (edited) {
-				if (prev) {
-					parser_output_edited_insert_empty(parser, prev);
-				}
-				parser_enqueue_output(parser, token_data(o));
-				parser_enqueue_output(parser, "\n");
-			} else {
-				parser_output_print_rawlines(parser, token_lines(o));
-			}
-			break;
-		default:
-			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
-			return;
-		}
-		if (parser->error != PARSER_ERROR_OK) {
-			return;
-		}
-		prev = o;
-	}
-	if (array_len(target_arr) > 0) {
-		print_token_array(parser, target_arr);
-		array_truncate(target_arr);
-	}
-	parser_output_reformatted_helper(parser, pool, variable_arr);
 }
 
 void

@@ -174,6 +174,9 @@ struct ASTNode {
 	struct ASTNodeLineRange line_start;
 	struct ASTNodeLineRange line_end;
 	int edited;
+	struct {
+		int goalcol;
+	} meta;
 	union {
 		struct ASTNodeRoot root;
 		struct ASTNodeComment comment;

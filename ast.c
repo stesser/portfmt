@@ -602,6 +602,7 @@ ast_from_token_stream(struct Array *tokens)
 
 		case VARIABLE_START:
 			array_truncate(current_var);
+			array_append(current_var, t); // XXX: Hack to make the old refactor_collapse_adjacent_variables work correctly...
 			break;
 		case VARIABLE_TOKEN:
 			array_append(current_var, t);
@@ -613,11 +614,11 @@ ast_from_token_stream(struct Array *tokens)
 			}
 			struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_VARIABLE, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeVariable){
 				.name = variable_name(token_variable(t)),
-				.modifier = variable_modifier(token_variable(t)),
+				.modifier = variable_modifier(token_variable(array_get(current_var, 0))),
 			});
 			node->edited = token_edited(t);
 			node->line_end = node->line_start;
-			ARRAY_FOREACH(current_var, struct Token *, t) {
+			ARRAY_FOREACH_SLICE(current_var, 1, -1, struct Token *, t) {
 				if (t_index == 0) {
 					node->line_start = *((struct ASTNodeLineRange *)token_lines(t));
 				}
