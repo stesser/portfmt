@@ -31,14 +31,68 @@
 #include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <libias/array.h>
 #include <libias/flow.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "rules.h"
+
+struct WalkerData {
+	int found;
+};
+
+static enum ASTWalkState
+lint_bsd_port_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE:
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) > 0) {
+			const char *word = array_get(node->flatexpr.words, 0);
+			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.mk>") == 0) {
+				this->found = 1;
+				return AST_WALK_STOP;
+			}
+		}
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
 
 PARSER_EDIT(lint_bsd_port)
 {
@@ -46,15 +100,14 @@ PARSER_EDIT(lint_bsd_port)
 		return 0;
 	}
 
-	int invalid = 1;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (is_include_bsd_port_mk(t)) {
-			invalid = 0;
-			break;
-		}
-	}
-	if (invalid) {
+	struct WalkerData this = {
+		.found = 0,
+	};
+	lint_bsd_port_walker(&this, root);
+
+	unless (this.found) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "not a FreeBSD Ports Makefile");
 	}
+
 	return 0;
 }
