@@ -37,10 +37,63 @@
 #include <libias/flow.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "token.h"
-#include "variable.h"
+
+struct WalkerData {
+	struct Parser *parser;
+	struct Mempool *pool;
+	struct ParserEditOutput *param;
+};
+
+static enum ASTWalkState
+output_variable_value_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_variable_value_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_variable_value_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_variable_value_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_variable_value_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_variable_value_walker(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE:
+		if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, node->variable.name, this->param->keyuserdata))) {
+			this->param->found = 1;
+			ARRAY_FOREACH(node->variable.words, const char *, word) {
+				if ((this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
+					if (this->param->callback) {
+						this->param->callback(this->pool, node->variable.name, word, NULL, this->param->callbackuserdata);
+					}
+				}
+			}
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
 
 PARSER_EDIT(output_variable_value)
 {
@@ -51,28 +104,11 @@ PARSER_EDIT(output_variable_value)
 	}
 
 	param->found = 0;
-
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_START:
-			if ((param->keyfilter == NULL || param->keyfilter(parser, variable_name(token_variable(t)), param->keyuserdata))) {
-				param->found = 1;
-			}
-			break;
-		case VARIABLE_TOKEN:
-			if (param->found && token_data(t) &&
-			    (param->keyfilter == NULL || param->keyfilter(parser, variable_name(token_variable(t)), param->keyuserdata)) &&
-			    (param->filter == NULL || param->filter(parser, token_data(t), param->filteruserdata))) {
-				param->found = 1;
-				if (param->callback) {
-					param->callback(extpool, variable_name(token_variable(t)), token_data(t), NULL, param->callbackuserdata);
-				}
-			}
-			break;
-		default:
-			break;
-		}
-	}
+	output_variable_value_walker(&(struct WalkerData){
+		.parser = parser,
+		.pool = extpool,
+		.param = param,
+	}, root);
 
 	return NULL;
 }
