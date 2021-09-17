@@ -103,7 +103,7 @@ parser/edits/output/target_command_token.o: config.h libias/array.h libias/flow.
 parser/edits/output/unknown_targets.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/output/unknown_variables.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/output/variable_value.o: config.h libias/array.h libias/flow.h libias/str.h ast.h parser.h parser/edits.h
-parser/edits/refactor/collapse_adjacent_variables.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h ast.h parser.h parser/edits.h rules.h token.h variable.h
+parser/edits/refactor/collapse_adjacent_variables.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/dedup_tokens.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h token.h variable.h
 parser/edits/refactor/remove_consecutive_empty_lines.o: config.h libias/array.h libias/flow.h libias/str.h parser.h parser/edits.h rules.h token.h variable.h
 parser/edits/refactor/sanitize_append_modifier.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h ast.h parser.h parser/edits.h rules.h token.h variable.h

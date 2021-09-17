@@ -31,22 +31,30 @@
 #include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <libias/array.h>
 #include <libias/flow.h>
 #include <libias/mempool.h>
-#include <libias/set.h>
 
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
+
+struct WalkerData {
+	struct Parser *parser;
+	struct Mempool *pool;
+};
 
 static int
-has_valid_modifier(struct Variable *var) {
-	switch (variable_modifier(var)) {
+is_candidate(struct ASTNode *node)
+{
+	if (node->type != AST_NODE_VARIABLE) {
+		return 0;
+	}
+
+	switch (node->variable.modifier) {
 	case AST_NODE_VARIABLE_MODIFIER_APPEND:
 	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
 		return 1;
@@ -56,35 +64,120 @@ has_valid_modifier(struct Variable *var) {
 }
 
 static int
-next_variable_has_eol_comment(struct Array *tokens, size_t i) {
-	// Skip until next variable
-	int found = 0;
-	for (i++; i < array_len(tokens); i++) {
-		struct Token *t = array_get(tokens, i);
-		if (token_type(t) == VARIABLE_START) {
-			i++;
-			found = 1;
-			break;
-		}
-	}
-	if (!found) {
-		return 0;
-	}
-	for (; i < array_len(tokens); i++) {
-		struct Token *t = array_get(tokens, i);
-		switch (token_type(t)) {
-		case VARIABLE_TOKEN:
-			if (is_comment(token_data(t))) {
-				return 1;
-			}
-			break;
-		case VARIABLE_END:
-			return 0;
-		default:
-			panic("unhandled token type: %d", token_type(t));
+has_eol_comment(struct ASTNode *node)
+{
+	ARRAY_FOREACH(node->variable.words, const char *, word) {
+		if (is_comment(word)) {
+			return 1;
 		}
 	}
 	return 0;
+}
+
+static void
+merge_variables(struct Array *nodelist, struct Array *group)
+{
+	if (array_len(group) < 2) {
+		return;
+	}
+
+	SCOPE_MEMPOOL(pool);
+
+	struct ASTNode *first = array_get(group, 0);
+	struct ASTNode *last = array_get(group, array_len(group) - 1);
+	ARRAY_FOREACH_SLICE(group, 1, -1, struct ASTNode *, node) {
+		ARRAY_FOREACH(node->variable.words, const char *, word) {
+			array_append(first->variable.words, word);
+		}
+	}
+	first->edited = 1;
+	first->line_end = last->line_end;
+
+	struct Array *newnodelist = mempool_array(pool);
+	ARRAY_FOREACH(nodelist, struct ASTNode *, node) {
+		if (node->type == AST_NODE_VARIABLE) {
+			if (array_find(group, node, NULL, NULL) < 1) {
+				array_append(newnodelist, node);
+			}
+		} else {
+			array_append(newnodelist, node);
+		}
+	}
+	array_truncate(nodelist);
+	ARRAY_FOREACH(newnodelist, struct ASTNode *, node) {
+		array_append(nodelist, node);
+	}
+}
+
+static void
+process_siblings(struct Array *nodelist, struct Array *siblings)
+{
+	SCOPE_MEMPOOL(pool);
+
+	struct Array *group = mempool_array(pool);
+	const char *name = NULL;
+	ARRAY_FOREACH(siblings, struct ASTNode *, node) {
+		unless (name) {
+			name = node->variable.name;
+		}
+		if (!is_candidate(node) || strcmp(name, node->variable.name) != 0 || has_eol_comment(node)) {
+			merge_variables(nodelist, group);
+			group = mempool_array(pool);
+			name = NULL;
+		} else {
+			array_append(group, node);
+		}
+	}
+	merge_variables(nodelist, group);
+
+	array_truncate(siblings);
+}
+
+static enum ASTWalkState
+refactor_collapse_adjacent_variables_walker(struct WalkerData *this, struct ASTNode *node, struct Array *last_siblings)
+{
+	SCOPE_MEMPOOL(pool);
+	struct Array *siblings = mempool_array(pool);
+
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+		}
+		process_siblings(node->root.body, siblings);
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+		}
+		process_siblings(node->forexpr.body, siblings);
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+		}
+		process_siblings(node->ifexpr.body, siblings);
+
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+		}
+		process_siblings(node->ifexpr.orelse, siblings);
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+		}
+		process_siblings(node->target.body, siblings);
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_VARIABLE:
+	case AST_NODE_EXPR_FLAT:
+		array_append(last_siblings, node);
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
 }
 
 PARSER_EDIT(refactor_collapse_adjacent_variables)
@@ -96,52 +189,11 @@ PARSER_EDIT(refactor_collapse_adjacent_variables)
 		return 0;
 	}
 
-	struct Array *tokens = array_new();
-	struct Variable *last_var = NULL;
-	struct Token *last_end = NULL;
-	struct Token *last_token = NULL;
-	struct Set *ignored_tokens = mempool_set(pool, NULL, NULL, NULL);
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_START:
-			if (last_var != NULL &&
-			    variable_cmp(token_variable(t), last_var) == 0 &&
-			    has_valid_modifier(last_var) &&
-			    has_valid_modifier(token_variable(t)) &&
-			    last_end) {
-				if (!next_variable_has_eol_comment(ptokens, t_index)) {
-					set_add(ignored_tokens, t);
-					set_add(ignored_tokens, last_end);
-				}
-				last_end = NULL;
-			}
-			break;
-		case VARIABLE_TOKEN:
-			last_token = t;
-			break;
-		case VARIABLE_END:
-			if ((!last_token || !is_comment(token_data(last_token))) &&
-			    !next_variable_has_eol_comment(ptokens, t_index)) {
-				last_end = t;
-			}
-			last_token = NULL;
-			last_var = token_variable(t);
-			break;
-		default:
-			last_var = NULL;
-			break;
-		}
-	}
+	refactor_collapse_adjacent_variables_walker(&(struct WalkerData){
+		.parser = parser,
+		.pool = pool,
+	}, root, mempool_array(pool));
 
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (set_contains(ignored_tokens, t)) {
-			parser_mark_for_gc(parser, t);
-		} else {
-			array_append(tokens, t);
-		}
-	}
-
-	*new_tokens = tokens;
-	return 0;
+	return 1;
 }
 
