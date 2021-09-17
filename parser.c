@@ -434,7 +434,6 @@ parser_free(struct Parser *parser)
 	free(parser->error_msg);
 	fclose(parser->inbuf.stream);
 	free(parser->inbuf.buf);
-	ast_free(parser->ast);
 	free(parser);
 }
 
@@ -1757,8 +1756,8 @@ parser_read_finish(struct Parser *parser)
 
 	// Set it now to avoid recursion in parser_edit()
 	parser->read_finished = 1;
-	ast_free(parser->ast);
 	parser->ast = ast_from_token_stream(parser->tokens);
+	mempool_add(parser->pool, parser->ast, ast_free);
 
 	if (parser->settings.behavior & PARSER_SANITIZE_COMMENTS &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_comments, NULL)) {
@@ -1901,10 +1900,9 @@ parser_edit(struct Parser *parser, struct Mempool *extpool, ParserEditFn f, void
 	if (tokens && tokens != parser->tokens) {
 		array_free(parser->tokens);
 		parser->tokens = tokens;
+		parser->ast = ast_from_token_stream(parser->tokens);
+		mempool_add(parser->pool, parser->ast, ast_free);
 	}
-
-	ast_free(parser->ast);
-	parser->ast = ast_from_token_stream(parser->tokens);
 
 	if (parser->error != PARSER_ERROR_OK) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, parser_error_tostring(parser, pool));
