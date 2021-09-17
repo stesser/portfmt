@@ -43,63 +43,78 @@
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
 
 enum DedupAction {
-	APPEND,
 	DEFAULT,
-	SKIP,
+	APPEND,
 	USES,
 };
 
-PARSER_EDIT(refactor_dedup_tokens)
+struct WalkerData {
+	struct Parser *parser;
+};
+
+static enum ASTWalkState
+refactor_dedup_tokens_walker(struct WalkerData *this, struct ASTNode *node)
 {
 	SCOPE_MEMPOOL(pool);
 
-	if (userdata != NULL) {
-		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
-	}
-
-	struct Array *tokens = array_new();
-	struct Set *seen = mempool_set(pool, str_compare, NULL, NULL);
-	struct Set *uses = mempool_set(pool, str_compare, NULL, NULL);
-	enum DedupAction action = DEFAULT;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_START:
-			set_truncate(seen);
-			set_truncate(uses);
-			action = DEFAULT;
-			if (skip_dedup(parser, variable_name(token_variable(t)), variable_modifier(token_variable(t)))) {
-				action = SKIP;
-			} else {
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	case AST_NODE_VARIABLE:
+		if (skip_dedup(this->parser, node->variable.name, node->variable.modifier)) {
+			return AST_WALK_CONTINUE;
+		} else {
+			struct Set *seen = mempool_set(pool, str_compare, NULL, NULL);
+			struct Set *uses = mempool_set(pool, str_compare, NULL, NULL);
+			enum DedupAction action = DEFAULT;
+			struct Array *words = mempool_array(pool);
+			ARRAY_FOREACH(node->variable.words, const char *, word) {
 				// XXX: Handle *_DEPENDS (turn 'RUN_DEPENDS=foo>=1.5.6:misc/foo foo>0:misc/foo'
 				// into 'RUN_DEPENDS=foo>=1.5.6:misc/foo')?
 				char *helper = NULL;
-				if (is_options_helper(pool, parser, variable_name(token_variable(t)), NULL, &helper, NULL)) {
+				if (is_comment(word)) {
+					action = APPEND;
+				} else if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {
 					if (strcmp(helper, "USES") == 0 || strcmp(helper, "USES_OFF") == 0) {
 						action = USES;
 					}
-				} else if (strcmp(variable_name(token_variable(t)), "USES") == 0) {
+				} else if (strcmp(node->variable.name, "USES") == 0) {
 					action = USES;
 				}
-			}
-			array_append(tokens, t);
-			break;
-		case VARIABLE_TOKEN:
-			if (action == SKIP) {
-				array_append(tokens, t);
-			} else {
-				if (is_comment(token_data(t))) {
-					action = APPEND;
-				}
-				if (action == APPEND) {
-					array_append(tokens, t);
-					set_add(seen, token_data(t));
-				} else if (action == USES) {
-					char *buf = str_dup(pool, token_data(t));
+				switch (action) {
+				case APPEND:
+					array_append(words, word);
+					set_add(seen, word);
+					break;
+				case USES: {
+					char *buf = str_dup(pool, word);
 					char *args = strchr(buf, ':');
 					if (args) {
 						*args = 0;
@@ -109,28 +124,45 @@ PARSER_EDIT(refactor_dedup_tokens)
 					// semantically equivalent to just USES=compiler:c++11-lang
 					// since compiler_ARGS has already been set once before.
 					// As such compiler:c++14-lang can be dropped entirely.
-					if (set_contains(uses, buf)) {
-						parser_mark_for_gc(parser, t);
-					} else {
-						array_append(tokens, t);
+					if (!set_contains(uses, buf)) {
+						array_append(words, word);
 						set_add(uses, buf);
-						set_add(seen, token_data(t));
+						set_add(seen, word);
 					}
-				} else if (!set_contains(seen, token_data(t))) {
-					array_append(tokens, t);
-					set_add(seen, token_data(t));
-				} else {
-					parser_mark_for_gc(parser, t);
+					break;
+				} default:
+					if (!set_contains(seen, word)) {
+						array_append(words, word);
+						set_add(seen, word);
+					}
+					break;
 				}
 			}
-			break;
-		default:
-			array_append(tokens, t);
-			break;
+			if (array_len(words) < array_len(node->variable.words)) {
+				node->edited = 1;
+				array_truncate(node->variable.words);
+				ARRAY_FOREACH(words, const char *, word) {
+					array_append(node->variable.words, word);
+				}
+			}
 		}
+		break;
 	}
 
-	*new_tokens = tokens;
-	return 0;
+	return AST_WALK_CONTINUE;
+}
+
+PARSER_EDIT(refactor_dedup_tokens)
+{
+	if (userdata != NULL) {
+		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
+		return 0;
+	}
+
+	refactor_dedup_tokens_walker(&(struct WalkerData){
+		.parser = parser,
+	}, root);
+
+	return 1;
 }
 
