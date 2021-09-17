@@ -30,19 +30,19 @@
 
 #include <ctype.h>
 #include <regex.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 
 #include <libias/array.h>
 #include <libias/flow.h>
-#include <libias/str.h>
+#include <libias/mempool.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
+
+struct WalkerData {
+};
 
 static int
 is_empty_line(const char *s)
@@ -55,6 +55,66 @@ is_empty_line(const char *s)
 	return 1;
 }
 
+static enum ASTWalkState
+refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	SCOPE_MEMPOOL(pool);
+
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
+		}
+		break;
+	case AST_NODE_COMMENT: {
+		int empty = 0;
+		struct Array *lines = mempool_array(pool);
+		ARRAY_FOREACH(node->comment.lines, const char *, line) {
+			if (is_empty_line(line)) {
+				if (empty == 0) {
+					array_append(lines, line);
+				}
+				empty++;
+			} else {
+				array_append(lines, line);
+				empty = 0;
+			}
+		}
+		if (array_len(lines) < array_len(node->comment.lines)) {
+			array_truncate(node->comment.lines);
+			ARRAY_FOREACH(lines, const char *, line) {
+				array_append(node->comment.lines, line);
+			}
+			node->edited = 1;
+		}
+		break;
+	} case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+	case AST_NODE_VARIABLE:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
+
 PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 {
 	if (userdata != NULL) {
@@ -62,28 +122,8 @@ PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 		return 0;
 	}
 
-	struct Array *tokens = array_new();
-	int empty = 0;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (token_type(t) == COMMENT) {
-			if (is_empty_line(token_data(t))) {
-				if (empty > 0) {
-					parser_mark_for_gc(parser, t);
-				} else {
-					array_append(tokens, t);
-				}
-				empty++;
-			} else {
-				array_append(tokens, t);
-				empty = 0;
-			}
-		} else {
-			empty = 0;
-			array_append(tokens, t);
-		}
-	}
+	refactor_remove_consecutive_empty_lines_walker(&(struct WalkerData){
+	}, root);
 
-	*new_tokens = tokens;
-	return 0;
+	return 1;
 }
-
