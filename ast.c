@@ -383,6 +383,27 @@ cond_indent(const char *word)
 	return indent;
 }
 
+static void
+ast_from_token_stream_flush_comments(struct ASTNode *parent, struct Array *comments)
+{
+	if (array_len(comments) == 0) {
+		return;
+	}
+
+	struct ASTNode *node = ast_node_new(parent, AST_NODE_COMMENT, (struct ASTNodeLineRange *)token_lines(array_get(comments, 0)), 0, &(struct ASTNodeComment){
+		.type = AST_NODE_COMMENT_LINE,
+	});
+
+	ARRAY_FOREACH(comments, struct Token *, t) {
+		node->edited = node->edited || token_edited(t);
+		array_append(node->comment.lines, str_dup(node->pool, token_data(t)));
+		struct Range *range = token_lines(t);
+		node->line_start.b = range->end;
+	}
+
+	array_truncate(comments);
+}
+
 struct ASTNode *
 ast_from_token_stream(struct Array *tokens)
 {
@@ -390,6 +411,7 @@ ast_from_token_stream(struct Array *tokens)
 
 	struct ASTNode *root = ast_node_new(NULL, AST_NODE_ROOT, NULL, 0, NULL);
 	struct Array *current_cond = mempool_array(pool);
+	struct Array *current_comments = mempool_array(pool);
 	struct Array *current_target_cmds = mempool_array(pool);
 	struct Array *current_var = mempool_array(pool);
 	struct Stack *ifstack = mempool_stack(pool);
@@ -399,6 +421,9 @@ ast_from_token_stream(struct Array *tokens)
 	ARRAY_FOREACH(tokens, struct Token *, t) {
 		if (stack_len(nodestack) == 0) {
 			panic("node stack exhausted at token on input line %zu-%zu", token_lines(t)->start, token_lines(t)->end);
+		}
+		if (token_type(t) != COMMENT) {
+			ast_from_token_stream_flush_comments(stack_peek(nodestack), current_comments);
 		}
 		switch (token_type(t)) {
 		case CONDITIONAL_START:
@@ -628,15 +653,13 @@ ast_from_token_stream(struct Array *tokens)
 				array_append(node->variable.words, str_dup(node->pool, token_data(t)));
 			}
 			break;
-		} case COMMENT: {
-			struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_COMMENT, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeComment){
-				.type = AST_NODE_COMMENT_LINE,
-			});
-			node->edited = token_edited(t);
-			array_append(node->comment.lines, str_dup(node->pool, token_data(t)));
+		} case COMMENT:
+			array_append(current_comments, t);
 			break;
-		} }
+		}
 	}
+
+	ast_from_token_stream_flush_comments(stack_peek(nodestack), current_comments);
 
 	return root;
 }

@@ -500,6 +500,8 @@ PARSER_EDIT(merge_existent_var)
 				array_append(tokens, t);
 			}
 			break;
+		case COMMENT:
+			token_mark_edited(t); // XXX
 		default:
 			array_append(tokens, t);
 			break;
