@@ -36,10 +36,69 @@
 #include <libias/array.h>
 #include <libias/flow.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "target.h"
-#include "token.h"
+
+struct WalkerData {
+	struct Parser *parser;
+	struct Mempool *pool;
+	struct ParserEditOutput *param;
+	const char *target;
+};
+
+static enum ASTWalkState
+output_target_command_token_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_target_command_token_walker(this, child));
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_VARIABLE:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_target_command_token_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_target_command_token_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_target_command_token_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.sources, const char *, src) {
+			if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, src, this->param->keyuserdata))) {
+				this->param->found = 1;
+				this->target = src;
+				break;
+			}
+		}
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_target_command_token_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET_COMMAND:
+		ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
+			if (this->target && (this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
+				this->param->found = 1;
+				if (this->param->callback) {
+					this->param->callback(this->pool, this->target, word, NULL, this->param->callbackuserdata);
+				}
+			}
+		}
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
 
 PARSER_EDIT(output_target_command_token)
 {
@@ -50,38 +109,12 @@ PARSER_EDIT(output_target_command_token)
 	}
 
 	param->found = 0;
-
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case TARGET_START:
-			ARRAY_FOREACH(target_names(token_target(t)), const char *, name) {
-				if ((param->keyfilter == NULL || param->keyfilter(parser, name, param->keyuserdata))) {
-					param->found = 1;
-					break;
-				}
-			}
-			break;
-		case TARGET_COMMAND_TOKEN:
-			if (param->found && token_data(t)) {
-				const char *target = NULL;
-				ARRAY_FOREACH(target_names(token_target(t)), const char *, name) {
-					if ((param->keyfilter == NULL || param->keyfilter(parser, name, param->keyuserdata))) {
-						target = name;
-						break;
-					}
-				}
-				if (target && (param->filter == NULL || param->filter(parser, token_data(t), param->filteruserdata))) {
-					param->found = 1;
-					if (param->callback) {
-						param->callback(extpool, target, token_data(t), NULL, param->callbackuserdata);
-					}
-				}
-			}
-			break;
-		default:
-			break;
-		}
-	}
+	output_target_command_token_walker(&(struct WalkerData){
+		.parser = parser,
+		.pool = extpool,
+		.param = param,
+		.target = NULL,
+	}, root);
 
 	return NULL;
 }
