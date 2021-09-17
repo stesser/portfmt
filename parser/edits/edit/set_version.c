@@ -148,7 +148,7 @@ PARSER_EDIT(edit_set_version)
 	    params->arg1 == NULL ||
 	    params->merge_behavior != PARSER_MERGE_DEFAULT) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, "missing version");
-		return NULL;
+		return 0;
 	}
 
 	const char *newversion = str_dup(pool, params->arg1);
@@ -171,7 +171,7 @@ PARSER_EDIT(edit_set_version)
 			rev = strtonum(revision, 0, INT_MAX, &errstr);
 			if (errstr != NULL) {
 				parser_set_error(parser, PARSER_ERROR_EXPECTED_INT, errstr);
-				return NULL;
+				return 0;
 			}
 		}
 	}
@@ -242,17 +242,17 @@ PARSER_EDIT(edit_set_version)
 	char *script_buf = str_join(pool, script, "\n");
 	enum ParserError error = parser_read_from_buffer(subparser, script_buf, strlen(script_buf));
 	if (error != PARSER_ERROR_OK) {
-		return NULL;
+		return 0;
 	}
 	error = parser_read_finish(subparser);
 	if (error != PARSER_ERROR_OK) {
-		return NULL;
+		return 0;
 	}
 	error = parser_merge(parser, subparser, params->merge_behavior | PARSER_MERGE_SHELL_IS_DELETE);
 	if (error != PARSER_ERROR_OK) {
-		return NULL;
+		return 0;
 	}
 
-	return NULL;
+	return 0;
 }
 

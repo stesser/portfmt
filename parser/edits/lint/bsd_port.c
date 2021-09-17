@@ -43,7 +43,7 @@
 PARSER_EDIT(lint_bsd_port)
 {
 	if (parser_metadata(parser, PARSER_METADATA_MASTERDIR)) {
-		return NULL;
+		return 0;
 	}
 
 	int invalid = 1;
@@ -56,5 +56,5 @@ PARSER_EDIT(lint_bsd_port)
 	if (invalid) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "not a FreeBSD Ports Makefile");
 	}
-	return NULL;
+	return 0;
 }

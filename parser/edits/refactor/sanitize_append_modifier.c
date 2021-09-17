@@ -51,7 +51,7 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return NULL;
+		return 0;
 	}
 
 	/* Sanitize += before bsd.options.mk */
@@ -85,13 +85,14 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 			break;
 		} case CONDITIONAL_TOKEN:
 			if (is_include_bsd_port_mk(t)) {
-				return NULL;
+				return 0;
 			}
 		default:
 			break;
 		}
 	}
 
-	return ptokens;
+	*new_tokens = ptokens;
+	return 0;
 }
 

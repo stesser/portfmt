@@ -206,7 +206,7 @@ PARSER_EDIT(output_unknown_variables)
 	struct ParserEditOutput *param = userdata;
 	if (param == NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, "missing parameter");
-		return NULL;
+		return 0;
 	}
 
 	param->found = 0;
@@ -226,6 +226,6 @@ PARSER_EDIT(output_unknown_variables)
 		check_opthelper(&this, option, 0, 1);
 	}
 
-	return NULL;
+	return 0;
 }
 

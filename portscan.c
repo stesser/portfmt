@@ -396,7 +396,7 @@ PARSER_EDIT(extract_includes)
 
 	*retval = includes;
 
-	return NULL;
+	return 0;
 }
 
 static int
@@ -793,7 +793,7 @@ PARSER_EDIT(get_default_option_descriptions)
 	struct Map **retval = (struct Map **)userdata;
 	*retval = default_option_descriptions;
 
-	return NULL;
+	return 0;
 }
 
 void

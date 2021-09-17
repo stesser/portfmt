@@ -58,13 +58,13 @@ PARSER_EDIT(kakoune_select_object_on_line)
 
 	if (!(parser_settings(parser).behavior & PARSER_OUTPUT_RAWLINES)) {
 		kak_error(parser, "needs PARSER_OUTPUT_RAWLINES");
-		return NULL;
+		return 0;
 	}
 
 	char *kak_cursor_line_buf = getenv("kak_cursor_line");
 	if (!kak_cursor_line_buf) {
 		kak_error(parser, "could not find kak_cursor_line");
-		return NULL;
+		return 0;
 	}
 
 	const char *errstr;
@@ -77,7 +77,7 @@ PARSER_EDIT(kakoune_select_object_on_line)
 			error_msg = "could not parse kak_cursor_line";
 		}
 		kak_error(parser, error_msg);
-		return NULL;
+		return 0;
 	}
 
 	int found = 0;
@@ -108,6 +108,6 @@ PARSER_EDIT(kakoune_select_object_on_line)
 		kak_error(parser, "no selectable object found on this line");
 	}
 
-	return NULL;
+	return 0;
 }
 

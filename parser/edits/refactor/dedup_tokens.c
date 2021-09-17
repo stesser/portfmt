@@ -59,7 +59,7 @@ PARSER_EDIT(refactor_dedup_tokens)
 
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return NULL;
+		return 0;
 	}
 
 	struct Array *tokens = array_new();
@@ -130,6 +130,7 @@ PARSER_EDIT(refactor_dedup_tokens)
 		}
 	}
 
-	return tokens;
+	*new_tokens = tokens;
+	return 0;
 }
 

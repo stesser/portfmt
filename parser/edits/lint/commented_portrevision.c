@@ -100,5 +100,5 @@ PARSER_EDIT(lint_commented_portrevision)
 		*retval = mempool_forget(pool, comments);
 	}
 
-	return NULL;
+	return 0;
 }

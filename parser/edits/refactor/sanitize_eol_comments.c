@@ -73,7 +73,7 @@ PARSER_EDIT(refactor_sanitize_eol_comments)
 
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return NULL;
+		return 0;
 	}
 
 	/* Try to push end of line comments out of the way above
@@ -133,5 +133,6 @@ PARSER_EDIT(refactor_sanitize_eol_comments)
 		}
 	}
 
-	return ptokens;
+	*new_tokens = ptokens;
+	return 0;
 }

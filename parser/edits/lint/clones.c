@@ -128,6 +128,6 @@ PARSER_EDIT(lint_clones)
 		*clones_ret = mempool_forget(pool, clones);
 	}
 
-	return NULL;
+	return 0;
 }
 

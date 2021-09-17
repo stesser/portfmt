@@ -73,7 +73,7 @@ PARSER_EDIT(extract_tokens)
 {
 	struct Array **tokens = userdata;
 	*tokens = ptokens;
-	return NULL;
+	return 0;
 }
 
 void
@@ -323,7 +323,8 @@ PARSER_EDIT(insert_variable)
 	switch (insert_after) {
 	case INSERT_VARIABLE_PREPEND:
 		prepend_variable(parser, ptokens, tokens, var, block_var);
-		return tokens;
+		*new_tokens = tokens;
+		return 0;
 	case INSERT_VARIABLE_NO_POINT_FOUND:
 		// No variable found where we could insert our new
 		// var.  Insert it before any conditional or target
@@ -341,7 +342,8 @@ PARSER_EDIT(insert_variable)
 			// Prepend it instead if there are no conditionals or targets
 			prepend_variable(parser, ptokens, tokens, var, block_var);
 		}
-		return tokens;
+		*new_tokens = tokens;
+		return 0;
 	default:
 		break;
 	}
@@ -395,7 +397,8 @@ PARSER_EDIT(insert_variable)
 		append_new_variable(parser, tokens, var, lines);
 	}
 
-	return tokens;
+	*new_tokens = tokens;
+	return 0;
 }
 
 static size_t
@@ -505,7 +508,8 @@ PARSER_EDIT(merge_existent_var)
 
 	append_tokens(parser, tokens, params->nonvars);
 
-	return tokens;
+	*new_tokens = tokens;
+	return 0;
 }
 
 PARSER_EDIT(edit_merge)
@@ -517,12 +521,12 @@ PARSER_EDIT(edit_merge)
 	    params->arg1 != NULL ||
 	    params->subparser == NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return NULL;
+		return 0;
 	}
 
 	struct Array *subtokens = NULL;
 	if (parser_edit(params->subparser, pool, extract_tokens, &subtokens) != PARSER_ERROR_OK) {
-		return NULL;
+		return 0;
 	}
 
 	struct Variable *var = NULL;
@@ -554,7 +558,7 @@ PARSER_EDIT(edit_merge)
 				if (!parser_lookup_variable(parser, variable_name(var), behavior, pool, NULL, NULL)) {
 					enum ParserError error = parser_edit(parser, pool, insert_variable, var);
 					if (error != PARSER_ERROR_OK) {
-						return NULL;
+						return 0;
 					}
 					parser_edit(parser, pool, extract_tokens, &ptokens);
 				}
@@ -580,7 +584,7 @@ PARSER_EDIT(edit_merge)
 				par.nonvars = nonvars;
 				par.values = mergetokens;
 				if (parser_edit(parser, pool, merge_existent_var, &par) != PARSER_ERROR_OK) {
-					return NULL;
+					return 0;
 				}
 				parser_edit(parser, pool, extract_tokens, &ptokens);
 				array_truncate(nonvars);
@@ -600,6 +604,6 @@ PARSER_EDIT(edit_merge)
 		}
 	}
 
-	return NULL;
+	return 0;
 }
 

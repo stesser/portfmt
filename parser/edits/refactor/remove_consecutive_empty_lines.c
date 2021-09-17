@@ -59,7 +59,7 @@ PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 {
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return NULL;
+		return 0;
 	}
 
 	struct Array *tokens = array_new();
@@ -83,6 +83,7 @@ PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 		}
 	}
 
-	return tokens;
+	*new_tokens = tokens;
+	return 0;
 }
 

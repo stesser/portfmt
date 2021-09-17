@@ -557,26 +557,26 @@ PARSER_EDIT(lint_order)
 	struct ParserSettings settings = parser_settings(parser);
 	if (!(settings.behavior & PARSER_OUTPUT_RAWLINES)) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, "needs PARSER_OUTPUT_RAWLINES");
-		return NULL;
+		return 0;
 	}
 	int no_color = settings.behavior & PARSER_OUTPUT_NO_COLOR;
 
 	int status_var;
 	if ((status_var = check_variable_order(parser, ptokens, no_color)) == -1) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "lint_order: cannot compute difference");
-		return NULL;
+		return 0;
 	}
 
 	int status_target;
 	if ((status_target = check_target_order(parser, ptokens, no_color, status_var)) == -1) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "lint_order: cannot compute difference");
-		return NULL;
+		return 0;
 	}
 
 	if (status != NULL && (status_var > 0 || status_target > 0)) {
 		*status = 1;
 	}
 
-	return NULL;
+	return 0;
 }
 
