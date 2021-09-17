@@ -41,11 +41,17 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
+
+struct WalkerData {
+	struct Parser *parser;
+	struct Mempool *pool;
+	struct ParserEditOutput *param;
+	struct Set *vars;
+};
 
 struct UnknownVariable {
 	char *name;
@@ -93,7 +99,7 @@ var_compare(const void *ap, const void *bp, void *userdata)
 }
 
 static void
-check_opthelper(struct Parser *parser, struct Mempool *extpool, struct ParserEditOutput *param, struct Set *vars, const char *option, int optuse, int optoff)
+check_opthelper(struct WalkerData *this, const char *option, int optuse, int optoff)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -110,7 +116,7 @@ check_opthelper(struct Parser *parser, struct Mempool *extpool, struct ParserEdi
 		var = str_printf(pool, "%s_VARS%s", option, suffix);
 	}
 	struct Array *optvars;
-	if (!parser_lookup_variable(parser, var, PARSER_LOOKUP_DEFAULT, pool, &optvars, NULL)) {
+	if (!parser_lookup_variable(this->parser, var, PARSER_LOOKUP_DEFAULT, pool, &optvars, NULL)) {
 		return;
 	}
 
@@ -129,17 +135,69 @@ check_opthelper(struct Parser *parser, struct Mempool *extpool, struct ParserEdi
 			name = str_printf(pool, "USE_%s", name);
 		}
 		struct UnknownVariable varskey = { .name = name, .hint = var };
-		if (variable_order_block(parser, name, NULL, NULL) == BLOCK_UNKNOWN &&
-		    !is_referenced_var(parser, name) &&
-		    !set_contains(vars, &varskey) &&
-		    (param->keyfilter == NULL || param->keyfilter(parser, name, param->keyuserdata))) {
-			set_add(vars, var_new(name, var));
-			if (param->callback) {
-				param->callback(extpool, name, name, var, param->callbackuserdata);
+		if (variable_order_block(this->parser, name, NULL, NULL) == BLOCK_UNKNOWN &&
+		    !is_referenced_var(this->parser, name) &&
+		    !set_contains(this->vars, &varskey) &&
+		    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
+			set_add(this->vars, var_new(name, var));
+			if (this->param->callback) {
+				this->param->callback(this->pool, name, name, var, this->param->callbackuserdata);
 			}
 		}
 	}
 }
+
+static enum ASTWalkState
+output_unknown_variables_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
+		}
+		break;
+
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE: {
+		const char *name = node->variable.name;
+		struct UnknownVariable varskey = { .name = (char *)name, .hint = NULL };
+		if (variable_order_block(this->parser, name, NULL, NULL) == BLOCK_UNKNOWN &&
+		    !is_referenced_var(this->parser, name) &&
+		    !set_contains(this->vars, &varskey) &&
+		    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
+			set_add(this->vars, var_new(name, NULL));
+			this->param->found = 1;
+			if (this->param->callback) {
+				this->param->callback(this->pool, name, name, NULL, this->param->callbackuserdata);
+			}
+		}
+		break;
+	} case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
+
 
 PARSER_EDIT(output_unknown_variables)
 {
@@ -152,31 +210,20 @@ PARSER_EDIT(output_unknown_variables)
 	}
 
 	param->found = 0;
+	struct WalkerData this = {
+		.parser = parser,
+		.pool = extpool,
+		.param = param,
+		.vars = mempool_set(pool, var_compare, NULL, var_free),
+	};
+	output_unknown_variables_walker(&this, root);
 
-	struct Set *vars = mempool_set(pool, var_compare, NULL, var_free);
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (token_type(t) != VARIABLE_START) {
-			continue;
-		}
-		char *name = variable_name(token_variable(t));
-		struct UnknownVariable varskey = { .name = name, .hint = NULL };
-		if (variable_order_block(parser, name, NULL, NULL) == BLOCK_UNKNOWN &&
-		    !is_referenced_var(parser, name) &&
-		    !set_contains(vars, &varskey) &&
-		    (param->keyfilter == NULL || param->keyfilter(parser, name, param->keyuserdata))) {
-			set_add(vars, var_new(name, NULL));
-			param->found = 1;
-			if (param->callback) {
-				param->callback(extpool, name, name, NULL, param->callbackuserdata);
-			}
-		}
-	}
 	struct Set *options = parser_metadata(parser, PARSER_METADATA_OPTIONS);
 	SET_FOREACH (options, const char *, option) {
-		check_opthelper(parser, extpool, param, vars, option, 1, 0);
-		check_opthelper(parser, extpool, param, vars, option, 0, 0);
-		check_opthelper(parser, extpool, param, vars, option, 1, 1);
-		check_opthelper(parser, extpool, param, vars, option, 0, 1);
+		check_opthelper(&this, option, 1, 0);
+		check_opthelper(&this, option, 0, 0);
+		check_opthelper(&this, option, 1, 1);
+		check_opthelper(&this, option, 0, 1);
 	}
 
 	return NULL;
