@@ -1322,7 +1322,7 @@ static void
 is_referenced_var_cb(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
 	struct Array *tokens = userdata;
-	array_append(tokens, value);
+	array_append(tokens, str_dup(extpool, value));
 }
 
 static void
