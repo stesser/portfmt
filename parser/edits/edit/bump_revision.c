@@ -51,10 +51,10 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 	SCOPE_MEMPOOL(pool);
 	struct Array *script = mempool_array(pool);
 
-	struct Variable *var;
+	struct ASTNode *var;
 	if (strcmp(variable, "PORTEPOCH") == 0) {
 		if ((var = parser_lookup_variable(parser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, NULL, NULL)) &&
-		    variable_modifier(var) == AST_NODE_VARIABLE_MODIFIER_OPTIONAL) {
+		    var->variable.modifier == AST_NODE_VARIABLE_MODIFIER_OPTIONAL) {
 			array_append(script, "PORTREVISION=0\n");
 		} else {
 			array_append(script, "PORTREVISION!=\n");
@@ -81,7 +81,7 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 			array_append(script, variable);
 			array_append(script, "!=\n");
 		}
-		array_append(script, variable_tostring(var, pool));
+		array_append(script, str_printf(pool, "%s%s", var->variable.name, ASTNodeVariableModifier_humanize[var->variable.modifier]));
 		array_append(script, str_printf(pool, "%d %s\n", rev, comment));
 	} else {
 		array_append(script, variable);

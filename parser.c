@@ -1395,15 +1395,16 @@ parser_output_dump_tokens_helper(struct Parser *parser)
 		return;
 	}
 
+	struct Array *tokens = mempool_add(pool, ast_to_token_stream(parser->ast, pool), array_free);
 	size_t maxvarlen = 0;
-	ARRAY_FOREACH(parser->tokens, struct Token *, o) {
+	ARRAY_FOREACH(tokens, struct Token *, o) {
 		if (token_type(o) == VARIABLE_START && token_variable(o)) {
 			maxvarlen = MAX(maxvarlen, strlen(variable_tostring(token_variable(o), pool)));
 		}
 	}
 
 	struct Array *vars = mempool_array(pool);
-	ARRAY_FOREACH(parser->tokens, struct Token *, t) {
+	ARRAY_FOREACH(tokens, struct Token *, t) {
 		const char *type;
 		switch (token_type(t)) {
 		case VARIABLE_END:
@@ -1752,6 +1753,8 @@ parser_read_finish(struct Parser *parser)
 
 	// Set it now to avoid recursion in parser_edit()
 	parser->read_finished = 1;
+	ast_free(parser->ast);
+	parser->ast = ast_from_token_stream(parser->tokens);
 
 	if (parser->settings.behavior & PARSER_SANITIZE_COMMENTS &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_comments, NULL)) {
@@ -1784,9 +1787,6 @@ parser_read_finish(struct Parser *parser)
 	if (PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_remove_consecutive_empty_lines, NULL)) {
 		return parser->error;
 	}
-
-	ast_free(parser->ast);
-	parser->ast = ast_from_token_stream(parser->tokens);
 
 	return parser->error;
 }
@@ -2205,137 +2205,169 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 	return parser->metadata[meta];
 }
 
-struct Target *
-parser_lookup_target(struct Parser *parser, const char *name, struct Mempool *pool, struct Array **retval)
+static struct ASTNode *
+parser_lookup_target_walker(struct ASTNode *node, const char *name)
 {
-	struct Target *target = NULL;
-	struct Array *tokens = mempool_array(pool);
-	ARRAY_FOREACH(parser->tokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case TARGET_START:
-			array_truncate(tokens);
-			/* fallthrough */
-		case TARGET_COMMAND_START:
-		case TARGET_COMMAND_TOKEN:
-		case TARGET_COMMAND_END:
-			ARRAY_FOREACH(target_names(token_target(t)), char *, tgt) {
-				if (strcmp(tgt, name) == 0) {
-					array_append(tokens, token_data(t));
-					break;
-				}
-			}
-			break;
-		case TARGET_END:
-			ARRAY_FOREACH(target_names(token_target(t)), char *, tgt) {
-				if (strcmp(tgt, name) == 0) {
-					target = token_target(t);
-					goto found;
-				}
-			}
-			break;
-		default:
-			break;
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			return parser_lookup_target_walker(child, name);
 		}
-	}
-
-	if (retval) {
-		*retval = NULL;
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_EXPR_FLAT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_VARIABLE:
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			return parser_lookup_target_walker(child, name);
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			return parser_lookup_target_walker(child, name);
+		}
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			return parser_lookup_target_walker(child, name);
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.sources, char *, src) {
+			if (strcmp(src, name) == 0) {
+				return node;
+			}
+		}
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			return parser_lookup_target_walker(child, name); // XXX: Really needed?
+		}
+		break;
 	}
 
 	return NULL;
-
-found:
-	if (retval) {
-		*retval = tokens;
-	}
-
-	return target;
 }
 
-struct Variable *
-parser_lookup_variable(struct Parser *parser, const char *name, enum ParserLookupVariableBehavior behavior, struct Mempool *pool, struct Array **retval, struct Array **comment)
+struct ASTNode *
+parser_lookup_target(struct Parser *parser, const char *name)
 {
-	struct Variable *var = NULL;
+	return parser_lookup_target_walker(parser->ast, name);
+}
+
+static int
+parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const char *name, enum ParserLookupVariableBehavior behavior, struct Array *tokens, struct Array *comments, struct ASTNode **retval)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_EXPR_FLAT:
+	case AST_NODE_TARGET_COMMAND:
+		break;
+	case AST_NODE_VARIABLE:
+		if (strcmp(node->variable.name, name) == 0) {
+			*retval = node;
+			ARRAY_FOREACH(node->variable.words, const char *, word) {
+				if (is_comment(word)) {
+					array_append(comments, str_dup(pool, word));
+				} else {
+					array_append(tokens, str_dup(pool, word));
+				}
+			}
+			if (behavior & PARSER_LOOKUP_FIRST) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
+			return 0;
+		}
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
+			return 0;
+		}
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
+				return 1;
+			}
+		}
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
+				return 1;
+			}
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
+				return 1;
+			}
+		}
+		break;
+	}
+
+	return 0;
+}
+
+struct ASTNode *
+parser_lookup_variable(struct Parser *parser, const char *name, enum ParserLookupVariableBehavior behavior, struct Mempool *extpool, struct Array **retval, struct Array **comment)
+{
+	SCOPE_MEMPOOL(pool);
 	struct Array *tokens = mempool_array(pool);
 	struct Array *comments = mempool_array(pool);
-	int skip = 0;
-	ARRAY_FOREACH(parser->tokens, struct Token *, t) {
-		if ((behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) &&
-		    skip_conditional(t, &skip)) {
-			continue;
+	struct ASTNode *node = NULL;
+	parser_lookup_variable_walker(parser->ast, pool, name, behavior, tokens, comments, &node);
+	if (node) {
+		mempool_inherit(extpool, pool);
+		if (comment) {
+			*comment = comments;
 		}
-		switch (token_type(t)) {
-		case VARIABLE_START:
-			if (behavior & PARSER_LOOKUP_FIRST) {
-				array_truncate(tokens);
-			}
-			break;
-		case VARIABLE_TOKEN:
-			if (strcmp(variable_name(token_variable(t)), name) == 0) {
-				if (is_comment(token_data(t))) {
-					array_append(comments, token_data(t));
-				} else {
-					array_append(tokens, token_data(t));
-				}
-			}
-			break;
-		case VARIABLE_END:
-			if (strcmp(variable_name(token_variable(t)), name) == 0) {
-				var = token_variable(t);
-				if (behavior & PARSER_LOOKUP_FIRST) {
-					goto found;
-				}
-			}
-			break;
-		default:
-			break;
+		if (retval) {
+			*retval = tokens;
 		}
+		return node;
+	} else {
+		if (comment) {
+			*comment = NULL;
+		}
+		if (retval) {
+			*retval = NULL;
+		}
+		return NULL;
 	}
-
-	if (var) {
-		goto found;
-	}
-	if (comment) {
-		*comment = NULL;
-	}
-	if (retval) {
-		*retval = NULL;
-	}
-
-	return NULL;
-
-found:
-	if (comment) {
-		*comment = comments;
-	}
-	if (retval) {
-		*retval = tokens;
-	}
-
-	return var;
 }
 
-struct Variable *
+struct ASTNode *
 parser_lookup_variable_str(struct Parser *parser, const char *name, enum ParserLookupVariableBehavior behavior, struct Mempool *extpool, char **retval, char **comment)
 {
 	SCOPE_MEMPOOL(pool);
 
 	struct Array *comments;
-	struct Array *tokens;
-	struct Variable *var;
-	if ((var = parser_lookup_variable(parser, name, behavior, pool, &tokens, &comments)) == NULL) {
+	struct Array *words;
+	struct ASTNode *node = parser_lookup_variable(parser, name, behavior, pool, &words, &comments);
+	if (node) {
+		if (comment) {
+			*comment = str_join(extpool, comments, " ");
+		}
+
+		if (retval) {
+			*retval = str_join(extpool, words, " ");
+		}
+		return node;
+	} else {
 		return NULL;
 	}
-
-	if (comment) {
-		*comment = str_join(extpool, comments, " ");
-	}
-
-	if (retval) {
-		*retval = str_join(extpool, tokens, " ");
-	}
-
-	return var;
 }
 
 enum ParserError
