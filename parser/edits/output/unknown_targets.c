@@ -39,14 +39,21 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "target.h"
-#include "token.h"
+
+struct WalkerData {
+	struct Parser *parser;
+	struct Mempool *pool;
+	struct ParserEditOutput *param;
+	struct Set *targets;
+	struct Set *post_plist_targets;
+};
 
 static int
-add_target(struct Parser *parser, struct Mempool *extpool, struct ParserEditOutput *param, struct Set *targets, struct Set *post_plist_targets, char *name, int deps)
+add_target(struct WalkerData *this, const char *name, int deps)
 {
 	if (deps && is_special_source(name)) {
 		return 0;
@@ -54,18 +61,67 @@ add_target(struct Parser *parser, struct Mempool *extpool, struct ParserEditOutp
 	if (is_special_target(name)) {
 		return 1;
 	}
-	if (!is_known_target(parser, name) &&
-	    !set_contains(post_plist_targets, name) &&
-	    !set_contains(targets, name) &&
-	    (param->keyfilter == NULL || param->keyfilter(parser, name, param->keyuserdata))) {
-		set_add(targets, name);
-		param->found = 1;
-		if (param->callback) {
+	if (!is_known_target(this->parser, name) &&
+	    !set_contains(this->post_plist_targets, name) &&
+	    !set_contains(this->targets, name) &&
+	    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
+		set_add(this->targets, name);
+		this->param->found = 1;
+		if (this->param->callback) {
 			// XXX: provide option as hint for opthelper targets?
-			param->callback(extpool, name, name, NULL, param->callbackuserdata);
+			this->param->callback(this->pool, name, name, NULL, this->param->callbackuserdata);
 		}
 	}
 	return 0;
+}
+
+static enum ASTWalkState
+output_unknown_targets_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
+		}
+		break;
+
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET: {
+		int skip_deps = 0;
+		ARRAY_FOREACH(node->target.sources, const char *, name) {
+			if (add_target(this, name, 0)) {
+				skip_deps = 1;
+			}
+		}
+		if (!skip_deps) {
+			ARRAY_FOREACH(node->target.dependencies, const char *, name) {
+				add_target(this, name, 1);
+			}
+		}
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_targets_walker(this, child)); // XXX: do we really need this?
+		}
+		break;
+	} case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_VARIABLE:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
 }
 
 PARSER_EDIT(output_unknown_targets)
@@ -79,24 +135,13 @@ PARSER_EDIT(output_unknown_targets)
 	}
 
 	param->found = 0;
-	struct Set *post_plist_targets = parser_metadata(parser, PARSER_METADATA_POST_PLIST_TARGETS);
-	struct Set *targets = mempool_set(pool, str_compare, NULL, NULL);
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (token_type(t) != TARGET_START) {
-			continue;
-		}
-		int skip_deps = 0;
-		ARRAY_FOREACH(target_names(token_target(t)), char *, name) {
-			if (add_target(parser, extpool, param, targets, post_plist_targets, name, 0)) {
-				skip_deps = 1;
-			}
-		}
-		if (!skip_deps) {
-			ARRAY_FOREACH(target_dependencies(token_target(t)), char *, name) {
-				add_target(parser, extpool, param, targets, post_plist_targets, name, 1);
-			}
-		}
-	}
+	output_unknown_targets_walker(&(struct WalkerData){
+		.parser = parser,
+		.pool = extpool,
+		.param = param,
+		.targets = mempool_set(pool, str_compare, NULL, NULL),
+		.post_plist_targets = parser_metadata(parser, PARSER_METADATA_POST_PLIST_TARGETS),
+	}, root);
 
 	return NULL;
 }
