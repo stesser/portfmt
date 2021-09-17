@@ -27,8 +27,6 @@
  */
 #pragma once
 
-enum VariableModifier;
-
 enum ASTNodeType {
 	AST_NODE_ROOT,
 	AST_NODE_COMMENT,
@@ -189,6 +187,11 @@ struct ASTNode {
 	};
 };
 
+enum ASTWalkState {
+	AST_WALK_CONTINUE,
+	AST_WALK_STOP,
+};
+
 extern const char *ASTNodeExprFlatType_identifier[];
 extern const char *ASTNodeVariableModifier_humanize[];
 
@@ -197,3 +200,8 @@ struct Array *ast_to_token_stream(struct ASTNode *, struct Mempool *);
 void ast_free(struct ASTNode *);
 struct ASTNode *ast_node_new(struct ASTNode *, enum ASTNodeType, struct ASTNodeLineRange *, int, void *);
 void ast_node_print(struct ASTNode *, FILE *);
+
+#define AST_WALK_RECUR(x) \
+	if ((x) == AST_WALK_STOP) { \
+		return AST_WALK_STOP; \
+	}

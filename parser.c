@@ -648,30 +648,30 @@ parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 	array_truncate(this->nodes);
 }
 
-static void
-parser_find_goalcols_helper(struct Parser *parser, struct ASTNode *node, struct ParserFindGoalcolsState *this)
+static enum ASTWalkState
+parser_find_goalcols_walker(struct Parser *parser, struct ASTNode *node, struct ParserFindGoalcolsState *this)
 {
 	if (parser->error != PARSER_ERROR_OK) {
-		return;
+		return AST_WALK_STOP;
 	}
 
 	switch (node->type) {
 	case AST_NODE_ROOT:
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			parser_find_goalcols_helper(parser, child, this);
+			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
 		}
 		break;
 	case AST_NODE_EXPR_IF:
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			parser_find_goalcols_helper(parser, child, this);
+			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
 		}
 		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			parser_find_goalcols_helper(parser, child, this);
+			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
 		}
 		break;
 	case AST_NODE_EXPR_FOR:
 		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			parser_find_goalcols_helper(parser, child, this);
+			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
 		}
 		break;
 	case AST_NODE_TARGET:
@@ -700,6 +700,8 @@ parser_find_goalcols_helper(struct Parser *parser, struct ASTNode *node, struct 
 		}
 		break;
 	}
+
+	return AST_WALK_CONTINUE;
 }
 
 void
@@ -710,7 +712,7 @@ parser_find_goalcols(struct Parser *parser)
 		.moving_goalcol = 0,
 		.nodes = mempool_array(pool),
 	};
-	parser_find_goalcols_helper(parser, parser->ast, &this);
+	parser_find_goalcols_walker(parser, parser->ast, &this);
 	parser_propagate_goalcol(&this);
 }
 
@@ -1204,8 +1206,8 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNod
 	}
 }
 
-static void
-parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
+static enum ASTWalkState
+parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -1213,7 +1215,7 @@ parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
 	switch (node->type) {
 	case AST_NODE_ROOT:
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			parser_output_reformatted_helper(parser, child);
+			AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 		}
 		break;
 	case AST_NODE_COMMENT:
@@ -1254,13 +1256,13 @@ parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
 				str_join(pool, node->forexpr.bindings, " "),
 				str_join(pool, node->forexpr.words, " ")));
 			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-				parser_output_reformatted_helper(parser, child);
+				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			parser_enqueue_output(parser, str_printf(pool, ".%sendfor\n", indent));
 		} else {
 			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
 			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-				parser_output_reformatted_helper(parser, child);
+				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			parser_output_print_rawlines(parser, (struct Range *)&node->line_end);
 		}
@@ -1271,18 +1273,18 @@ parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
 		} else {
 			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
 			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-				parser_output_reformatted_helper(parser, child);
+				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			if (array_len(node->ifexpr.orelse) > 0) {
 				struct ASTNode *next = array_get(node->ifexpr.orelse, 0);
 				if (next && next->type == AST_NODE_EXPR_IF && next->ifexpr.type == AST_NODE_EXPR_IF_ELSE) {
 					parser_output_print_rawlines(parser, (struct Range *)&next->line_start); // .else
 					ARRAY_FOREACH(next->ifexpr.body, struct ASTNode *, child) {
-						parser_output_reformatted_helper(parser, child);
+						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
 				} else {
 					ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-						parser_output_reformatted_helper(parser, child);
+						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
 				}
 			}
@@ -1302,12 +1304,12 @@ parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
 				sep,
 				str_join(pool, node->target.dependencies, " ")));
 			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-				parser_output_reformatted_helper(parser, child);
+				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 		} else {
 			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
 			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-				parser_output_reformatted_helper(parser, child);
+				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 		}
 		break;
@@ -1318,6 +1320,8 @@ parser_output_reformatted_helper(struct Parser *parser, struct ASTNode *node)
 			parser_output_print_variable(parser, pool, node);
 		break;
 	}
+
+	return AST_WALK_CONTINUE;
 }
 
 void
@@ -1331,7 +1335,7 @@ parser_output_reformatted(struct Parser *parser)
 	if (parser_is_category_makefile(parser, parser->ast)) {
 		parser_output_category_makefile_reformatted(parser, parser->ast);
 	} else {
-		parser_output_reformatted_helper(parser, parser->ast);
+		parser_output_reformatted_walker(parser, parser->ast);
 	}
 }
 
@@ -2205,13 +2209,13 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 	return parser->metadata[meta];
 }
 
-static struct ASTNode *
-parser_lookup_target_walker(struct ASTNode *node, const char *name)
+static enum ASTWalkState
+parser_lookup_target_walker(struct ASTNode *node, const char *name, struct ASTNode **retval)
 {
 	switch (node->type) {
 	case AST_NODE_ROOT:
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			return parser_lookup_target_walker(child, name);
+			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
 		}
 		break;
 	case AST_NODE_COMMENT:
@@ -2221,47 +2225,48 @@ parser_lookup_target_walker(struct ASTNode *node, const char *name)
 		break;
 	case AST_NODE_EXPR_FOR:
 		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			return parser_lookup_target_walker(child, name);
+			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
 		}
 		break;
 	case AST_NODE_EXPR_IF:
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			return parser_lookup_target_walker(child, name);
+			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
 		}
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			return parser_lookup_target_walker(child, name);
+			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
 		}
 		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, char *, src) {
 			if (strcmp(src, name) == 0) {
-				return node;
+				*retval = node;
+				return AST_WALK_STOP;
 			}
 		}
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			return parser_lookup_target_walker(child, name); // XXX: Really needed?
+			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval)); // XXX: Really needed?
 		}
 		break;
 	}
 
-	return NULL;
+	return AST_WALK_CONTINUE;
 }
 
 struct ASTNode *
 parser_lookup_target(struct Parser *parser, const char *name)
 {
-	return parser_lookup_target_walker(parser->ast, name);
+	struct ASTNode *node = NULL;
+	parser_lookup_target_walker(parser->ast, name, &node);
+	return node;
 }
 
-static int
+static enum ASTWalkState
 parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const char *name, enum ParserLookupVariableBehavior behavior, struct Array *tokens, struct Array *comments, struct ASTNode **retval)
 {
 	switch (node->type) {
 	case AST_NODE_ROOT:
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
-				return 1;
-			}
+			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		break;
 	case AST_NODE_COMMENT:
@@ -2279,45 +2284,37 @@ parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const 
 				}
 			}
 			if (behavior & PARSER_LOOKUP_FIRST) {
-				return 1;
+				return AST_WALK_STOP;
 			}
 		}
 		break;
 	case AST_NODE_EXPR_FOR:
 		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
-			return 0;
+			return AST_WALK_CONTINUE;
 		}
 		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
-				return 1;
-			}
+			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		break;
 	case AST_NODE_EXPR_IF:
 		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
-			return 0;
+			return AST_WALK_CONTINUE;
 		}
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
-				return 1;
-			}
+			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
-				return 1;
-			}
+			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			if (parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval)) {
-				return 1;
-			}
+			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		break;
 	}
 
-	return 0;
+	return AST_WALK_CONTINUE;
 }
 
 struct ASTNode *
