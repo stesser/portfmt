@@ -1897,7 +1897,7 @@ parser_edit(struct Parser *parser, struct Mempool *extpool, ParserEditFn f, void
 		return parser->error;
 	}
 
-	struct Array *tokens = f(parser, parser->tokens, extpool, userdata);
+	struct Array *tokens = f(parser, parser->ast, parser->tokens, extpool, userdata);
 	if (tokens && tokens != parser->tokens) {
 		array_free(parser->tokens);
 		parser->tokens = tokens;

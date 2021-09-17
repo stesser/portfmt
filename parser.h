@@ -104,15 +104,16 @@ struct ParserSettings {
 };
 
 struct Array;
+struct ASTNode;
 struct Mempool;
 struct Parser;
 struct Set;
 struct Token;
 
-typedef struct Array *(*ParserEditFn)(struct Parser *, struct Array *, struct Mempool *, void *);
+typedef struct Array *(*ParserEditFn)(struct Parser *, struct ASTNode *, struct Array *, struct Mempool *, void *);
 
 #define PARSER_EDIT(name) \
-	struct Array *name(struct Parser *parser, struct Array *ptokens, struct Mempool *extpool, void *userdata)
+	struct Array *name(struct Parser *parser, struct ASTNode *root, struct Array *ptokens, struct Mempool *extpool, void *userdata)
 
 struct Parser *parser_new(struct Mempool *, struct ParserSettings *);
 void parser_init_settings(struct ParserSettings *);
