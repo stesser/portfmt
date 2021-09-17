@@ -42,6 +42,7 @@
 #include "rules.h"
 
 struct WalkerData {
+	size_t counter;
 };
 
 static int
@@ -59,6 +60,8 @@ static enum ASTWalkState
 refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct ASTNode *node)
 {
 	SCOPE_MEMPOOL(pool);
+
+	this->counter++;
 
 	switch (node->type) {
 	case AST_NODE_ROOT:
@@ -89,7 +92,7 @@ refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct A
 		struct Array *lines = mempool_array(pool);
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
 			if (is_empty_line(line)) {
-				if (empty == 0) {
+				if (empty == 0 && this->counter > 2) {
 					array_append(lines, line);
 				}
 				empty++;
@@ -97,6 +100,7 @@ refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct A
 				array_append(lines, line);
 				empty = 0;
 			}
+			this->counter++;
 		}
 		if (array_len(lines) < array_len(node->comment.lines)) {
 			array_truncate(node->comment.lines);
@@ -123,6 +127,7 @@ PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 	}
 
 	refactor_remove_consecutive_empty_lines_walker(&(struct WalkerData){
+		.counter = 0,
 	}, root);
 
 	return 1;
