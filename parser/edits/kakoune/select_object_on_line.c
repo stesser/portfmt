@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include <limits.h>
-#include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -39,9 +38,14 @@
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "token.h"
+
+struct WalkerData {
+	size_t kak_cursor_line;
+	struct ASTNodeLineRange *range;
+};
 
 static void
 kak_error(struct Parser *parser, const char *errstr)
@@ -52,24 +56,70 @@ kak_error(struct Parser *parser, const char *errstr)
 	parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, errstr);
 }
 
+static enum ASTWalkState
+kakoune_select_object_on_line_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE:
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	if (this->kak_cursor_line >= node->line_start.a && this->kak_cursor_line < node->line_start.b) {
+		this->range = &node->line_start;
+		return AST_WALK_STOP;
+	} else {
+		return AST_WALK_CONTINUE;
+	}
+}
+
+
 PARSER_EDIT(kakoune_select_object_on_line)
 {
 	SCOPE_MEMPOOL(pool);
 
 	if (!(parser_settings(parser).behavior & PARSER_OUTPUT_RAWLINES)) {
 		kak_error(parser, "needs PARSER_OUTPUT_RAWLINES");
-		return 0;
+		return 1;
 	}
 
-	char *kak_cursor_line_buf = getenv("kak_cursor_line");
+	const char *kak_cursor_line_buf = getenv("kak_cursor_line");
 	if (!kak_cursor_line_buf) {
 		kak_error(parser, "could not find kak_cursor_line");
-		return 0;
+		return 1;
 	}
 
 	const char *errstr;
-	size_t kak_cursor_line = strtonum(kak_cursor_line_buf, 1, INT_MAX, &errstr);
-	if (kak_cursor_line == 0) {
+	struct WalkerData this = {
+		.range = NULL,
+		.kak_cursor_line = strtonum(kak_cursor_line_buf, 1, INT_MAX, &errstr),
+	};
+	if (this.kak_cursor_line == 0) {
 		const char *error_msg;
 		if (errstr) {
 			error_msg = str_printf(pool, "could not parse kak_cursor_line: %s", errstr);
@@ -77,37 +127,14 @@ PARSER_EDIT(kakoune_select_object_on_line)
 			error_msg = "could not parse kak_cursor_line";
 		}
 		kak_error(parser, error_msg);
-		return 0;
+		return 1;
 	}
 
-	int found = 0;
-	struct Range *target_start_range = NULL;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		struct Range *range = NULL;
-		switch (token_type(t)) {
-		case TARGET_START:
-			target_start_range = token_lines(t);
-			break;
-		case TARGET_END:
-			range = &(struct Range){ target_start_range->start, token_lines(t)->end - 1 };
-			break;
-		case VARIABLE_START:
-			range = token_lines(t);
-			break;
-		default:
-			break;
-		}
-		if (range && kak_cursor_line >= range->start && kak_cursor_line < range->end) {
-			parser_enqueue_output(parser, str_printf(pool, "select %zu.1,%zu.10000000\n", range->start, range->end - 1));
-			found = 1;
-			break;
-		}
-		range = NULL;
-	}
-	if (!found) {
+	if (AST_WALK_STOP == kakoune_select_object_on_line_walker(&this, root)) {
+		parser_enqueue_output(parser, str_printf(pool, "select %zu.1,%zu.10000000\n", this.range->a, this.range->b - 1));
+	} else {
 		kak_error(parser, "no selectable object found on this line");
 	}
 
-	return 0;
+	return 1;
 }
-
