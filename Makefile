@@ -95,7 +95,7 @@ parser/edits/edit/merge.o: config.h libias/array.h libias/flow.h libias/mempool.
 parser/edits/edit/set_version.o: config.h libias/array.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h token.h variable.h
 parser/edits/kakoune/select_object_on_line.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser.h parser/edits.h token.h
 parser/edits/lint/bsd_port.o: config.h libias/array.h libias/flow.h libias/str.h ast.h parser.h parser/edits.h
-parser/edits/lint/clones.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h conditional.h parser.h parser/edits.h token.h variable.h
+parser/edits/lint/clones.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/commented_portrevision.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/order.o: config.h libias/array.h libias/color.h libias/diff.h libias/flow.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h conditional.h parser.h parser/edits.h rules.h target.h token.h variable.h
 parser/edits/output/conditional_token.o: config.h libias/array.h libias/flow.h ast.h parser.h parser/edits.h

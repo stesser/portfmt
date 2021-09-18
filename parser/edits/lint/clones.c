@@ -40,21 +40,77 @@
 #include <libias/str.h>
 
 #include "ast.h"
-#include "conditional.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "token.h"
-#include "variable.h"
+
+struct WalkerData {
+	struct Set *seen;
+	struct Set *seen_in_cond;
+	struct Set *clones;
+};
 
 static void
-add_clones(struct Set *clones, struct Set *seen, struct Set *seen_in_cond)
+add_clones(struct WalkerData *this)
 {
-	SET_FOREACH(seen_in_cond, char *, name) {
-		if (set_contains(seen, name) && !set_contains(clones, name)) {
-			set_add(clones, str_dup(NULL, name));
+	SET_FOREACH(this->seen_in_cond, const char *, name) {
+		if (set_contains(this->seen, name) && !set_contains(this->clones, name)) {
+			set_add(this->clones, str_dup(NULL, name));
 		}
 	}
-	set_truncate(seen_in_cond);
+	set_truncate(this->seen_in_cond);
+}
+
+static enum ASTWalkState
+lint_clones_walker(struct WalkerData *this, struct ASTNode *node, int in_conditional)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional));
+		}
+		break;
+	case AST_NODE_VARIABLE: {
+		if (node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_ASSIGN) {
+			if (in_conditional > 0) {
+				set_add(this->seen_in_cond, node->variable.name);
+			} else if (set_contains(this->seen, node->variable.name)) {
+				if (!set_contains(this->clones, node->variable.name)) {
+					set_add(this->clones, str_dup(NULL, node->variable.name));
+				}
+			} else {
+				set_add(this->seen, node->variable.name);
+			}
+		}
+		break;
+	} case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	if (in_conditional <= 0) {
+		add_clones(this);
+	}
+
+	return AST_WALK_CONTINUE;
 }
 
 PARSER_EDIT(lint_clones)
@@ -64,53 +120,14 @@ PARSER_EDIT(lint_clones)
 	struct Set **clones_ret = userdata;
 	int no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
 
-	struct Set *seen = mempool_set(pool, str_compare, NULL, NULL);
-	struct Set *seen_in_cond = mempool_set(pool, str_compare, NULL, NULL);
-	struct Set *clones = mempool_set(pool, str_compare, NULL, free);
-	int in_conditional = 0;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case CONDITIONAL_START:
-			switch(conditional_type(token_conditional(t))) {
-			case COND_FOR:
-			case COND_IF:
-			case COND_IFDEF:
-			case COND_IFNDEF:
-			case COND_IFMAKE:
-				in_conditional++;
-				break;
-			case COND_ENDFOR:
-			case COND_ENDIF:
-				in_conditional--;
-				if (in_conditional <= 0) {
-					add_clones(clones, seen, seen_in_cond);
-				}
-				break;
-			default:
-				break;
-			}
-			break;
-		case VARIABLE_START: {
-			struct Variable *v = token_variable(t);
-			if (variable_modifier(v) == AST_NODE_VARIABLE_MODIFIER_ASSIGN) {
-				char *name = variable_name(v);
-				if (in_conditional > 0) {
-					set_add(seen_in_cond, name);
-				} else if (set_contains(seen, name)) {
-					if (!set_contains(clones, name)) {
-						set_add(clones, str_dup(NULL, name));
-					}
-				} else {
-					set_add(seen, name);
-				}
-			}
-			break;
-		} default:
-			break;
-		}
-	}
+	struct WalkerData this = {
+		.seen = mempool_set(pool, str_compare, NULL, NULL),
+		.seen_in_cond = mempool_set(pool, str_compare, NULL, NULL),
+		.clones = mempool_set(pool, str_compare, NULL, free),
+	};
+	lint_clones_walker(&this, root, 0);
 
-	if (clones_ret == NULL && set_len(clones) > 0) {
+	if (clones_ret == NULL && set_len(this.clones) > 0) {
 		if (!no_color) {
 			parser_enqueue_output(parser, ANSI_COLOR_CYAN);
 		}
@@ -118,16 +135,16 @@ PARSER_EDIT(lint_clones)
 		if (!no_color) {
 			parser_enqueue_output(parser, ANSI_COLOR_RESET);
 		}
-		SET_FOREACH (clones, const char *, name) {
+		SET_FOREACH(this.clones, const char *, name) {
 			parser_enqueue_output(parser, name);
 			parser_enqueue_output(parser, "\n");
 		}
 	}
 
 	if (clones_ret != NULL) {
-		*clones_ret = mempool_forget(pool, clones);
+		*clones_ret = mempool_forget(pool, this.clones);
 	}
 
-	return 0;
+	return 1;
 }
 
