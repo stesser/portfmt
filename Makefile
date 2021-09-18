@@ -106,7 +106,7 @@ parser/edits/output/variable_value.o: config.h libias/array.h libias/flow.h libi
 parser/edits/refactor/collapse_adjacent_variables.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/dedup_tokens.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/remove_consecutive_empty_lines.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/edits.h rules.h
-parser/edits/refactor/sanitize_append_modifier.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h ast.h parser.h parser/edits.h rules.h token.h variable.h
+parser/edits/refactor/sanitize_append_modifier.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/refactor/sanitize_cmake_args.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser.h parser/edits.h rules.h token.h variable.h
 parser/edits/refactor/sanitize_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser.h parser/edits.h token.h
 parser/edits/refactor/sanitize_eol_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h parser.h parser/edits.h rules.h token.h variable.h

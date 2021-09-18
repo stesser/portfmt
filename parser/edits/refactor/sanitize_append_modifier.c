@@ -37,13 +37,83 @@
 #include <libias/flow.h>
 #include <libias/mempool.h>
 #include <libias/set.h>
+#include <libias/str.h>
 
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "rules.h"
-#include "token.h"
-#include "variable.h"
+
+struct WalkerData {
+	struct Set *seen;
+};
+
+static enum ASTWalkState
+refactor_sanitize_append_modifier_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) > 0) {
+			const char *word = array_get(node->flatexpr.words, 0);
+			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.mk>") == 0) {
+				return AST_WALK_STOP;
+			}
+		}
+		break;
+	case AST_NODE_VARIABLE:
+		if (set_contains(this->seen, node->variable.name)) {
+			if (node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_APPEND) {
+				node->edited = 1;
+			} else {
+				set_remove(this->seen, node->variable.name);
+			}
+		} else {
+			set_add(this->seen, node->variable.name);
+			if (strcmp(node->variable.name, "CXXFLAGS") != 0 &&
+			    strcmp(node->variable.name, "CFLAGS") != 0 &&
+			    strcmp(node->variable.name, "LDFLAGS") != 0 &&
+			    strcmp(node->variable.name, "RUSTFLAGS") != 0 &&
+			    node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_APPEND) {
+				if (node->parent->type != AST_NODE_EXPR_IF && node->parent->type != AST_NODE_EXPR_FOR) {
+					node->variable.modifier = AST_NODE_VARIABLE_MODIFIER_ASSIGN;
+				}
+				node->edited = 1;
+			}
+		}
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
 
 PARSER_EDIT(refactor_sanitize_append_modifier)
 {
@@ -55,44 +125,10 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 	}
 
 	/* Sanitize += before bsd.options.mk */
-	struct Set *seen = mempool_set(pool, variable_compare, NULL, NULL);
-	struct Array *tokens = mempool_array(pool);
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_START:
-		case VARIABLE_TOKEN:
-			array_append(tokens, t);
-			break;
-		case VARIABLE_END: {
-			array_append(tokens, t);
-			if (set_contains(seen, token_variable(t))) {
-				array_truncate(tokens);
-				continue;
-			} else {
-				set_add(seen, token_variable(t));
-			}
-			ARRAY_FOREACH(tokens, struct Token *, o) {
-				if (strcmp(variable_name(token_variable(o)), "CXXFLAGS") != 0 &&
-				    strcmp(variable_name(token_variable(o)), "CFLAGS") != 0 &&
-				    strcmp(variable_name(token_variable(o)), "LDFLAGS") != 0 &&
-				    strcmp(variable_name(token_variable(o)), "RUSTFLAGS") != 0 &&
-				    variable_modifier(token_variable(o)) == AST_NODE_VARIABLE_MODIFIER_APPEND) {
-					variable_set_modifier(token_variable(o), AST_NODE_VARIABLE_MODIFIER_ASSIGN);
-					parser_mark_edited(parser, o);
-				}
-			}
-			array_truncate(tokens);
-			break;
-		} case CONDITIONAL_TOKEN:
-			if (is_include_bsd_port_mk(t)) {
-				return 0;
-			}
-		default:
-			break;
-		}
-	}
+	refactor_sanitize_append_modifier_walker(&(struct WalkerData){
+		.seen = mempool_set(pool, str_compare, NULL, NULL),
+	}, root);
 
-	*new_tokens = ptokens;
-	return 0;
+	return 1;
 }
 
