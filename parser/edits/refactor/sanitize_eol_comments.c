@@ -37,29 +37,26 @@
 #include <libias/array.h>
 #include <libias/flow.h>
 #include <libias/mempool.h>
+#include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
 
 static int
-preserve_eol_comment(struct Token *t)
+preserve_eol_comment(const char *word)
 {
 	SCOPE_MEMPOOL(pool);
 
-	if (t == NULL || token_type(t) != VARIABLE_TOKEN) {
-		return 0;
-	}
-
-	if (!is_comment(token_data(t))) {
+	if (!is_comment(word)) {
 		return 1;
 	}
 
 	/* Remove all whitespace from the comment first to cover more cases */
-	char *token = mempool_alloc(pool, strlen(token_data(t)) + 1);
-	for (char *tokenp = token, *datap = token_data(t); *datap != 0; datap++) {
+	char *token = mempool_alloc(pool, strlen(word) + 1);
+	const char *datap = word;
+	for (char *tokenp = token; *datap != 0; datap++) {
 		if (!isspace(*datap)) {
 			*tokenp++ = *datap;
 		}
@@ -67,72 +64,84 @@ preserve_eol_comment(struct Token *t)
 	return strcmp(token, "#") == 0 || strcmp(token, "#empty") == 0 || strcmp(token, "#none") == 0;
 }
 
-PARSER_EDIT(refactor_sanitize_eol_comments)
+static enum ASTWalkState
+refactor_sanitize_eol_comments_walker(struct ASTNode *node)
 {
-	SCOPE_MEMPOOL(pool);
-
-	if (userdata != NULL) {
-		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
-	}
-
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
+		}
+		break;
 	/* Try to push end of line comments out of the way above
 	 * the variable as a way to preserve them.  They clash badly
 	 * with sorting tokens in variables.  We could add more
 	 * special cases for this, but often having them at the top
 	 * is just as good.
 	 */
+	case AST_NODE_VARIABLE: {
+		SCOPE_MEMPOOL(pool);
 
-	struct Array *tokens = mempool_array(pool);
-	struct Array *var_tokens = mempool_array(pool);
-	struct Token *last_token = NULL;
-	ssize_t last_token_index = -1;
-	ssize_t placeholder_index = -1;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_START:
-			last_token = NULL;
-			last_token_index = -1;
-			placeholder_index = array_len(tokens);
-			array_append(tokens, NULL);
-			array_append(tokens, t);
-			array_append(var_tokens, t);
-			break;
-		case VARIABLE_TOKEN:
-			last_token = t;
-			last_token_index = array_len(tokens);
-			array_append(tokens, t);
-			array_append(var_tokens, t);
-			break;
-		case VARIABLE_END:
-			if (placeholder_index > -1 && last_token_index > -1 &&
-			    !preserve_eol_comment(last_token)) {
-				struct Token *comment = token_as_comment(last_token);
-				parser_mark_for_gc(parser, comment);
-				parser_mark_edited(parser, comment);
-				array_set(tokens, placeholder_index, comment);
-				array_set(tokens, last_token_index, NULL);
-				array_append(var_tokens, t);
-				ARRAY_FOREACH(var_tokens, struct Token *, vt) {
-					parser_mark_edited(parser, vt);
-				}
+		ssize_t last_index = -1;
+		ARRAY_FOREACH(node->variable.words, const char *, word) {
+			if (!preserve_eol_comment(word)) {
+				last_index = word_index;
+				break;
 			}
-			array_append(tokens, t);
-			array_truncate(var_tokens);
-			break;
-		default:
-			array_append(tokens, t);
-			break;
 		}
+
+		if (last_index < 0) {
+			return AST_WALK_CONTINUE;
+		}
+
+		struct ASTNode *comment = ast_node_new(node->pool, AST_NODE_COMMENT, &node->line_start, &(struct ASTNodeComment){
+			.type = AST_NODE_COMMENT_LINE,
+		});
+		struct Array *words = mempool_array(pool);
+		ARRAY_FOREACH_SLICE(node->variable.words, last_index, -1, const char *, word) {
+			array_append(words, word);
+		}
+		array_append(comment->comment.lines, str_join(comment->pool, words, " "));
+		ast_node_parent_insert_before_sibling(node, comment);
+		comment->edited = 1;
+
+		array_truncate_at(node->variable.words, last_index);
+		node->edited = 1;
+	} case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
 	}
 
-	ptokens = array_new();
-	ARRAY_FOREACH(tokens, struct Token *, t) {
-		if (t != NULL) {
-			array_append(ptokens, t);
-		}
+	return AST_WALK_CONTINUE;
+}
+
+PARSER_EDIT(refactor_sanitize_eol_comments)
+{
+	if (userdata != NULL) {
+		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
+		return 0;
 	}
 
-	*new_tokens = ptokens;
-	return 0;
+	refactor_sanitize_eol_comments_walker(root);
+
+	return 1;
 }
