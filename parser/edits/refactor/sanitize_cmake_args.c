@@ -38,11 +38,10 @@
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
 
 enum State {
 	NONE,
@@ -50,62 +49,92 @@ enum State {
 	CMAKE_D,
 };
 
+struct WalkerData {
+	struct Parser *parser;
+};
+
+static enum ASTWalkState
+refactor_sanitize_cmake_args_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE: {
+		SCOPE_MEMPOOL(pool);
+
+		char *helper = NULL;
+		enum State state = NONE;
+		if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {
+			if (strcmp(helper, "CMAKE_ON") == 0 || strcmp(helper, "CMAKE_OFF") == 0 ||
+			    strcmp(helper, "MESON_ON") == 0 || strcmp(helper, "MESON_OFF") == 0) {
+				state = CMAKE_ARGS;
+			}
+		} else if (strcmp(node->variable.name, "CMAKE_ARGS") == 0 ||
+			   strcmp(node->variable.name, "MESON_ARGS") == 0) {
+			state = CMAKE_ARGS;
+		}
+		struct Array *words = mempool_array(pool);
+		ARRAY_FOREACH(node->variable.words, const char *, word) {
+			if (state == CMAKE_ARGS && strcmp(word, "-D") == 0) {
+				state = CMAKE_D;
+				node->edited = 1;
+				if (word_index == array_len(node->variable.words) - 1) {
+					array_append(words, word);
+				}
+			} else if (state == CMAKE_D) {
+				array_append(words, str_printf(node->pool, "-D%s", word));
+				state = CMAKE_ARGS;
+				node->edited = 1;
+			} else {
+				array_append(words, word);
+			}
+		}
+		array_truncate(node->variable.words);
+		ARRAY_FOREACH(words, const char *, word) {
+			array_append(node->variable.words, word);
+		}
+		break;
+	} case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
+
 PARSER_EDIT(refactor_sanitize_cmake_args)
 {
-	SCOPE_MEMPOOL(pool);
-
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
 		return 0;
 	}
 
-	struct Array *tokens = array_new();
-	enum State state = NONE;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_START: {
-			char *name = variable_name(token_variable(t));
-			char *helper = NULL;
-			if (is_options_helper(pool, parser, name, NULL, &helper, NULL)) {
-				if (strcmp(helper, "CMAKE_ON") == 0 || strcmp(helper, "CMAKE_OFF") == 0 ||
-				    strcmp(helper, "MESON_ON") == 0 || strcmp(helper, "MESON_OFF") == 0) {
-					state = CMAKE_ARGS;
-				} else {
-					state = NONE;
-				}
-			} else if (strcmp(name, "CMAKE_ARGS") == 0 || strcmp(name, "MESON_ARGS") == 0) {
-				state = CMAKE_ARGS;
-			} else {
-				state = NONE;
-			}
-			array_append(tokens, t);
-			break;
-		} case VARIABLE_TOKEN:
-			if (state == NONE) { 
-				array_append(tokens, t);
-			} else if (strcmp(token_data(t), "-D") == 0) {
-				state = CMAKE_D;
-				parser_mark_for_gc(parser, t);
-			} else if (state == CMAKE_D) {
-				struct Token *newt = token_clone(t, str_printf(pool, "-D%s", token_data(t)));
-				array_append(tokens, newt);
-				parser_mark_for_gc(parser, t);
-				state = CMAKE_ARGS;
-			} else {
-				array_append(tokens, t);
-			}
-			break;
-		case VARIABLE_END:
-			state = NONE;
-			array_append(tokens, t);
-			break;
-		default:
-			array_append(tokens, t);
-			break;
-		}
-	}
+	refactor_sanitize_cmake_args_walker(&(struct WalkerData){
+		.parser = parser,
+	}, root);
 
-	*new_tokens = tokens;
-	return 0;
+	return 1;
 }
 
