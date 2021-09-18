@@ -76,9 +76,7 @@ refactor_sanitize_comments_walker(struct ASTNode *node, int in_target)
 				array_append(lines, str_trim(node->pool, line));
 			}
 			array_truncate(node->comment.lines);
-			ARRAY_FOREACH(lines, const char *, line) {
-				array_append(node->comment.lines, line);
-			}
+			ARRAY_JOIN(node->comment.lines, lines);
 		}
 		break;
 	case AST_NODE_VARIABLE:

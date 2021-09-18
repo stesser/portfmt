@@ -111,9 +111,7 @@ refactor_sanitize_cmake_args_walker(struct WalkerData *this, struct ASTNode *nod
 			}
 		}
 		array_truncate(node->variable.words);
-		ARRAY_FOREACH(words, const char *, word) {
-			array_append(node->variable.words, word);
-		}
+		ARRAY_JOIN(node->variable.words, words);
 		break;
 	} case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:

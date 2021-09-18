@@ -104,9 +104,7 @@ refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct A
 		}
 		if (array_len(lines) < array_len(node->comment.lines)) {
 			array_truncate(node->comment.lines);
-			ARRAY_FOREACH(lines, const char *, line) {
-				array_append(node->comment.lines, line);
-			}
+			ARRAY_JOIN(node->comment.lines, lines);
 			node->edited = 1;
 		}
 		break;

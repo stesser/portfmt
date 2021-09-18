@@ -141,9 +141,7 @@ refactor_dedup_tokens_walker(struct WalkerData *this, struct ASTNode *node)
 			if (array_len(words) < array_len(node->variable.words)) {
 				node->edited = 1;
 				array_truncate(node->variable.words);
-				ARRAY_FOREACH(words, const char *, word) {
-					array_append(node->variable.words, word);
-				}
+				ARRAY_JOIN(node->variable.words, words);
 			}
 		}
 		break;

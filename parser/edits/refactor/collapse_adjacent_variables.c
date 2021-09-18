@@ -104,9 +104,7 @@ merge_variables(struct Array *nodelist, struct Array *group)
 		}
 	}
 	array_truncate(nodelist);
-	ARRAY_FOREACH(newnodelist, struct ASTNode *, node) {
-		array_append(nodelist, node);
-	}
+	ARRAY_JOIN(nodelist, newnodelist);
 }
 
 static void
