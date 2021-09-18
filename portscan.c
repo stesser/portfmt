@@ -522,12 +522,10 @@ scan_port(struct ScanPortArgs *args)
 		return;
 	}
 
-	if (args->flags & SCAN_PARTIAL) {
-		error = parser_edit(parser, pool, lint_bsd_port, NULL);
-		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, parser_error_tostring(parser, pool));
-			return;
-		}
+	error = parser_read_finish(parser);
+	if (error != PARSER_ERROR_OK) {
+		add_error(retval->errors, parser_error_tostring(parser, pool));
+		return;
 	}
 
 	struct Array *includes = NULL;
@@ -548,6 +546,14 @@ scan_port(struct ScanPortArgs *args)
 	if (error != PARSER_ERROR_OK) {
 		add_error(retval->errors, parser_error_tostring(parser, pool));
 		return;
+	}
+
+	if (args->flags & SCAN_PARTIAL) {
+		error = parser_edit(parser, pool, lint_bsd_port, NULL);
+		if (error != PARSER_ERROR_OK) {
+			add_error(retval->errors, parser_error_tostring(parser, pool));
+			return;
+		}
 	}
 
 	if (retval->flags & SCAN_UNKNOWN_VARIABLES) {

@@ -72,7 +72,7 @@ static void assign_values(struct Parser *, struct Array *, enum ASTNodeVariableM
 PARSER_EDIT(extract_tokens)
 {
 	struct Array **tokens = userdata;
-	*tokens = ptokens;
+	*tokens = ast_to_token_stream(root, extpool);
 	return 0;
 }
 
@@ -311,6 +311,7 @@ PARSER_EDIT(insert_variable)
 {
 	struct Variable *var = userdata;
 
+	struct Array *ptokens = ast_to_token_stream(root, extpool);
 	enum BlockType block_var = variable_order_block(parser, variable_name(var), NULL, NULL);
 	enum BlockType block_before_var = BLOCK_UNKNOWN;
 	ssize_t insert_after = find_insert_point_same_block(parser, ptokens, var, &block_before_var);
@@ -429,6 +430,7 @@ find_last_occurrence_of_var(struct Parser *parser, struct Array *tokens, struct 
 
 PARSER_EDIT(merge_existent_var)
 {
+	struct Array *ptokens = ast_to_token_stream(root, extpool);
 	struct VariableMergeParameter *params = userdata;
 	struct Array *tokens = array_new();
 
@@ -517,6 +519,7 @@ PARSER_EDIT(merge_existent_var)
 PARSER_EDIT(edit_merge)
 {
 	SCOPE_MEMPOOL(pool);
+	struct Array *ptokens = ast_to_token_stream(root, extpool);
 
 	const struct ParserEdit *params = userdata;
 	if (params == NULL ||

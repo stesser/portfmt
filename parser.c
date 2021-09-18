@@ -1724,6 +1724,8 @@ enum ParserError
 parser_read_finish(struct Parser *parser)
 {
 	SCOPE_MEMPOOL(pool);
+	//TODO: uncomment when process_include() mess in portscan is fixed
+	//panic_if(parser->read_finished, "parser_read_finish() called multiple times");
 
 	if (parser->error != PARSER_ERROR_OK) {
 		return parser->error;
@@ -1754,10 +1756,13 @@ parser_read_finish(struct Parser *parser)
 		parser_append_token(parser, TARGET_END, NULL);
 	}
 
-	// Set it now to avoid recursion in parser_edit()
 	parser->read_finished = 1;
+	ast_free(parser->ast);
 	parser->ast = ast_from_token_stream(parser->tokens);
-	mempool_add(parser->pool, parser->ast, ast_free);
+	// TODO: see above
+	// array_free(parser->tokens);
+	// parser->tokens = NULL;
+	// mempool_release_all(parser->tokengc);
 
 	if (parser->settings.behavior & PARSER_SANITIZE_COMMENTS &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_comments, NULL)) {
@@ -1887,24 +1892,18 @@ enum ParserError
 parser_edit(struct Parser *parser, struct Mempool *extpool, ParserEditFn f, void *userdata)
 {
 	SCOPE_MEMPOOL(pool);
-
-	if (!parser->read_finished) {
-		parser_read_finish(parser);
-	}
+	panic_unless(parser->read_finished, "parser_edit() called before parser_read_finish()");
 
 	if (parser->error != PARSER_ERROR_OK) {
 		return parser->error;
 	}
 
 	struct Array *tokens = NULL;
-	if (f(parser, parser->ast, parser->tokens, extpool, userdata, &tokens)) {
-		array_free(parser->tokens);
-		parser->tokens = ast_to_token_stream(parser->ast, parser->tokengc);
-	} else if (tokens && tokens != parser->tokens) {
-		array_free(parser->tokens);
-		parser->tokens = tokens;
-		parser->ast = ast_from_token_stream(parser->tokens);
-		mempool_add(parser->pool, parser->ast, ast_free);
+	if (f(parser, parser->ast, extpool, userdata, &tokens)) {
+		// do nothing
+	} else if (tokens) {
+		ast_free(parser->ast);
+		parser->ast = ast_from_token_stream(tokens);
 	}
 
 	if (parser->error != PARSER_ERROR_OK) {
