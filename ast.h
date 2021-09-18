@@ -200,6 +200,7 @@ struct Array *ast_to_token_stream(struct ASTNode *, struct Mempool *);
 void ast_free(struct ASTNode *);
 struct ASTNode *ast_node_new(struct Mempool *, enum ASTNodeType, struct ASTNodeLineRange *, void *);
 void ast_node_parent_append_sibling(struct ASTNode *, struct ASTNode *, int);
+void ast_node_parent_insert_before_sibling(struct ASTNode *, struct ASTNode *);
 void ast_node_print(struct ASTNode *, FILE *);
 
 #define AST_WALK_RECUR(x) \

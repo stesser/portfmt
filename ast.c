@@ -275,6 +275,51 @@ ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int
 }
 
 void
+ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_sibling)
+// Insert `new_sibling` in the `node`'s parent just before `node`
+{
+	struct ASTNode *parent = node->parent;
+	struct Array *nodelist = NULL;
+	ssize_t index = -1;
+	switch (parent->type) {
+	case AST_NODE_ROOT:
+		nodelist = parent->root.body;
+		break;
+	case AST_NODE_EXPR_IF:
+		nodelist = parent->ifexpr.body;
+		index = array_find(nodelist, node, NULL, NULL);
+		if (index < 0) {
+			nodelist = parent->ifexpr.orelse;
+			index = array_find(nodelist, node, NULL, NULL);
+			if (index < 0) {
+				panic("node does not appear in parent nodelist");
+			}
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		nodelist = parent->forexpr.body;
+		break;
+	case AST_NODE_TARGET:
+		nodelist = parent->target.body;
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_EXPR_FLAT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_VARIABLE:
+		panic("leaf node as parent");
+	}
+
+	if (index < 0) {
+		index = array_find(nodelist, node, NULL, NULL);
+		if (index < 0) {
+			panic("node does not appear in parent nodelist");
+		}
+	}
+	array_insert(nodelist, index, new_sibling);
+	new_sibling->parent = parent;
+}
+
+void
 ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 {
 	SCOPE_MEMPOOL(pool);
