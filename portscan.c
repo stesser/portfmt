@@ -62,6 +62,7 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "capsicum_helpers.h"
 #include "conditional.h"
 #include "mainutils.h"
@@ -359,44 +360,61 @@ process_include(struct Parser *parser, struct Set *errors, const char *curdir, i
 	return parser_read_from_file(parser, f);
 }
 
+static enum ASTWalkState
+extract_includes_walker(struct Array *this, struct ASTNode *node)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(extract_includes_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(extract_includes_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(extract_includes_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(extract_includes_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(extract_includes_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) == 1) {
+			char *word = array_get(node->flatexpr.words, 0);
+			if (word && *word == '"' && word[strlen(word) - 1] == '"') {
+				word++;
+				word[strlen(word) - 1] = 0;
+				array_append(this, word);
+			}
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_VARIABLE:
+	case AST_NODE_TARGET_COMMAND:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
+
+
 PARSER_EDIT(extract_includes)
 {
 	struct Array **retval = userdata;
-
 	struct Array *includes = mempool_array(extpool);
-	int found = 0;
-
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case CONDITIONAL_START:
-			if (conditional_type(token_conditional(t)) == COND_INCLUDE) {
-				found = 1;
-			}
-			break;
-		case CONDITIONAL_TOKEN:
-			if (found == 1) {
-				found++;
-			} else if (found > 1) {
-				found = 0;
-				char *data = token_data(t);
-				if (data && *data == '"' && data[strlen(data) - 1] == '"') {
-					data++;
-					data[strlen(data) - 1] = 0;
-					array_append(includes, data);
-				}
-			}
-			break;
-		case CONDITIONAL_END:
-			found = 0;
-			break;
-		default:
-			break;
-		}
-	}
-
+	extract_includes_walker(includes, root);
 	*retval = includes;
-
-	return 0;
+	return 1;
 }
 
 static int
