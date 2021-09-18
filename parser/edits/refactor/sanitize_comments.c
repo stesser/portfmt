@@ -36,46 +36,69 @@
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "token.h"
+
+static enum ASTWalkState
+refactor_sanitize_comments_walker(struct ASTNode *node, int in_target)
+{
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, in_target));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, in_target));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, in_target));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, in_target));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, 1));
+		}
+		break;
+	case AST_NODE_COMMENT:
+		if (in_target) {
+			SCOPE_MEMPOOL(pool);
+			node->edited = 1;
+			struct Array *lines = mempool_array(pool);
+			ARRAY_FOREACH(node->comment.lines, const char *, line) {
+				array_append(lines, str_trim(node->pool, line));
+			}
+			array_truncate(node->comment.lines);
+			ARRAY_FOREACH(lines, const char *, line) {
+				array_append(node->comment.lines, line);
+			}
+		}
+		break;
+	case AST_NODE_VARIABLE:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
 
 PARSER_EDIT(refactor_sanitize_comments)
 {
-	SCOPE_MEMPOOL(pool);
-
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
 		return 0;
 	}
 
-	struct Array *tokens = array_new();
-	int in_target = 0;
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case TARGET_START:
-			in_target = 1;
-			break;
-		case TARGET_END:
-			in_target = 0;
-			break;
-		case COMMENT:
-			if (in_target) {
-				char *comment = str_trim(pool, token_data(t));
-				struct Token *c = token_new_comment(token_lines(t), comment, token_conditional(t));
-				array_append(tokens, c);
-				parser_mark_edited(parser, c);
-				parser_mark_for_gc(parser, t);
-				continue;
-			}
-			break;
-		default:
-			break;
-		}
-		array_append(tokens, t);
-	}
+	refactor_sanitize_comments_walker(root, 0);
 
-	*new_tokens = tokens;
-	return 0;
+	return 1;
 }
 
