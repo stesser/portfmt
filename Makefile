@@ -96,7 +96,7 @@ parser/edits/edit/set_version.o: config.h libias/array.h libias/mempool.h libias
 parser/edits/kakoune/select_object_on_line.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser.h parser/edits.h token.h
 parser/edits/lint/bsd_port.o: config.h libias/array.h libias/flow.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/clones.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h conditional.h parser.h parser/edits.h token.h variable.h
-parser/edits/lint/commented_portrevision.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h parser.h parser/edits.h token.h
+parser/edits/lint/commented_portrevision.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/order.o: config.h libias/array.h libias/color.h libias/diff.h libias/flow.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h conditional.h parser.h parser/edits.h rules.h target.h token.h variable.h
 parser/edits/output/conditional_token.o: config.h libias/array.h libias/flow.h ast.h parser.h parser/edits.h
 parser/edits/output/target_command_token.o: config.h libias/array.h libias/flow.h ast.h parser.h parser/edits.h
@@ -109,7 +109,8 @@ parser/edits/refactor/remove_consecutive_empty_lines.o: config.h libias/array.h 
 parser/edits/refactor/sanitize_append_modifier.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/refactor/sanitize_cmake_args.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/sanitize_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
-parser/edits/refactor/sanitize_eol_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h parser.h parser/edits.h rules.h token.h variable.h
+parser/edits/refactor/sanitize_eol_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h
+parser/edits/template.o: config.h libias/array.h libias/flow.h ast.h parser.h parser/edits.h
 portclippy.o: config.h libias/mempool.h mainutils.h parser.h parser/edits.h
 portedit.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h mainutils.h parser.h parser/edits.h regexp.h
 portfmt.o: config.h libias/mempool.h mainutils.h parser.h

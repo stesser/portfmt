@@ -39,50 +39,90 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "token.h"
+
+struct WalkerData {
+	struct Set *comments;
+};
+
+static enum ASTWalkState
+lint_commented_portrevision_walker(struct WalkerData *this, struct ASTNode *node)
+{
+	SCOPE_MEMPOOL(pool);
+
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
+		}
+		break;
+	case AST_NODE_COMMENT:
+		ARRAY_FOREACH(node->comment.lines, const char *, line) {
+			const char *comment = str_trim(pool, line);
+			if (strlen(comment) <= 1) {
+				continue;
+			}
+
+			struct ParserSettings settings;
+			parser_init_settings(&settings);
+			struct Parser *subparser = parser_new(pool, &settings);
+			if (parser_read_from_buffer(subparser, comment + 1, strlen(comment) - 1) != PARSER_ERROR_OK) {
+				continue;
+			}
+			if (parser_read_finish(subparser) != PARSER_ERROR_OK) {
+				continue;
+			}
+
+			struct Array *revnodes = NULL;
+			if (parser_lookup_variable(subparser, "PORTEPOCH", PARSER_LOOKUP_FIRST, pool, &revnodes, NULL) ||
+			    parser_lookup_variable(subparser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, &revnodes, NULL)) {
+				if (array_len(revnodes) <= 1 && !set_contains(this->comments, comment)) {
+					set_add(this->comments, str_dup(NULL, comment));
+				}
+			}
+		}
+		break;
+	case AST_NODE_VARIABLE:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
 
 PARSER_EDIT(lint_commented_portrevision)
 {
 	SCOPE_MEMPOOL(pool);
 
+	struct WalkerData this = {
+		.comments = mempool_set(pool, str_compare, NULL, free),
+	};
+	lint_commented_portrevision_walker(&this, root);
+
 	struct Set **retval = userdata;
-
 	int no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
-
-	struct Set *comments = mempool_set(pool, str_compare, NULL, free);
-	struct ParserSettings settings;
-
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (token_type(t) != COMMENT) {
-			continue;
-		}
-
-		char *comment = str_trim(pool, token_data(t));
-		if (strlen(comment) <= 1) {
-			continue;
-		}
-
-		parser_init_settings(&settings);
-		struct Parser *subparser = parser_new(pool, &settings);
-		if (parser_read_from_buffer(subparser, comment + 1, strlen(comment) - 1) != PARSER_ERROR_OK) {
-			continue;
-		}
-		if (parser_read_finish(subparser) != PARSER_ERROR_OK) {
-			continue;
-		}
-
-		struct Array *revtokens = NULL;
-		if (parser_lookup_variable(subparser, "PORTEPOCH", PARSER_LOOKUP_FIRST, pool, &revtokens, NULL) ||
-		    parser_lookup_variable(subparser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, &revtokens, NULL)) {
-			if (array_len(revtokens) <= 1 && !set_contains(comments, comment)) {
-				set_add(comments, str_dup(NULL, comment));
-			}
-		}
-	}
-
-	if (retval == NULL && set_len(comments) > 0) {
+	if (retval == NULL && set_len(this.comments) > 0) {
 		if (!no_color) {
 			parser_enqueue_output(parser, ANSI_COLOR_CYAN);
 		}
@@ -90,15 +130,15 @@ PARSER_EDIT(lint_commented_portrevision)
 		if (!no_color) {
 			parser_enqueue_output(parser, ANSI_COLOR_RESET);
 		}
-		SET_FOREACH(comments, const char *, comment) {
+		SET_FOREACH(this.comments, const char *, comment) {
 			parser_enqueue_output(parser, comment);
 			parser_enqueue_output(parser, "\n");
 		}
 	}
 
 	if (retval) {
-		*retval = mempool_forget(pool, comments);
+		*retval = mempool_forget(pool, this.comments);
 	}
 
-	return 0;
+	return 1;
 }
