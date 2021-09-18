@@ -64,15 +64,12 @@
 
 #include "ast.h"
 #include "capsicum_helpers.h"
-#include "conditional.h"
 #include "mainutils.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "portscan/log.h"
 #include "portscan/status.h"
 #include "regexp.h"
-#include "token.h"
-#include "variable.h"
 
 enum ScanFlags {
 	SCAN_NOTHING = 0,
@@ -784,34 +781,55 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 	return retval;
 }
 
-PARSER_EDIT(get_default_option_descriptions)
+static enum ASTWalkState
+get_default_option_descriptions_walker(struct Map *this, struct ASTNode *node)
 {
-	SCOPE_MEMPOOL(pool);
-
-	struct Array *desctokens = mempool_array(pool);
-	struct Map *default_option_descriptions = mempool_map(extpool, str_compare, NULL, free, free);
-	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		switch (token_type(t)) {
-		case VARIABLE_TOKEN:
-			if (str_endswith(variable_name(token_variable(t)), "_DESC")) {
-				array_append(desctokens, token_data(t));
-			}
-			break;
-		case VARIABLE_END:
-			if (!map_contains(default_option_descriptions, variable_name(token_variable(t)))) {
-				map_add(default_option_descriptions, str_dup(NULL, variable_name(token_variable(t))), str_join(NULL, desctokens, " "));
-			}
-			array_truncate(desctokens);
-			break;
-		default:
-			break;
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
 		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE:
+		if (str_endswith(node->variable.name, "_DESC") &&
+		    !map_contains(this, node->variable.name)) {
+			map_add(this, str_dup(NULL, node->variable.name), str_join(NULL, node->variable.words, " "));
+		}
+		break;
+	case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+	case AST_NODE_EXPR_FLAT:
+		break;
 	}
 
+	return AST_WALK_CONTINUE;
+}
+
+PARSER_EDIT(get_default_option_descriptions)
+{
+	struct Map *default_option_descriptions = mempool_map(extpool, str_compare, NULL, free, free);
+	get_default_option_descriptions_walker(default_option_descriptions, root);
 	struct Map **retval = (struct Map **)userdata;
 	*retval = default_option_descriptions;
-
-	return 0;
+	return 1;
 }
 
 void
