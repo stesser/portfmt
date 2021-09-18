@@ -123,48 +123,9 @@ const char *ASTNodeVariableModifier_humanize[] = {
 static void ast_node_print_helper(struct ASTNode *, FILE *, size_t);
 
 struct ASTNode *
-ast_node_new(struct ASTNode *parent, enum ASTNodeType type, struct ASTNodeLineRange *lines, int orelse, void *value)
+ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRange *lines, void *value)
 {
-	struct Mempool *pool;
-	if (parent) {
-		pool = parent->pool;
-	} else {
-		pool = mempool_new();
-	}
 	struct ASTNode *node = mempool_alloc(pool, sizeof(struct ASTNode));
-	if (parent) {
-		node->parent = parent;
-		switch (parent->type) {
-		case AST_NODE_ROOT:
-			array_append(parent->root.body, node);
-			break;
-		case AST_NODE_EXPR_FOR:
-			array_append(parent->forexpr.body, node);
-			break;
-		case AST_NODE_EXPR_IF: {
-			if (orelse) {
-				array_append(parent->ifexpr.orelse, node);
-			} else {
-				array_append(parent->ifexpr.body, node);
-			}
-			break;
-		} case AST_NODE_TARGET:
-			array_append(parent->target.body, node);
-			break;
-		case AST_NODE_COMMENT:
-			panic("cannot add child to AST_NODE_COMMENT");
-			break;
-		case AST_NODE_TARGET_COMMAND:
-			panic("cannot add child to AST_NODE_TARGET_COMMAND");
-			break;
-		case AST_NODE_EXPR_FLAT:
-			panic("cannot add child to AST_NODE_EXPR_FLAT");
-			break;
-		case AST_NODE_VARIABLE:
-			panic("cannot add child to AST_NODE_VARIABLE");
-			break;
-		}
-	}
 	node->pool = pool;
 	if (lines) {
 		node->line_start = *lines;
@@ -271,6 +232,46 @@ ast_node_new(struct ASTNode *parent, enum ASTNodeType type, struct ASTNodeLineRa
 	}
 
 	return node;
+}
+
+void
+ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int orelse)
+{
+	unless (parent) {
+		panic("null parent");
+	}
+
+	node->parent = parent;
+	switch (parent->type) {
+	case AST_NODE_ROOT:
+		array_append(parent->root.body, node);
+		break;
+	case AST_NODE_EXPR_FOR:
+		array_append(parent->forexpr.body, node);
+		break;
+	case AST_NODE_EXPR_IF: {
+		if (orelse) {
+			array_append(parent->ifexpr.orelse, node);
+		} else {
+			array_append(parent->ifexpr.body, node);
+		}
+		break;
+	} case AST_NODE_TARGET:
+		array_append(parent->target.body, node);
+		break;
+	case AST_NODE_COMMENT:
+		panic("cannot add child to AST_NODE_COMMENT");
+		break;
+	case AST_NODE_TARGET_COMMAND:
+		panic("cannot add child to AST_NODE_TARGET_COMMAND");
+		break;
+	case AST_NODE_EXPR_FLAT:
+		panic("cannot add child to AST_NODE_EXPR_FLAT");
+		break;
+	case AST_NODE_VARIABLE:
+		panic("cannot add child to AST_NODE_VARIABLE");
+		break;
+	}
 }
 
 void
@@ -390,9 +391,10 @@ ast_from_token_stream_flush_comments(struct ASTNode *parent, struct Array *comme
 		return;
 	}
 
-	struct ASTNode *node = ast_node_new(parent, AST_NODE_COMMENT, (struct ASTNodeLineRange *)token_lines(array_get(comments, 0)), 0, &(struct ASTNodeComment){
+	struct ASTNode *node = ast_node_new(parent->pool, AST_NODE_COMMENT, (struct ASTNodeLineRange *)token_lines(array_get(comments, 0)), &(struct ASTNodeComment){
 		.type = AST_NODE_COMMENT_LINE,
 	});
+	ast_node_parent_append_sibling(parent, node, 0);
 
 	ARRAY_FOREACH(comments, struct Token *, t) {
 		node->edited = node->edited || token_edited(t);
@@ -409,7 +411,7 @@ ast_from_token_stream(struct Array *tokens)
 {
 	SCOPE_MEMPOOL(pool);
 
-	struct ASTNode *root = ast_node_new(NULL, AST_NODE_ROOT, NULL, 0, NULL);
+	struct ASTNode *root = ast_node_new(mempool_new(), AST_NODE_ROOT, NULL, NULL);
 	struct Array *current_cond = mempool_array(pool);
 	struct Array *current_comments = mempool_array(pool);
 	struct Array *current_target_cmds = mempool_array(pool);
@@ -448,10 +450,11 @@ ast_from_token_stream(struct Array *tokens)
 			case COND_UNEXPORT_ENV:
 			case COND_UNEXPORT:
 			case COND_WARNING: {
-				struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_EXPR_FLAT, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeExprFlat){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FLAT, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeExprFlat){
 					.type = conditional_to_flatexpr[condtype],
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
+				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 				if (token_edited(t)) {
 					node->edited = 1;
 				}
@@ -463,9 +466,10 @@ ast_from_token_stream(struct Array *tokens)
 				}
 				break;
 			} case COND_FOR: {
-				struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_EXPR_FOR, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeExprFor){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FOR, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeExprFor){
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
+				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = token_edited(t);
 				size_t word_start = 1;
 				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct Token *, t) {
@@ -518,11 +522,12 @@ ast_from_token_stream(struct Array *tokens)
 				if (ifparent) {
 					parent = stack_peek(ifstack);
 				}
-				struct ASTNode *node = ast_node_new(parent, AST_NODE_EXPR_IF, (struct ASTNodeLineRange *)token_lines(t), ifparent != NULL, &(struct ASTNodeExprIf){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_IF, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeExprIf){
 					.type = ConditionalType_to_ASTNodeExprIfType[condtype],
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 					.ifparent = ifparent,
 				});
+				ast_node_parent_append_sibling(parent, node, ifparent != NULL);
 				node->edited = token_edited(t);
 				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct Token *, t) {
 					if (token_edited(t)) {
@@ -554,9 +559,10 @@ ast_from_token_stream(struct Array *tokens)
 				stack_pop(nodestack);
 			}
 
-			node = ast_node_new(stack_peek(nodestack), AST_NODE_TARGET, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeTarget){
+			node = ast_node_new(root->pool, AST_NODE_TARGET, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeTarget){
 				.type = AST_NODE_TARGET_NAMED,
 			});
+			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = token_edited(t);
 			struct Target *target = token_target(t);
 			ARRAY_FOREACH(target_names(target), const char *, source) {
@@ -599,18 +605,20 @@ ast_from_token_stream(struct Array *tokens)
 				}
 			}
 			unless (target) { // Inject new unassociated target
-				struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_TARGET, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeTarget){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_TARGET, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeTarget){
 					.type = AST_NODE_TARGET_UNASSOCIATED,
 				});
+				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = token_edited(t);
 				stack_push(nodestack, node);
 				target = &node->target;
 			}
 
 			//panic_unless(target, "unassociated target command on input line %zu-%zu", token_lines(t)->start, token_lines(t)->end);
-			struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_TARGET_COMMAND, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeTargetCommand){
+			struct ASTNode *node = ast_node_new(root->pool, AST_NODE_TARGET_COMMAND, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeTargetCommand){
 				.target = target,
 			});
+			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = token_edited(t);
 			node->line_end = node->line_start;
 			ARRAY_FOREACH(current_target_cmds, struct Token *, t) {
@@ -637,10 +645,11 @@ ast_from_token_stream(struct Array *tokens)
 			unless (range) {
 				range = (struct ASTNodeLineRange *)token_lines(t);
 			}
-			struct ASTNode *node = ast_node_new(stack_peek(nodestack), AST_NODE_VARIABLE, (struct ASTNodeLineRange *)token_lines(t), 0, &(struct ASTNodeVariable){
+			struct ASTNode *node = ast_node_new(root->pool, AST_NODE_VARIABLE, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeVariable){
 				.name = variable_name(token_variable(t)),
 				.modifier = variable_modifier(token_variable(array_get(current_var, 0))),
 			});
+			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = token_edited(t);
 			node->line_end = node->line_start;
 			ARRAY_FOREACH_SLICE(current_var, 1, -1, struct Token *, t) {
