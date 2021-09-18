@@ -30,7 +30,6 @@
 
 #include <sys/param.h>
 #include <ctype.h>
-#include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -42,9 +41,6 @@
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "rules.h"
-#include "token.h"
-#include "variable.h"
 
 static ssize_t
 extract_git_describe_suffix(const char *ver)

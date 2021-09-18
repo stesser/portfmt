@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include <sys/param.h>
-#include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,9 +40,6 @@
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "rules.h"
-#include "token.h"
-#include "variable.h"
 
 static char *
 get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *variable)

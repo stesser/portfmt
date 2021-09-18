@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <regex.h>
 #include <stdio.h>
 
 #include <libias/array.h>
@@ -39,7 +38,6 @@
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
-#include "rules.h"
 
 struct WalkerData {
 	size_t counter;

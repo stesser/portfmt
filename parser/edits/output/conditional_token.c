@@ -28,10 +28,7 @@
 
 #include "config.h"
 
-#include <regex.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 
 #include <libias/array.h>
 #include <libias/flow.h>
