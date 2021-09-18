@@ -45,19 +45,18 @@
 #include <libias/set.h>
 #include <libias/str.h>
 
-#include "conditional.h"
+#include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "target.h"
-#include "token.h"
-#include "variable.h"
 
-enum SkipDeveloperState {
-	SKIP_DEVELOPER_INIT,
-	SKIP_DEVELOPER_IF,
-	SKIP_DEVELOPER_SKIP,
-	SKIP_DEVELOPER_END,
+struct GetVariablesWalkerData {
+	struct Parser *parser;
+	struct Array *vars;
+};
+
+struct TargetListWalkData {
+	struct Array *targets;
 };
 
 struct Row {
@@ -65,8 +64,8 @@ struct Row {
 	char *hint;
 };
 
-static int check_target_order(struct Parser *, struct Array *, int, int);
-static int check_variable_order(struct Parser *, struct Array *, int);
+static int check_target_order(struct Parser *, struct ASTNode *, int, int);
+static int check_variable_order(struct Parser *, struct ASTNode *, int);
 static int output_diff(struct Parser *, struct Array *, struct Array *, int);
 static void output_row(struct Parser *, struct Row *, size_t);
 
@@ -100,61 +99,64 @@ row_compare(const void *ap, const void *bp, void *userdata)
 	return strcmp(a->name, b->name);
 }
 
-static enum SkipDeveloperState
-skip_developer_only(enum SkipDeveloperState state, struct Token *t)
+static enum ASTWalkState
+get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
 {
-	switch(token_type(t)) {
-	case CONDITIONAL_START:
-		switch (conditional_type(token_conditional(t))) {
-		case COND_IF:
-			return SKIP_DEVELOPER_IF;
-		default:
-			return SKIP_DEVELOPER_INIT;
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_variables(this, child));
 		}
-	case CONDITIONAL_TOKEN:
-		switch (state) {
-		case SKIP_DEVELOPER_INIT:
-		case SKIP_DEVELOPER_END:
-			break;
-		case SKIP_DEVELOPER_IF:
-			return SKIP_DEVELOPER_SKIP;
-		case SKIP_DEVELOPER_SKIP:
-			if (token_data(t) &&
-			    (strcmp(token_data(t), "defined(DEVELOPER)") == 0 ||
-			     strcmp(token_data(t), "defined(MAINTAINER_MODE)") == 0 ||
-			     strcmp(token_data(t), "make(makesum)") == 0)) {
-				return SKIP_DEVELOPER_END;
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_variables(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		if (array_len(node->ifexpr.test) == 1) {
+			const char *word = array_get(node->ifexpr.test, 0);
+			if (strcmp(word, "defined(DEVELOPER)") == 0 ||
+			    strcmp(word, "defined(MAINTAINER_MODE)") == 0 ||
+			    strcmp(word, "make(makesum)") == 0) {
+				return AST_WALK_CONTINUE;
 			}
-			break;
 		}
-		return SKIP_DEVELOPER_INIT;
-	default:
-		return state;
-	}
-}
-
-static struct Array *
-get_variables(struct Mempool *pool, struct Parser *parser, struct Array *tokens)
-{
-	struct Array *vars = mempool_array(pool);
-	enum SkipDeveloperState developer_only = SKIP_DEVELOPER_INIT;
-	ARRAY_FOREACH(tokens, struct Token *, t) {
-		if (is_include_bsd_port_mk(t)) {
-			break;
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_variables(this, child));
 		}
-		developer_only = skip_developer_only(developer_only, t);
-		if (developer_only == SKIP_DEVELOPER_END ||
-		    token_type(t) != VARIABLE_START) {
-			continue;
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_variables(this, child));
 		}
-		char *var = variable_name(token_variable(t));
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_variables(this, child));
+		}
+		break;
+	case AST_NODE_VARIABLE:
 		// Ignore port local variables that start with an _
-		if (var[0] != '_' && array_find(vars, var, str_compare, NULL) == -1 &&
-		    !is_referenced_var(parser, var)) {
-			array_append(vars, var);
+		if (node->variable.name[0] != '_' && array_find(this->vars, node->variable.name, str_compare, NULL) == -1 &&
+		    !is_referenced_var(this->parser, node->variable.name)) {
+			array_append(this->vars, node->variable.name);
 		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) > 0) {
+			const char *word = array_get(node->flatexpr.words, 0);
+			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.mk>") == 0) {
+				return AST_WALK_STOP;
+			}
+	} case AST_NODE_COMMENT:
+	case AST_NODE_TARGET_COMMAND:
+		break;
 	}
-	return vars;
+
+	return AST_WALK_CONTINUE;
 }
 
 static int
@@ -229,10 +231,14 @@ get_hint(struct Mempool *pool, struct Parser *parser, const char *var, enum Bloc
 }
 
 static struct Array *
-variable_list(struct Mempool *pool, struct Parser *parser, struct Array *tokens)
+variable_list(struct Mempool *pool, struct Parser *parser, struct ASTNode *root)
 {
 	struct Array *output = mempool_array(pool);
-	struct Array *vars = get_variables(pool, parser, tokens);
+	struct Array *vars = mempool_array(pool);
+	get_variables(&(struct GetVariablesWalkerData){
+		.parser = parser,
+		.vars = vars,
+	}, root);
 
 	enum BlockType block = BLOCK_UNKNOWN;
 	enum BlockType last_block = BLOCK_UNKNOWN;
@@ -255,36 +261,78 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct Array *tokens)
 	return output;
 }
 
-static struct Array *
-target_list(struct Mempool *pool, struct Array *tokens)
+static enum ASTWalkState
+target_list(struct TargetListWalkData *this, struct ASTNode *node)
 {
-	struct Array *targets = mempool_array(pool);
-	enum SkipDeveloperState developer_only = SKIP_DEVELOPER_INIT;
-	ARRAY_FOREACH(tokens, struct Token *, t) {
-		developer_only = skip_developer_only(developer_only, t);
-		if (developer_only == SKIP_DEVELOPER_END ||
-		    token_type(t) != TARGET_START) {
-			continue;
+	switch (node->type) {
+	case AST_NODE_ROOT:
+		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(target_list(this, child));
 		}
-		ARRAY_FOREACH(target_names(token_target(t)), char *, target) {
-			// Ignore port local targets that start with an _
-			if (target[0] != '_' && !is_special_target(target) &&
-			    array_find(targets, target, str_compare, NULL) == -1) {
-				array_append(targets, target);
+		break;
+	case AST_NODE_EXPR_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(target_list(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		if (array_len(node->ifexpr.test) == 1) {
+			const char *word = array_get(node->ifexpr.test, 0);
+			if (strcmp(word, "defined(DEVELOPER)") == 0 ||
+			    strcmp(word, "defined(MAINTAINER_MODE)") == 0 ||
+			    strcmp(word, "make(makesum)") == 0) {
+				return AST_WALK_CONTINUE;
 			}
 		}
+		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(target_list(this, child));
+		}
+		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(target_list(this, child));
+		}
+		break;
+	case AST_NODE_TARGET:
+		ARRAY_FOREACH(node->target.sources, const char *, target) {
+			// Ignore port local targets that start with an _
+			if (target[0] != '_' && !is_special_target(target) &&
+			    array_find(this->targets, target, str_compare, NULL) == -1) {
+				array_append(this->targets, target);
+			}
+		}
+		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(target_list(this, child));
+		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+		    array_len(node->flatexpr.words) > 0) {
+			const char *word = array_get(node->flatexpr.words, 0);
+			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
+			    strcmp(word, "<bsd.port.mk>") == 0) {
+				return AST_WALK_STOP;
+			}
+	} case AST_NODE_COMMENT:
+	case AST_NODE_VARIABLE:
+	case AST_NODE_TARGET_COMMAND:
+		break;
 	}
 
-	return targets;
+	return AST_WALK_CONTINUE;
 }
 
 int
-check_variable_order(struct Parser *parser, struct Array *tokens, int no_color)
+check_variable_order(struct Parser *parser, struct ASTNode *root, int no_color)
 {
 	SCOPE_MEMPOOL(pool);
-	struct Array *origin = variable_list(pool, parser, tokens);
+	struct Array *origin = variable_list(pool, parser, root);
 
-	struct Array *vars = get_variables(pool, parser, tokens);
+	struct Array *vars = mempool_array(pool);
+	get_variables(&(struct GetVariablesWalkerData){
+		.parser = parser,
+		.vars = vars,
+	}, root);
 	array_sort(vars, compare_order, parser);
 
 	struct Set *uses_candidates = NULL;
@@ -396,11 +444,14 @@ check_variable_order(struct Parser *parser, struct Array *tokens, int no_color)
 }
 
 int
-check_target_order(struct Parser *parser, struct Array *tokens, int no_color, int status_var)
+check_target_order(struct Parser *parser, struct ASTNode *root, int no_color, int status_var)
 {
 	SCOPE_MEMPOOL(pool);
 
-	struct Array *targets = target_list(pool, tokens);
+	struct Array *targets = mempool_array(pool);
+	target_list(&(struct TargetListWalkData){
+		.targets = targets,
+	}, root);
 
 	struct Array *origin = mempool_array(pool);
 	if (status_var) {
@@ -562,13 +613,13 @@ PARSER_EDIT(lint_order)
 	int no_color = settings.behavior & PARSER_OUTPUT_NO_COLOR;
 
 	int status_var;
-	if ((status_var = check_variable_order(parser, ptokens, no_color)) == -1) {
+	if ((status_var = check_variable_order(parser, root, no_color)) == -1) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "lint_order: cannot compute difference");
 		return 0;
 	}
 
 	int status_target;
-	if ((status_target = check_target_order(parser, ptokens, no_color, status_var)) == -1) {
+	if ((status_target = check_target_order(parser, root, no_color, status_var)) == -1) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "lint_order: cannot compute difference");
 		return 0;
 	}
@@ -577,6 +628,6 @@ PARSER_EDIT(lint_order)
 		*status = 1;
 	}
 
-	return 0;
+	return 1;
 }
 
