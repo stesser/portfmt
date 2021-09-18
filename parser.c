@@ -527,7 +527,7 @@ parser_append_token(struct Parser *parser, enum TokenType type, const char *data
 		parser_set_error(parser, PARSER_ERROR_EXPECTED_TOKEN, token_type_tostring(type));
 		return;
 	}
-	parser_mark_for_gc(parser, t);
+	mempool_add(parser->tokengc, t, token_free);
 	array_append(parser->tokens, t);
 }
 
@@ -1873,19 +1873,6 @@ parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 	free(buf);
 
 	return parser->error;
-}
-
-void
-parser_mark_for_gc(struct Parser *parser, struct Token *t)
-{
-	mempool_add(parser->tokengc, t, token_free);
-}
-
-struct Token *
-parser_mark_edited(struct Parser *parser, struct Token *t)
-{
-	token_mark_edited(t);
-	return t;
 }
 
 enum ParserError

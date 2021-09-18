@@ -86,7 +86,7 @@ append_values(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableM
 				struct Token *edited = token_clone(v, NULL);
 				variable_set_modifier(token_variable(edited), mod);
 				array_append(tokens, edited);
-				parser_mark_edited(parser, edited);
+				token_mark_edited(edited);
 			}
 			break;
 		default:
@@ -108,23 +108,23 @@ append_values_last(struct Parser *parser, struct Array *tokens, enum ASTNodeVari
 
 			t = token_new_variable_start(lines, params->var);
 			array_append(tokens, t);
-			parser_mark_edited(parser, t);
+			token_mark_edited(t);
 
 			append_values(parser, tokens, AST_NODE_VARIABLE_MODIFIER_APPEND, params);
 
 			t = token_new_variable_end(lines, params->var);
 			array_append(tokens, t);
-			parser_mark_edited(parser, t);
+			token_mark_edited(t);
 		} else if (is_comment(token_data(last_token))) {
 			t = token_new_variable_end(lines, params->var);
 			array_append(tokens, t);
-			parser_mark_edited(parser, t);
+			token_mark_edited(t);
 
 			params->var = variable_clone(params->var);
 			variable_set_modifier(params->var, AST_NODE_VARIABLE_MODIFIER_APPEND);
 			t = token_new_variable_start(lines, params->var);
 			array_append(tokens, t);
-			parser_mark_edited(parser, t);
+			token_mark_edited(t);
 
 			append_values(parser, tokens, AST_NODE_VARIABLE_MODIFIER_APPEND, params);
 		} else {
@@ -147,7 +147,7 @@ assign_values(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableM
 				struct Token *edited = token_clone(v, NULL);
 				variable_set_modifier(token_variable(edited), mod);
 				array_append(tokens, edited);
-				parser_mark_edited(parser, edited);
+				token_mark_edited(edited);
 			}
 			break;
 		default:
@@ -162,7 +162,7 @@ append_tokens(struct Parser *parser, struct Array *tokens, struct Array *nonvars
 	ARRAY_FOREACH(nonvars, struct Token *, t) {
 		struct Token *c = token_clone(t, NULL);
 		array_append(tokens, c);
-		parser_mark_edited(parser, c);
+		token_mark_edited(c);
 	}
 	array_truncate(nonvars);
 }
@@ -172,7 +172,7 @@ append_empty_line(struct Parser *parser, struct Array *tokens, struct Range *lin
 {
 	struct Token *t = token_new_comment(lines, "", NULL);
 	array_append(tokens, t);
-	parser_mark_edited(parser, t);
+	token_mark_edited(t);
 }
 
 void
@@ -180,10 +180,10 @@ append_new_variable(struct Parser *parser, struct Array *tokens, struct Variable
 {
 	struct Token *t = token_new_variable_start(lines, var);
 	array_append(tokens, t);
-	parser_mark_edited(parser, t);
+	token_mark_edited(t);
 	t = token_new_variable_end(lines, var);
 	array_append(tokens, t);
-	parser_mark_edited(parser, t);
+	token_mark_edited(t);
 }
 
 struct Token *
@@ -456,9 +456,9 @@ PARSER_EDIT(merge_existent_var)
 				} else if (mod == AST_NODE_VARIABLE_MODIFIER_APPEND) {
 					append_tokens(parser, tokens, params->nonvars);
 					array_append(tokens, t);
-					parser_mark_edited(parser, t);
+					token_mark_edited(t);
 				} else if (mod == AST_NODE_VARIABLE_MODIFIER_SHELL) {
-					parser_mark_for_gc(parser, t);
+					mempool_add(extpool, t, token_free);
 				}
 			} else {
 				array_append(tokens, t);
@@ -469,10 +469,10 @@ PARSER_EDIT(merge_existent_var)
 				if (mod == AST_NODE_VARIABLE_MODIFIER_ASSIGN || mod == AST_NODE_VARIABLE_MODIFIER_OPTIONAL) {
 					// nada
 				} else if (mod == AST_NODE_VARIABLE_MODIFIER_SHELL) {
-					parser_mark_for_gc(parser, t);
+					mempool_add(extpool, t, token_free);
 				} else if (mod == AST_NODE_VARIABLE_MODIFIER_APPEND) {
 					array_append(tokens, t);
-					parser_mark_edited(parser, t);
+					token_mark_edited(t);
 				}
 			} else {
 				array_append(tokens, t);
@@ -486,7 +486,7 @@ PARSER_EDIT(merge_existent_var)
 						if (t_index == last_occ) {
 							append_values_last(parser, tokens, variable_modifier(token_variable(t)), params);
 							array_append(tokens, t);
-							parser_mark_edited(parser, t);
+							token_mark_edited(t);
 							t_index = array_len(ptokens) + 1;
 						} else {
 							array_append(tokens, t);
@@ -496,7 +496,7 @@ PARSER_EDIT(merge_existent_var)
 						array_append(tokens, t);
 					}
 				} else if (mod == AST_NODE_VARIABLE_MODIFIER_SHELL) {
-					parser_mark_for_gc(parser, t);
+					mempool_add(extpool, t, token_free);
 				}
 			} else {
 				array_append(tokens, t);
@@ -561,7 +561,7 @@ PARSER_EDIT(edit_merge)
 					behavior |= PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS;
 				}
 				if (!parser_lookup_variable(parser, variable_name(var), behavior, pool, NULL, NULL)) {
-					enum ParserError error = parser_edit(parser, pool, insert_variable, var);
+					enum ParserError error = parser_edit(parser, extpool, insert_variable, var);
 					if (error != PARSER_ERROR_OK) {
 						return 0;
 					}
@@ -588,7 +588,7 @@ PARSER_EDIT(edit_merge)
 				par.var = var;
 				par.nonvars = nonvars;
 				par.values = mergetokens;
-				if (parser_edit(parser, pool, merge_existent_var, &par) != PARSER_ERROR_OK) {
+				if (parser_edit(parser, extpool, merge_existent_var, &par) != PARSER_ERROR_OK) {
 					return 0;
 				}
 				parser_edit(parser, pool, extract_tokens, &ptokens);
