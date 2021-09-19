@@ -1363,34 +1363,26 @@ parser_output_diff(struct Parser *parser)
 	}
 }
 
-static void
-parser_output_dump_tokens_helper(struct Parser *parser)
+void
+parser_output_dump_tokens(struct Parser *parser)
 {
 	SCOPE_MEMPOOL(pool);
+	size_t len = 0;
+	char *buf = NULL;
 
 	if (parser->error != PARSER_ERROR_OK) {
 		return;
 	}
 
-	struct ParserASTBuilder *builder = mempool_add(pool, parser_astbuilder_from_ast(parser, parser->ast), parser_astbuilder_free);
-	size_t len = 0;
-	char *buf = NULL;
-	FILE *f = open_memstream(&buf, &len);
-	panic_unless(f, "open_memstream: %s", strerror(errno));
-	parser_astbuilder_print_token_stream(builder, f);
-	fclose(f);
-	parser_enqueue_output(parser, buf);
-	free(buf);
-}
-
-void
-parser_output_dump_tokens(struct Parser *parser)
-{
-	if (parser->settings.debug_level == 1) {
-		parser_output_dump_tokens_helper(parser);
-	} else if (parser->settings.debug_level >= 2) {
-		size_t len = 0;
-		char *buf = NULL;
+	if (parser->settings.debug_level >= 2) {
+		struct ParserASTBuilder *builder = mempool_add(pool, parser_astbuilder_from_ast(parser, parser->ast), parser_astbuilder_free);
+		FILE *f = open_memstream(&buf, &len);
+		panic_unless(f, "open_memstream: %s", strerror(errno));
+		parser_astbuilder_print_token_stream(builder, f);
+		fclose(f);
+		parser_enqueue_output(parser, buf);
+		free(buf);
+	} else if (parser->settings.debug_level == 1) {
 		FILE *f = open_memstream(&buf, &len);
 		panic_unless(f, "open_memstream: %s", strerror(errno));
 		ast_node_print(parser->ast, f);

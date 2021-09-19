@@ -1,4 +1,4 @@
-echo 'do-test: # tests are known to fail: https' | ${PORTFMT} -d | awk '
+echo 'do-test: # tests are known to fail: https' | ${PORTFMT} -dd | awk '
 $1 == "target-start" {
 	if ($3 != "do-test") {
 		printf "expected: do-test:\nactual: %s\n", $3
