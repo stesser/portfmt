@@ -39,12 +39,12 @@
 #include <libias/mempool.h>
 
 #include "ast.h"
-#include "conditional.h"
 #include "parser.h"
+#include "parser/astbuilder/conditional.h"
+#include "parser/astbuilder/token.h"
+#include "parser/astbuilder/variable.h"
 #include "parser/edits.h"
 #include "rules.h"
-#include "token.h"
-#include "variable.h"
 
 enum InsertVariableState {
 	INSERT_VARIABLE_NO_POINT_FOUND = -1,

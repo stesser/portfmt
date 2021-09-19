@@ -54,15 +54,15 @@
 #include <libias/str.h>
 
 #include "ast.h"
-#include "conditional.h"
 #include "constants.h"
 #include "parser.h"
+#include "parser/astbuilder/conditional.h"
+#include "parser/astbuilder/target.h"
+#include "parser/astbuilder/token.h"
+#include "parser/astbuilder/variable.h"
 #include "parser/edits.h"
 #include "regexp.h"
 #include "rules.h"
-#include "target.h"
-#include "token.h"
-#include "variable.h"
 
 struct Parser {
 	struct ParserSettings settings;

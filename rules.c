@@ -44,14 +44,14 @@
 #include <libias/str.h>
 
 #include "ast.h"
-#include "conditional.h"
 #include "constants.h"
 #include "regexp.h"
 #include "rules.h"
 #include "parser.h"
+#include "parser/astbuilder/conditional.h"
+#include "parser/astbuilder/token.h"
+#include "parser/astbuilder/variable.h"
 #include "parser/edits.h"
-#include "token.h"
-#include "variable.h"
 
 static int case_sensitive_sort(struct Parser *, const char *);
 static int compare_rel(const char *[], size_t, const char *, const char *);

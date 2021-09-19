@@ -39,10 +39,10 @@
 #include <libias/str.h>
 
 #include "ast.h"
-#include "conditional.h"
-#include "target.h"
-#include "token.h"
-#include "variable.h"
+#include "parser/astbuilder/conditional.h"
+#include "parser/astbuilder/target.h"
+#include "parser/astbuilder/token.h"
+#include "parser/astbuilder/variable.h"
 
 static enum ASTNodeExprFlatType conditional_to_flatexpr[] = {
 	[COND_DINCLUDE] = AST_NODE_EXPR_DINCLUDE,

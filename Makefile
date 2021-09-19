@@ -13,10 +13,13 @@ SUBPACKAGES?=	1
 CPPFLAGS+=	-DPORTFMT_SUBPACKAGES=${SUBPACKAGES}
 
 OBJS=		ast.o \
-		conditional.o \
 		constants.o \
 		mainutils.o \
 		parser.o \
+		parser/astbuilder/conditional.o \
+		parser/astbuilder/target.o \
+		parser/astbuilder/token.o \
+		parser/astbuilder/variable.o \
 		parser/edits/edit/bump_revision.o \
 		parser/edits/edit/merge.o \
 		parser/edits/edit/set_version.o \
@@ -40,10 +43,7 @@ OBJS=		ast.o \
 		portscan/log.o \
 		portscan/status.o \
 		regexp.o \
-		rules.o \
-		target.o \
-		token.o \
-		variable.o
+		rules.o
 ALL_TESTS=	tests/run.sh
 TESTS?=		${ALL_TESTS}
 
@@ -85,13 +85,16 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 	${CC} ${LDFLAGS} -o bin/portscan portscan.o libportfmt.a libias/libias.a ${LDADD} -lpthread
 
 #
-ast.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/stack.h libias/str.h ast.h conditional.h target.h token.h variable.h
-conditional.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h conditional.h regexp.h rules.h
+ast.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/stack.h libias/str.h ast.h parser/astbuilder/conditional.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h
 constants.o: config.h constants.h
 mainutils.o: config.h libias/array.h libias/mempool.h libias/mempool/file.h libias/str.h capsicum_helpers.h mainutils.h parser.h
-parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h conditional.h constants.h parser.h parser/edits.h regexp.h rules.h target.h token.h variable.h
+parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h parser.h parser/astbuilder/conditional.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h regexp.h rules.h
+parser/astbuilder/conditional.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h parser/astbuilder/conditional.h regexp.h rules.h
+parser/astbuilder/target.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser/astbuilder/target.h
+parser/astbuilder/token.o: config.h libias/flow.h libias/mem.h libias/str.h parser/astbuilder/conditional.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h
+parser/astbuilder/variable.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h regexp.h rules.h parser/astbuilder/variable.h
 parser/edits/edit/bump_revision.o: config.h libias/array.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
-parser/edits/edit/merge.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h conditional.h parser.h parser/edits.h rules.h token.h variable.h
+parser/edits/edit/merge.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/astbuilder/conditional.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h rules.h
 parser/edits/edit/set_version.o: config.h libias/array.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/kakoune/select_object_on_line.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/bsd_port.o: config.h libias/array.h libias/flow.h libias/str.h ast.h parser.h parser/edits.h
@@ -118,10 +121,7 @@ portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libi
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
 portscan/status.o: config.h libias/flow.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
-rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h conditional.h constants.h regexp.h rules.h parser.h parser/edits.h token.h variable.h
-target.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h target.h
-token.o: config.h libias/flow.h libias/mem.h libias/str.h conditional.h target.h token.h variable.h
-variable.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h regexp.h rules.h variable.h
+rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h regexp.h rules.h parser.h parser/astbuilder/conditional.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h
 
 deps:
 	@for f in $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \

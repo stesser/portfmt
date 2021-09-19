@@ -86,7 +86,7 @@ struct Parser;
 struct Set;
 struct Token;
 enum ASTNodeVariableModifier;
-struct Match;
+struct ASTNode;
 
 const char *blocktype_tostring(enum BlockType);
 int compare_order(const void *, const void *, void *);
