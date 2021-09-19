@@ -58,8 +58,8 @@ struct VariableMergeParameter {
 	struct Array *values;
 };
 
-static void append_empty_line(struct Parser *, struct Array *, struct Range *);
-static void append_new_variable(struct Parser *, struct Array *, struct Variable *, struct Range *);
+static void append_empty_line(struct Parser *, struct Array *, struct ASTNodeLineRange *);
+static void append_new_variable(struct Parser *, struct Array *, struct Variable *, struct ASTNodeLineRange *);
 static struct Token *find_next_token(struct Array *, size_t, int, int, int);
 static PARSER_EDIT(extract_tokens);
 static PARSER_EDIT(insert_variable);
@@ -147,7 +147,7 @@ append_values_last(struct Parser *parser, struct Array *tokens, enum ASTNodeVari
 {
 	struct Token *last_token = array_get(tokens, array_len(tokens) - 1);
 	if (last_token) {
-		struct Range *lines = token_lines(last_token);
+		struct ASTNodeLineRange *lines = token_lines(last_token);
 		struct Token *t;
 		if (token_type(last_token) == VARIABLE_END) {
 			params->var = variable_clone(params->var);
@@ -215,7 +215,7 @@ append_tokens(struct Parser *parser, struct Array *tokens, struct Array *nonvars
 }
 
 void
-append_empty_line(struct Parser *parser, struct Array *tokens, struct Range *lines)
+append_empty_line(struct Parser *parser, struct Array *tokens, struct ASTNodeLineRange *lines)
 {
 	struct Token *t = token_new_comment(lines, "", NULL);
 	array_append(tokens, t);
@@ -223,7 +223,7 @@ append_empty_line(struct Parser *parser, struct Array *tokens, struct Range *lin
 }
 
 void
-append_new_variable(struct Parser *parser, struct Array *tokens, struct Variable *var, struct Range *lines) 
+append_new_variable(struct Parser *parser, struct Array *tokens, struct Variable *var, struct ASTNodeLineRange *lines) 
 {
 	struct Token *t = token_new_variable_start(lines, var);
 	array_append(tokens, t);
@@ -316,7 +316,7 @@ static void
 prepend_variable(struct Parser *parser, struct Array *ptokens, struct Array *tokens, struct Variable *var, enum BlockType block_var)
 {
 	array_truncate(tokens);
-	struct Range *lines = &(struct Range){ 0, 1 };
+	struct ASTNodeLineRange *lines = &(struct ASTNodeLineRange){ .a = 0, .b = 1 };
 	if (array_len(ptokens) > 0) {
 		lines = token_lines(array_get(ptokens, array_len(ptokens) - 1));
 	}
@@ -435,7 +435,7 @@ PARSER_EDIT(insert_variable)
 	}
 
 	if (!added) {
-		struct Range *lines = &(struct Range){ 0, 1 };
+		struct ASTNodeLineRange *lines = &(struct ASTNodeLineRange){ .a = 0, .b = 1 };
 		if (array_len(ptokens) > 0) {
 			lines = token_lines(array_get(ptokens, array_len(ptokens) - 1));
 		}

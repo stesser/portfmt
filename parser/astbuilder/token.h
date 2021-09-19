@@ -42,21 +42,17 @@ enum TokenType {
 	VARIABLE_TOKEN,
 };
 
-struct Range {
-	size_t start;
-	size_t end;
-};
-
 struct Conditional;
 struct Token;
 struct Variable;
 struct Target;
+struct ASTNodeLineRange;
 
-struct Token *token_new(enum TokenType, struct Range *, const char *, const char *, const char *, const char *);
-struct Token *token_new_comment(struct Range *, const char *, struct Conditional *);
-struct Token *token_new_variable_end(struct Range *, struct Variable *);
-struct Token *token_new_variable_start(struct Range *, struct Variable *);
-struct Token *token_new_variable_token(struct Range *, struct Variable *, const char *);
+struct Token *token_new(enum TokenType, struct ASTNodeLineRange *, const char *, const char *, const char *, const char *);
+struct Token *token_new_comment(struct ASTNodeLineRange *, const char *, struct Conditional *);
+struct Token *token_new_variable_end(struct ASTNodeLineRange *, struct Variable *);
+struct Token *token_new_variable_start(struct ASTNodeLineRange *, struct Variable *);
+struct Token *token_new_variable_token(struct ASTNodeLineRange *, struct Variable *, const char *);
 void token_free(struct Token *);
 struct Token *token_as_comment(struct Token *);
 struct Token *token_clone(struct Token *, const char *);
@@ -65,7 +61,7 @@ char *token_data(struct Token *);
 int token_edited(struct Token *);
 void token_mark_edited(struct Token *);
 int token_goalcol(struct Token *);
-struct Range *token_lines(struct Token *);
+struct ASTNodeLineRange *token_lines(struct Token *);
 struct Target *token_target(struct Token *);
 enum TokenType token_type(struct Token *);
 const char *token_type_tostring(enum TokenType);

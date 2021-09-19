@@ -68,7 +68,7 @@ struct Parser {
 	struct ParserSettings settings;
 	int continued;
 	int in_target;
-	struct Range lines;
+	struct ASTNodeLineRange lines;
 	int skip;
 	enum ParserError error;
 	char *error_msg;
@@ -112,7 +112,7 @@ static void parser_metadata_free(struct Parser *);
 static void parser_metadata_port_options(struct Parser *);
 static void parser_output_dump_tokens(struct Parser *);
 static void parser_output_prepare(struct Parser *);
-static void parser_output_print_rawlines(struct Parser *, struct Range *);
+static void parser_output_print_rawlines(struct Parser *, struct ASTNodeLineRange *);
 static void parser_output_print_target_command(struct Parser *, struct ASTNode *);
 static void parser_output_print_variable(struct Parser *, struct Mempool *, struct ASTNode *);
 static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTNodeVariable *, struct Array *);
@@ -124,7 +124,7 @@ static void parser_read_line(struct Parser *, char *, size_t);
 static void parser_tokenize(struct Parser *, const char *, enum TokenType, size_t);
 static void print_newline_array(struct Parser *, struct ASTNode *, struct Array *);
 static void print_token_array(struct Parser *, struct ASTNode *, struct Array *);
-static char *range_tostring(struct Mempool *, struct Range *);
+static char *range_tostring(struct Mempool *, struct ASTNodeLineRange *);
 
 size_t
 consume_comment(const char *buf)
@@ -285,15 +285,15 @@ is_empty_line(const char *buf)
 }
 
 char *
-range_tostring(struct Mempool *pool, struct Range *range)
+range_tostring(struct Mempool *pool, struct ASTNodeLineRange *range)
 {
 	panic_unless(range, "range_tostring() is not NULL-safe");
-	panic_unless(range->start < range->end, "range is inverted");
+	panic_unless(range->a < range->b, "range is inverted");
 
-	if (range->start == range->end - 1) {
-		return str_printf(pool, "%zu", range->start);
+	if (range->a == range->b - 1) {
+		return str_printf(pool, "%zu", range->a);
 	} else {
-		return str_printf(pool, "%zu-%zu", range->start, range->end - 1);
+		return str_printf(pool, "%zu-%zu", range->a, range->b - 1);
 	}
 }
 
@@ -381,8 +381,8 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	parser_metadata_alloc(parser);
 	parser->error = PARSER_ERROR_OK;
 	parser->error_msg = NULL;
-	parser->lines.start = 1;
-	parser->lines.end = 1;
+	parser->lines.a = 1;
+	parser->lines.b = 1;
 	parser->inbuf.stream = open_memstream(&parser->inbuf.buf, &parser->inbuf.len);
 	panic_unless(parser->inbuf.stream, "open_memstream failed");
 	parser->settings = *settings;
@@ -813,9 +813,9 @@ print_token_array(struct Parser *parser, struct ASTNode *node, struct Array *tok
 }
 
 void
-parser_output_print_rawlines(struct Parser *parser, struct Range *lines)
+parser_output_print_rawlines(struct Parser *parser, struct ASTNodeLineRange *lines)
 {
-	for (size_t i = lines->start; i < lines->end; i++) {
+	for (size_t i = lines->a; i < lines->b; i++) {
 		parser_enqueue_output(parser, array_get(parser->rawlines, i - 1));
 		parser_enqueue_output(parser, "\n");
 	}
@@ -934,7 +934,7 @@ parser_output_print_target_command(struct Parser *parser, struct ASTNode *node)
 	if (!(parser->settings.behavior & PARSER_FORMAT_TARGET_COMMANDS) ||
 	    complexity > parser->settings.target_command_format_threshold) {
 		if (!node->edited) {
-			struct Range range = { .start = node->line_start.a, node->line_end.b };
+			struct ASTNodeLineRange range = { .a = node->line_start.a, .b = node->line_end.b };
 			parser_output_print_rawlines(parser, &range);
 			return;
 		}
@@ -1107,7 +1107,7 @@ parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct
 	struct Array *words = node->variable.words;
 
 	/* Leave variables unformatted that have $\ in them. */
-	struct Range range = { .start = node->line_start.a, node->line_end.b };
+	struct ASTNodeLineRange range = { .a = node->line_start.a, .b = node->line_end.b };
 	if ((array_len(words) == 1 && strstr(array_get(words, 0), "$\001") != NULL) ||
 	    (leave_unformatted(parser, node->variable.name) &&
 	     !node->edited)) {
@@ -1224,7 +1224,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				parser_enqueue_output(parser, "\n");
 			}
 		} else {
-			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			parser_output_print_rawlines(parser, &node->line_start);
 		}
 		break;
 	case AST_NODE_EXPR_FLAT:
@@ -1243,7 +1243,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			parser_enqueue_output(parser, str_printf(pool, "%s%s%s %s\n",
 				dot, str_repeat(pool, " ", node->flatexpr.indent), name, str_join(pool, node->flatexpr.words, " ")));
 		} else {
-			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			parser_output_print_rawlines(parser, &node->line_start);
 		}
 		break;
 	case AST_NODE_EXPR_FOR:
@@ -1259,25 +1259,25 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			}
 			parser_enqueue_output(parser, str_printf(pool, ".%sendfor\n", indent));
 		} else {
-			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			parser_output_print_rawlines(parser, &node->line_start);
 			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
-			parser_output_print_rawlines(parser, (struct Range *)&node->line_end);
+			parser_output_print_rawlines(parser, &node->line_end);
 		}
 		break;
 	case AST_NODE_EXPR_IF:
 		if (edited) {
 			// TODO
 		} else {
-			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			parser_output_print_rawlines(parser, &node->line_start);
 			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			if (array_len(node->ifexpr.orelse) > 0) {
 				struct ASTNode *next = array_get(node->ifexpr.orelse, 0);
 				if (next && next->type == AST_NODE_EXPR_IF && next->ifexpr.type == AST_NODE_EXPR_IF_ELSE) {
-					parser_output_print_rawlines(parser, (struct Range *)&next->line_start); // .else
+					parser_output_print_rawlines(parser, &next->line_start); // .else
 					ARRAY_FOREACH(next->ifexpr.body, struct ASTNode *, child) {
 						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
@@ -1288,7 +1288,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				}
 			}
 			unless (node->ifexpr.ifparent) { // .endif
-				parser_output_print_rawlines(parser, (struct Range *)&node->line_end);
+				parser_output_print_rawlines(parser, &node->line_end);
 			}
 		}
 		break;
@@ -1306,7 +1306,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 		} else {
-			parser_output_print_rawlines(parser, (struct Range *)&node->line_start);
+			parser_output_print_rawlines(parser, &node->line_start);
 			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
@@ -1549,7 +1549,7 @@ parser_read_line(struct Parser *parser, char *line, size_t linelen)
 
 	array_append(parser->rawlines, str_ndup(NULL, line, linelen));
 
-	parser->lines.end++;
+	parser->lines.b++;
 
 	int will_continue = linelen > 0 && line[linelen - 1] == '\\' && (linelen == 1 || line[linelen - 2] != '\\');
 	if (will_continue) {
@@ -1590,7 +1590,7 @@ parser_read_line(struct Parser *parser, char *line, size_t linelen)
 		if (parser->error != PARSER_ERROR_OK) {
 			return;
 		}
-		parser->lines.start = parser->lines.end;
+		parser->lines.a = parser->lines.b;
 		fclose(parser->inbuf.stream);
 		free(parser->inbuf.buf);
 		parser->inbuf.buf = NULL;
@@ -1736,7 +1736,7 @@ parser_read_finish(struct Parser *parser)
 	}
 
 	if (!parser->continued) {
-		parser->lines.end++;
+		parser->lines.b++;
 	}
 
 	if (fflush(parser->inbuf.stream) != 0) {

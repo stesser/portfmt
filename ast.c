@@ -436,7 +436,7 @@ ast_from_token_stream_flush_comments(struct ASTNode *parent, struct Array *comme
 		return;
 	}
 
-	struct ASTNode *node = ast_node_new(parent->pool, AST_NODE_COMMENT, (struct ASTNodeLineRange *)token_lines(array_get(comments, 0)), &(struct ASTNodeComment){
+	struct ASTNode *node = ast_node_new(parent->pool, AST_NODE_COMMENT, token_lines(array_get(comments, 0)), &(struct ASTNodeComment){
 		.type = AST_NODE_COMMENT_LINE,
 	});
 	ast_node_parent_append_sibling(parent, node, 0);
@@ -444,8 +444,8 @@ ast_from_token_stream_flush_comments(struct ASTNode *parent, struct Array *comme
 	ARRAY_FOREACH(comments, struct Token *, t) {
 		node->edited = node->edited || token_edited(t);
 		array_append(node->comment.lines, str_dup(node->pool, token_data(t)));
-		struct Range *range = token_lines(t);
-		node->line_start.b = range->end;
+		struct ASTNodeLineRange *range = token_lines(t);
+		node->line_start.b = range->b;
 	}
 
 	array_truncate(comments);
@@ -467,7 +467,7 @@ ast_from_token_stream(struct Array *tokens)
 
 	ARRAY_FOREACH(tokens, struct Token *, t) {
 		if (stack_len(nodestack) == 0) {
-			panic("node stack exhausted at token on input line %zu-%zu", token_lines(t)->start, token_lines(t)->end);
+			panic("node stack exhausted at token on input line %zu-%zu", token_lines(t)->a, token_lines(t)->b);
 		}
 		if (token_type(t) != COMMENT) {
 			ast_from_token_stream_flush_comments(stack_peek(nodestack), current_comments);
@@ -495,7 +495,7 @@ ast_from_token_stream(struct Array *tokens)
 			case COND_UNEXPORT_ENV:
 			case COND_UNEXPORT:
 			case COND_WARNING: {
-				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FLAT, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeExprFlat){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FLAT, token_lines(t), &(struct ASTNodeExprFlat){
 					.type = conditional_to_flatexpr[condtype],
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
@@ -511,7 +511,7 @@ ast_from_token_stream(struct Array *tokens)
 				}
 				break;
 			} case COND_FOR: {
-				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FOR, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeExprFor){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FOR, token_lines(t), &(struct ASTNodeExprFor){
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
 				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
@@ -538,7 +538,7 @@ ast_from_token_stream(struct Array *tokens)
 				break;
 			} case COND_ENDFOR: {
 				struct ASTNode *node = stack_pop(nodestack);
-				node->line_end = *((struct ASTNodeLineRange *)token_lines(t));
+				node->line_end = *token_lines(t);
 				break;
 			} case COND_IF:
 			case COND_IFDEF:
@@ -567,7 +567,7 @@ ast_from_token_stream(struct Array *tokens)
 				if (ifparent) {
 					parent = stack_peek(ifstack);
 				}
-				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_IF, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeExprIf){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_IF, token_lines(t), &(struct ASTNodeExprIf){
 					.type = ConditionalType_to_ASTNodeExprIfType[condtype],
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 					.ifparent = ifparent,
@@ -587,7 +587,7 @@ ast_from_token_stream(struct Array *tokens)
 				struct ASTNode *ifnode = stack_pop(ifstack);
 				while (ifnode && ifnode->ifexpr.ifparent && (ifnode = stack_pop(ifstack)));
 				if (ifnode) {
-					ifnode->line_end = *((struct ASTNodeLineRange *)token_lines(t));
+					ifnode->line_end = *token_lines(t);
 				}
 				struct ASTNode *node = NULL;
 				while ((node = stack_pop(nodestack)) && node != ifnode);
@@ -604,7 +604,7 @@ ast_from_token_stream(struct Array *tokens)
 				stack_pop(nodestack);
 			}
 
-			node = ast_node_new(root->pool, AST_NODE_TARGET, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeTarget){
+			node = ast_node_new(root->pool, AST_NODE_TARGET, token_lines(t), &(struct ASTNodeTarget){
 				.type = AST_NODE_TARGET_NAMED,
 			});
 			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
@@ -650,7 +650,7 @@ ast_from_token_stream(struct Array *tokens)
 				}
 			}
 			unless (target) { // Inject new unassociated target
-				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_TARGET, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeTarget){
+				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_TARGET, token_lines(t), &(struct ASTNodeTarget){
 					.type = AST_NODE_TARGET_UNASSOCIATED,
 				});
 				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
@@ -660,7 +660,7 @@ ast_from_token_stream(struct Array *tokens)
 			}
 
 			//panic_unless(target, "unassociated target command on input line %zu-%zu", token_lines(t)->start, token_lines(t)->end);
-			struct ASTNode *node = ast_node_new(root->pool, AST_NODE_TARGET_COMMAND, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeTargetCommand){
+			struct ASTNode *node = ast_node_new(root->pool, AST_NODE_TARGET_COMMAND, token_lines(t), &(struct ASTNodeTargetCommand){
 				.target = target,
 			});
 			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
@@ -668,7 +668,7 @@ ast_from_token_stream(struct Array *tokens)
 			node->line_end = node->line_start;
 			ARRAY_FOREACH(current_target_cmds, struct Token *, t) {
 				if (t_index == 0) {
-					node->line_start = *((struct ASTNodeLineRange *)token_lines(t));
+					node->line_start = *token_lines(t);
 				}
 				if (token_edited(t)) {
 					node->edited = 1;
@@ -686,11 +686,11 @@ ast_from_token_stream(struct Array *tokens)
 			array_append(current_var, t);
 			break;
 		case VARIABLE_END: {
-			struct ASTNodeLineRange *range = (struct ASTNodeLineRange *)array_get(current_var, 0);
+			struct ASTNodeLineRange *range = array_get(current_var, 0);
 			unless (range) {
-				range = (struct ASTNodeLineRange *)token_lines(t);
+				range = token_lines(t);
 			}
-			struct ASTNode *node = ast_node_new(root->pool, AST_NODE_VARIABLE, (struct ASTNodeLineRange *)token_lines(t), &(struct ASTNodeVariable){
+			struct ASTNode *node = ast_node_new(root->pool, AST_NODE_VARIABLE, token_lines(t), &(struct ASTNodeVariable){
 				.name = variable_name(token_variable(t)),
 				.modifier = variable_modifier(token_variable(array_get(current_var, 0))),
 			});
@@ -699,7 +699,7 @@ ast_from_token_stream(struct Array *tokens)
 			node->line_end = node->line_start;
 			ARRAY_FOREACH_SLICE(current_var, 1, -1, struct Token *, t) {
 				if (t_index == 0) {
-					node->line_start = *((struct ASTNodeLineRange *)token_lines(t));
+					node->line_start = *token_lines(t);
 				}
 				if (token_edited(t)) {
 					node->edited = 1;
@@ -729,7 +729,7 @@ ast_free(struct ASTNode *node) {
 static void
 token_to_stream(struct Mempool *pool, struct Array *tokens, enum TokenType type, int edited, struct ASTNodeLineRange *lines, const char *data, const char *varname, const char *condname, const char *targetname)
 {
-	struct Token *t = token_new(type, (struct Range *)lines, data, varname, condname, targetname);
+	struct Token *t = token_new(type, lines, data, varname, condname, targetname);
 	panic_unless(t, "null token?");
 	if (t) {
 		if (edited) {
@@ -771,7 +771,7 @@ ast_to_token_stream_helper(struct ASTNode *node, struct Mempool *extpool, struct
 		break;
 	case AST_NODE_COMMENT: {
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
-			struct Token *t = token_new_comment((struct Range *)&node->line_start, line, NULL);
+			struct Token *t = token_new_comment(&node->line_start, line, NULL);
 			if (node->edited) {
 				token_mark_edited(t);
 			}
