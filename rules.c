@@ -48,8 +48,6 @@
 #include "regexp.h"
 #include "rules.h"
 #include "parser.h"
-#include "parser/astbuilder/token.h"
-#include "parser/astbuilder/variable.h"
 #include "parser/edits.h"
 
 static int case_sensitive_sort(struct Parser *, const char *);
@@ -1576,41 +1574,6 @@ int
 print_as_newlines(struct Parser *parser, const char *var)
 {
 	return variable_has_flag(parser, var, VAR_PRINT_AS_NEWLINES);
-}
-
-int
-skip_conditional(struct Token *t, int *ignore)
-{
-	if (*ignore > 0) {
-		if (token_type(t) == CONDITIONAL_END) {
-			switch (conditional_type(token_conditional(t))) {
-			case COND_ENDFOR:
-			case COND_ENDIF:
-				(*ignore)--;
-				break;
-			default:
-				break;
-			}
-		}
-		return 1;
-	}
-
-	if (token_type(t) == CONDITIONAL_START) {
-		switch (conditional_type(token_conditional(t))) {
-		case COND_IF:
-		case COND_IFDEF:
-		case COND_IFMAKE:
-		case COND_IFNDEF:
-		case COND_IFNMAKE:
-		case COND_FOR:
-			(*ignore)++;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return 0;
 }
 
 int

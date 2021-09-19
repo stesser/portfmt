@@ -121,7 +121,7 @@ portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libi
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
 portscan/status.o: config.h libias/flow.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
-rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h regexp.h rules.h parser.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h
+rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h regexp.h rules.h parser.h parser/edits.h
 
 deps:
 	@for f in $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \

@@ -84,7 +84,6 @@ struct CompareTokensData {
 struct Mempool;
 struct Parser;
 struct Set;
-struct Token;
 enum ASTNodeVariableModifier;
 struct ASTNode;
 
@@ -107,7 +106,6 @@ int matches(enum RegularExpression, const char *);
 int print_as_newlines(struct Parser *, const char *);
 void rules_init(void);
 int should_sort(struct Parser *, const char *, enum ASTNodeVariableModifier);
-int skip_conditional(struct Token *, int *);
 int skip_dedup(struct Parser *, const char *, enum ASTNodeVariableModifier);
 int skip_goalcol(struct Parser *, const char *);
 int target_command_wrap_after_each_token(const char *);

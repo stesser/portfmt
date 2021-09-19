@@ -81,6 +81,41 @@ is_include_bsd_port_mk_token(struct Token *t)
 		strcmp(token_data(t), "<bsd.port.mk>") == 0);
 }
 
+static int
+skip_conditional(struct Token *t, int *ignore)
+{
+	if (*ignore > 0) {
+		if (token_type(t) == CONDITIONAL_END) {
+			switch (conditional_type(token_conditional(t))) {
+			case COND_ENDFOR:
+			case COND_ENDIF:
+				(*ignore)--;
+				break;
+			default:
+				break;
+			}
+		}
+		return 1;
+	}
+
+	if (token_type(t) == CONDITIONAL_START) {
+		switch (conditional_type(token_conditional(t))) {
+		case COND_IF:
+		case COND_IFDEF:
+		case COND_IFMAKE:
+		case COND_IFNDEF:
+		case COND_IFNMAKE:
+		case COND_FOR:
+			(*ignore)++;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
 PARSER_EDIT(extract_tokens)
 {
 	struct Array **tokens = userdata;
