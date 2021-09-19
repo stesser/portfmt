@@ -1,0 +1,2 @@
+.for a in ${DISTFILES} # blabla bla
+.endfor #foo

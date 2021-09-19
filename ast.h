@@ -97,6 +97,8 @@ struct ASTNodeExprFor {
 	struct Array *bindings;
 	struct Array *words;
 	struct Array *body;
+	const char *comment;
+	const char *end_comment;
 	size_t indent;
 };
 
@@ -132,6 +134,8 @@ struct ASTNodeExprIf {
 	struct Array *test;
 	struct Array *body;
 	struct Array *orelse;
+	const char *comment;
+	const char *end_comment;
 	size_t indent;
 	struct ASTNode *ifparent;
 };
@@ -139,6 +143,7 @@ struct ASTNodeExprIf {
 struct ASTNodeExprFlat {
 	enum ASTNodeExprFlatType type;
 	struct Array *words;
+	const char *comment;
 	size_t indent;
 };
 

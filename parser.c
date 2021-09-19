@@ -1244,8 +1244,13 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 		if (edited) {
 			const char *name = ASTNodeExprFlatType_identifier[node->flatexpr.type];
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
-			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s\n",
+			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s",
 				str_repeat(pool, " ", node->flatexpr.indent), name, str_join(pool, node->flatexpr.words, " ")));
+			if (node->flatexpr.comment && strlen(node->flatexpr.comment) > 0) {
+				parser_enqueue_output(parser, " ");
+				parser_enqueue_output(parser, node->flatexpr.comment);
+			}
+			parser_enqueue_output(parser, "\n");
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
 		}
@@ -1254,14 +1259,24 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 		if (edited) {
 			const char *indent = str_repeat(pool, " ", node->forexpr.indent);
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
-			parser_enqueue_output(parser, str_printf(pool, ".%sfor %s in %s\n",
+			parser_enqueue_output(parser, str_printf(pool, ".%sfor %s in %s",
 				indent,
 				str_join(pool, node->forexpr.bindings, " "),
 				str_join(pool, node->forexpr.words, " ")));
+			if (node->forexpr.comment && strlen(node->forexpr.comment) > 0) {
+				parser_enqueue_output(parser, " ");
+				parser_enqueue_output(parser, node->forexpr.comment);
+			}
+			parser_enqueue_output(parser, "\n");
 			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
-			parser_enqueue_output(parser, str_printf(pool, ".%sendfor\n", indent));
+			parser_enqueue_output(parser, str_printf(pool, ".%sendfor", indent));
+			if (node->forexpr.end_comment && strlen(node->forexpr.end_comment) > 0) {
+				parser_enqueue_output(parser, " ");
+				parser_enqueue_output(parser, node->forexpr.end_comment);
+			}
+			parser_enqueue_output(parser, "\n");
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
 			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
@@ -1280,6 +1295,10 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				prefix, NodeExprIfType_humanize[node->ifexpr.type]));
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_join(pool, node->ifexpr.test, " "));
+			if (node->ifexpr.comment && strlen(node->ifexpr.comment) > 0) {
+				parser_enqueue_output(parser, " ");
+				parser_enqueue_output(parser, node->ifexpr.comment);
+			}
 			parser_enqueue_output(parser, "\n");
 			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
@@ -1298,7 +1317,12 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				}
 			}
 			unless (node->ifexpr.ifparent) { // .endif
-				parser_enqueue_output(parser, str_printf(pool, ".%sendif\n", str_repeat(pool, " ", node->ifexpr.indent)));
+				parser_enqueue_output(parser, str_printf(pool, ".%sendif", str_repeat(pool, " ", node->ifexpr.indent)));
+				if (node->ifexpr.end_comment && strlen(node->ifexpr.end_comment) > 0) {
+					parser_enqueue_output(parser, " ");
+					parser_enqueue_output(parser, node->ifexpr.end_comment);
+				}
+				parser_enqueue_output(parser, "\n");
 			}
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);

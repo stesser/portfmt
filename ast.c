@@ -345,27 +345,47 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			node->flatexpr.indent,
 			str_join(pool, node->flatexpr.words, ", "));
 		break;
-	case AST_NODE_EXPR_FOR:
-		fprintf(f, "%s{ .type = AST_NODE_EXPR_FOR, .line_start = %s, .line_end = %s, .indent = %zu, .bindings = { %s }, .words = { %s } }\n",
+	case AST_NODE_EXPR_FOR: {
+		const char *comment = "";
+		if (node->ifexpr.comment) {
+			comment = node->ifexpr.comment;
+		}
+		const char *end_comment = "";
+		if (node->ifexpr.end_comment) {
+			end_comment = node->ifexpr.end_comment;
+		}
+		fprintf(f, "%s{ .type = AST_NODE_EXPR_FOR, .line_start = %s, .line_end = %s, .indent = %zu, .bindings = { %s }, .words = { %s }, .comment = %s, .end_comment = %s }\n",
 			indent,
 			line_start,
 			line_end,
 			node->forexpr.indent,
 			str_join(pool, node->forexpr.bindings, ", "),
-			str_join(pool, node->forexpr.words, ", "));
+			str_join(pool, node->forexpr.words, ", "),
+			comment,
+			end_comment);
 		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
 			ast_node_print_helper(child, f, level + 1);
 		}
 		break;
-	case AST_NODE_EXPR_IF:
-		fprintf(f, "%s{ .type = AST_NODE_EXPR_IF, .line_start = %s, .line_end = %s, .iftype = %s, .indent = %zu, .test = { %s }, .elseif = %d }\n",
+	} case AST_NODE_EXPR_IF: {
+		const char *comment = "";
+		if (node->ifexpr.comment) {
+			comment = node->ifexpr.comment;
+		}
+		const char *end_comment = "";
+		if (node->ifexpr.end_comment) {
+			end_comment = node->ifexpr.end_comment;
+		}
+		fprintf(f, "%s{ .type = AST_NODE_EXPR_IF, .line_start = %s, .line_end = %s, .iftype = %s, .indent = %zu, .test = { %s }, .elseif = %d, .comment = %s, .end_comment = %s }\n",
 			indent,
 			line_start,
 			line_end,
 			NodeExprIfType_tostring[node->ifexpr.type],
 			node->ifexpr.indent,
 			str_join(pool, node->ifexpr.test, ", "),
-			node->ifexpr.ifparent != NULL);
+			node->ifexpr.ifparent != NULL,
+			comment,
+			end_comment);
 		if (array_len(node->ifexpr.body) > 0) {
 			fprintf(f, "%s=> if:\n", indent);
 			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
@@ -379,7 +399,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			}
 		}
 		break;
-	case AST_NODE_INCLUDE: {
+	} case AST_NODE_INCLUDE: {
 		const char *path = node->include.path;
 		unless (path) {
 			path = "";

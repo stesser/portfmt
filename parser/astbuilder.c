@@ -108,6 +108,28 @@ range_tostring(struct Mempool *pool, struct ASTNodeLineRange *range)
 	}
 }
 
+static char *
+split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssize_t b, struct Array *words)
+{
+	SCOPE_MEMPOOL(pool);
+
+	struct Array *commentwords = mempool_array(pool);
+	int comments = 0;
+	ARRAY_FOREACH_SLICE(tokens, a, b, struct Token *, t) {
+		if (comments || is_comment(token_data(t))) {
+			comments = 1;
+			array_append(commentwords, token_data(t));
+		} else if (words) {
+			array_append(words, str_dup(extpool, token_data(t)));
+		}
+	}
+
+	if (array_len(commentwords) > 0) {
+		return str_join(extpool, commentwords, "");
+	} else {
+		return NULL;
+	}
+}
 
 static void
 token_to_stream(struct Mempool *pool, struct Array *tokens, enum ParserASTBuilderTokenType type, int edited, struct ASTNodeLineRange *lines, const char *data, const char *varname, const char *condname, const char *targetname)
@@ -256,23 +278,9 @@ ast_from_token_stream(struct Array *tokens)
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
 				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
-				if (token_edited(t)) {
-					node->edited = 1;
-				}
-				struct Array *commentwords = mempool_array(pool);
+				node->edited = token_edited(t);
 				struct Array *pathwords = mempool_array(pool);
-				int comments = 0;
-				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct Token *, t) {
-					if (token_edited(t)) {
-						node->edited = 1;
-					}
-					if (comments || is_comment(token_data(t))) {
-						comments = 1;
-						array_append(commentwords, token_data(t));
-					} else {
-						array_append(pathwords, token_data(t));
-					}
-				}
+				node->include.comment = split_off_comment(node->pool, current_cond, 1, -1, pathwords);
 				if (array_len(pathwords) > 0) {
 					char *path = str_trim(node->pool, str_join(pool, pathwords, " "));
 					if (*path == '<') {
@@ -289,9 +297,6 @@ ast_from_token_stream(struct Array *tokens)
 					}
 					node->include.path = path;
 				}
-				if (array_len(commentwords) > 0) {
-					node->include.comment = str_join(node->pool, commentwords, " ");
-				}
 				break;
 			} case COND_ERROR:
 			case COND_EXPORT_ENV:
@@ -307,15 +312,8 @@ ast_from_token_stream(struct Array *tokens)
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
 				ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
-				if (token_edited(t)) {
-					node->edited = 1;
-				}
-				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct Token *, t) {
-					if (token_edited(t)) {
-						node->edited = 1;
-					}
-					array_append(node->flatexpr.words, str_dup(node->pool, token_data(t)));
-				}
+				node->edited = token_edited(t);
+				node->flatexpr.comment = split_off_comment(node->pool, current_cond, 1, -1, node->flatexpr.words);
 				break;
 			} case COND_FOR: {
 				struct ASTNode *node = ast_node_new(root->pool, AST_NODE_EXPR_FOR, token_lines(t), &(struct ASTNodeExprFor){
@@ -335,17 +333,13 @@ ast_from_token_stream(struct Array *tokens)
 						array_append(node->forexpr.bindings, str_dup(node->pool, token_data(t)));
 					}
 				}
-				ARRAY_FOREACH_SLICE(current_cond, word_start, -1, struct Token *, t) {
-					if (token_edited(t)) {
-						node->edited = 1;
-					}
-					array_append(node->forexpr.words, str_dup(node->pool, token_data(t)));
-				}
+				node->forexpr.comment = split_off_comment(node->pool, current_cond, word_start, -1, node->forexpr.words);
 				stack_push(nodestack, node);
 				break;
 			} case COND_ENDFOR: {
 				struct ASTNode *node = stack_pop(nodestack);
 				node->line_end = *token_lines(t);
+				node->forexpr.end_comment = split_off_comment(node->pool, current_cond, 1, -1, NULL);
 				break;
 			} case COND_IF:
 			case COND_IFDEF:
@@ -395,6 +389,9 @@ ast_from_token_stream(struct Array *tokens)
 				while (ifnode && ifnode->ifexpr.ifparent && (ifnode = stack_pop(ifstack)));
 				if (ifnode) {
 					ifnode->line_end = *token_lines(t);
+					if (ifnode->type == AST_NODE_EXPR_IF) {
+						ifnode->ifexpr.end_comment = split_off_comment(ifnode->pool, current_cond, 1, -1, NULL);
+					}
 				}
 				struct ASTNode *node = NULL;
 				while ((node = stack_pop(nodestack)) && node != ifnode);

@@ -1,0 +1,3 @@
+.if bla # USE_GSTREAMER
+_GSTREAMER_PLUGINS+=	muh
+.endif
