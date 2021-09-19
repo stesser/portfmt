@@ -40,6 +40,7 @@
 
 #include "ast.h"
 #include "parser.h"
+#include "parser/astbuilder.h"
 #include "parser/astbuilder/conditional.h"
 #include "parser/astbuilder/token.h"
 #include "parser/astbuilder/variable.h"
@@ -119,7 +120,8 @@ skip_conditional(struct Token *t, int *ignore)
 PARSER_EDIT(extract_tokens)
 {
 	struct Array **tokens = userdata;
-	*tokens = ast_to_token_stream(root, extpool);
+	struct ParserASTBuilder *builder = mempool_add(extpool, parser_astbuilder_from_ast(parser, root), parser_astbuilder_free);
+	*tokens = builder->tokens;
 	return 0;
 }
 
@@ -357,8 +359,8 @@ prepend_variable(struct Parser *parser, struct Array *ptokens, struct Array *tok
 PARSER_EDIT(insert_variable)
 {
 	struct Variable *var = userdata;
-
-	struct Array *ptokens = ast_to_token_stream(root, extpool);
+	struct ParserASTBuilder *builder = mempool_add(extpool, parser_astbuilder_from_ast(parser, root), parser_astbuilder_free);
+	struct Array *ptokens = builder->tokens;
 	enum BlockType block_var = variable_order_block(parser, variable_name(var), NULL, NULL);
 	enum BlockType block_before_var = BLOCK_UNKNOWN;
 	ssize_t insert_after = find_insert_point_same_block(parser, ptokens, var, &block_before_var);
@@ -477,7 +479,8 @@ find_last_occurrence_of_var(struct Parser *parser, struct Array *tokens, struct 
 
 PARSER_EDIT(merge_existent_var)
 {
-	struct Array *ptokens = ast_to_token_stream(root, extpool);
+	struct ParserASTBuilder *builder = mempool_add(extpool, parser_astbuilder_from_ast(parser, root), parser_astbuilder_free);
+	struct Array *ptokens = builder->tokens;
 	struct VariableMergeParameter *params = userdata;
 	struct Array *tokens = array_new();
 
@@ -566,7 +569,8 @@ PARSER_EDIT(merge_existent_var)
 PARSER_EDIT(edit_merge)
 {
 	SCOPE_MEMPOOL(pool);
-	struct Array *ptokens = ast_to_token_stream(root, extpool);
+	struct ParserASTBuilder *builder = mempool_add(extpool, parser_astbuilder_from_ast(parser, root), parser_astbuilder_free);
+	struct Array *ptokens = builder->tokens;
 
 	const struct ParserEdit *params = userdata;
 	if (params == NULL ||

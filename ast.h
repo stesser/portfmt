@@ -194,9 +194,8 @@ enum ASTWalkState {
 
 extern const char *ASTNodeExprFlatType_identifier[];
 extern const char *ASTNodeVariableModifier_humanize[];
+extern const char *NodeExprIfType_humanize[];
 
-struct ASTNode *ast_from_token_stream(struct Array *);
-struct Array *ast_to_token_stream(struct ASTNode *, struct Mempool *);
 void ast_free(struct ASTNode *);
 struct ASTNode *ast_node_new(struct Mempool *, enum ASTNodeType, struct ASTNodeLineRange *, void *);
 void ast_node_parent_append_sibling(struct ASTNode *, struct ASTNode *, int);

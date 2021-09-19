@@ -1375,7 +1375,8 @@ parser_output_dump_tokens_helper(struct Parser *parser)
 		return;
 	}
 
-	struct Array *tokens = mempool_add(pool, ast_to_token_stream(parser->ast, pool), array_free);
+	struct ParserASTBuilder *builder = mempool_add(pool, parser_astbuilder_from_ast(parser, parser->ast), parser_astbuilder_free);
+	struct Array *tokens = builder->tokens;
 	size_t maxvarlen = 0;
 	ARRAY_FOREACH(tokens, struct Token *, o) {
 		if (token_type(o) == VARIABLE_START && token_variable(o)) {
