@@ -1189,7 +1189,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 {
 	SCOPE_MEMPOOL(pool);
 
-	int edited = node->edited;
+	int edited = node->edited || (parser->settings.behavior & PARSER_OUTPUT_REFORMAT);
 	switch (node->type) {
 	case AST_NODE_ROOT:
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
@@ -1197,7 +1197,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 		}
 		break;
 	case AST_NODE_COMMENT:
-		if (edited) {
+		if (node->edited) { // Ignore PARSER_OUTPUT_REFORMAT
 			ARRAY_FOREACH(node->comment.lines, const char *, line) {
 				parser_enqueue_output(parser, line);
 				parser_enqueue_output(parser, "\n");
@@ -1272,7 +1272,34 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 		break;
 	case AST_NODE_EXPR_IF:
 		if (edited) {
-			// TODO
+			const char *prefix = "";
+			if (node->ifexpr.ifparent) {
+				prefix = "el";
+			}
+			parser_enqueue_output(parser, str_printf(pool, ".%s%s%s ", str_repeat(pool, " ", node->ifexpr.indent),
+				prefix, NodeExprIfType_humanize[node->ifexpr.type]));
+			// TODO: Apply some formatting like line breaks instead of just one long forever line???
+			parser_enqueue_output(parser, str_join(pool, node->ifexpr.test, " "));
+			parser_enqueue_output(parser, "\n");
+			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
+			}
+			if (array_len(node->ifexpr.orelse) > 0) {
+				struct ASTNode *next = array_get(node->ifexpr.orelse, 0);
+				if (next && next->type == AST_NODE_EXPR_IF && next->ifexpr.type == AST_NODE_EXPR_IF_ELSE) {
+					parser_output_print_rawlines(parser, &next->line_start); // .else
+					ARRAY_FOREACH(next->ifexpr.body, struct ASTNode *, child) {
+						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
+					}
+				} else {
+					ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
+					}
+				}
+			}
+			unless (node->ifexpr.ifparent) { // .endif
+				parser_enqueue_output(parser, str_printf(pool, ".%sendif\n", str_repeat(pool, " ", node->ifexpr.indent)));
+			}
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
 			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
