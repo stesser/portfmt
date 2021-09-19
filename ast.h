@@ -162,11 +162,13 @@ struct ASTNodeTarget {
 	struct Array *sources;
 	struct Array *dependencies;
 	struct Array *body;
+	const char *comment;
 };
 
 struct ASTNodeTargetCommand {
 	struct ASTNodeTarget *target;
 	struct Array *words;
+	const char *comment;
 };
 
 struct ASTNodeVariable {

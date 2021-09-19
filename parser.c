@@ -857,7 +857,6 @@ parser_output_print_target_command(struct Parser *parser, struct ASTNode *node)
 	}
 	merge = NULL;
 
-	const char *endline = "\n";
 	const char *endnext = "\\\n";
 	const char *endword = " ";
 	const char *startlv0 = "";
@@ -932,22 +931,22 @@ parser_output_print_target_command(struct Parser *parser, struct ASTNode *node)
 
 		parser_enqueue_output(parser, word);
 		if (wrapped) {
-			if (word_index == array_len(node->targetcommand.words) - 1) {
-				parser_enqueue_output(parser, endline);
-			} else {
+			if (word_index < array_len(node->targetcommand.words) - 1) {
 				if (strcmp(word, "") != 0) {
 					parser_enqueue_output(parser, endword);
 				}
 				parser_enqueue_output(parser, endnext);
 			}
-		} else {
-			if (word_index == array_len(node->targetcommand.words) - 1) {
-				parser_enqueue_output(parser, endline);
-			} else {
-				parser_enqueue_output(parser, endword);
-			}
+		} else if (word_index < array_len(node->targetcommand.words) - 1) {
+			parser_enqueue_output(parser, endword);
 		}
 	}
+
+	if (node->targetcommand.comment && strlen(node->targetcommand.comment) > 0) {
+		parser_enqueue_output(parser, " ");
+		parser_enqueue_output(parser, node->targetcommand.comment);
+	}
+	parser_enqueue_output(parser, "\n");
 }
 
 void
@@ -1358,10 +1357,15 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			if (array_len(node->target.dependencies) > 0) {
 				sep = " ";
 			}
-			parser_enqueue_output(parser, str_printf(pool, "%s:%s%s\n",
+			parser_enqueue_output(parser, str_printf(pool, "%s:%s%s",
 				str_join(pool, node->target.sources, " "),
 				sep,
 				str_join(pool, node->target.dependencies, " ")));
+			if (node->target.comment && strlen(node->target.comment) > 0) {
+				parser_enqueue_output(parser, " ");
+				parser_enqueue_output(parser, node->target.comment);
+			}
+			parser_enqueue_output(parser, "\n");
 			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}

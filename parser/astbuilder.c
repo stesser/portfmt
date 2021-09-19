@@ -414,6 +414,9 @@ ast_from_token_stream(struct Array *tokens)
 			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = token_edited(t);
 			struct Target *target = token_target(t);
+			if (target_comment(target)) {
+				node->target.comment = str_dup(node->pool, target_comment(target));
+			}
 			ARRAY_FOREACH(target_names(target), const char *, source) {
 				array_append(node->target.sources, str_dup(node->pool, source));
 			}
@@ -470,14 +473,9 @@ ast_from_token_stream(struct Array *tokens)
 			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = token_edited(t);
 			node->line_end = node->line_start;
-			ARRAY_FOREACH(current_target_cmds, struct Token *, t) {
-				if (t_index == 0) {
-					node->line_start = *token_lines(t);
-				}
-				if (token_edited(t)) {
-					node->edited = 1;
-				}
-				array_append(node->targetcommand.words, str_dup(node->pool, token_data(t)));
+			node->targetcommand.comment = split_off_comment(node->pool, current_target_cmds, 0, -1, node->targetcommand.words);
+			if (array_len(current_target_cmds) > 1) {
+				node->line_start = *token_lines(array_get(current_target_cmds, 1));
 			}
 			break;
 		}

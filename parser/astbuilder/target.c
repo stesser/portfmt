@@ -125,7 +125,7 @@ consume_names(struct Mempool *pool, const char *buf, struct Array *names, int de
 			}
 			start = i + 1;
 		} else if (c == '#') {
-			after_target = buf + i + 1;
+			after_target = buf + i;
 			break;
 		}
 	}
