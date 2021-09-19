@@ -129,6 +129,12 @@ get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
 			AST_WALK_RECUR(get_variables(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		if (is_include_bsd_port_mk(node)) {
+			return AST_WALK_STOP;
+		}
+		// XXX: Should we recurse down into includes?
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(get_variables(this, child));
@@ -142,10 +148,6 @@ get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
 		}
 		break;
 	case AST_NODE_EXPR_FLAT:
-		if (is_include_bsd_port_mk(node)) {
-			return AST_WALK_STOP;
-		}
-		break;
 	case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:
 		break;
@@ -286,6 +288,12 @@ target_list(struct TargetListWalkData *this, struct ASTNode *node)
 			AST_WALK_RECUR(target_list(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		if (is_include_bsd_port_mk(node)) {
+			return AST_WALK_STOP;
+		}
+		// XXX: Should we recurse down into includes?
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, target) {
 			// Ignore port local targets that start with an _
@@ -299,10 +307,6 @@ target_list(struct TargetListWalkData *this, struct ASTNode *node)
 		}
 		break;
 	case AST_NODE_EXPR_FLAT:
-		if (is_include_bsd_port_mk(node)) {
-			return AST_WALK_STOP;
-		}
-		break;
 	case AST_NODE_COMMENT:
 	case AST_NODE_VARIABLE:
 	case AST_NODE_TARGET_COMMAND:

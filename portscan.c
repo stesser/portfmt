@@ -168,7 +168,6 @@ static void lookup_subdirs(int, const char *, const char *, enum ScanFlags, stru
 static void scan_port(struct ScanPortArgs *);
 static void *lookup_origins_worker(void *);
 static enum ParserError process_include(struct Parser *, struct Set *, const char *, int, const char *);
-static PARSER_EDIT(extract_includes);
 static PARSER_EDIT(get_default_option_descriptions);
 static DIR *diropenat(struct Mempool *, int, const char *);
 static FILE *fileopenat(struct Mempool *, int, const char *);
@@ -317,7 +316,7 @@ lookup_subdirs(int portsdir, const char *category, const char *path, enum ScanFl
 	}
 }
 
-enum ParserError
+enum ParserError __unused
 process_include(struct Parser *parser, struct Set *errors, const char *curdir, int portsdir, const char *filename)
 {
 	SCOPE_MEMPOOL(pool);
@@ -355,63 +354,6 @@ process_include(struct Parser *parser, struct Set *errors, const char *curdir, i
 		return PARSER_ERROR_OK;
 	}
 	return parser_read_from_file(parser, f);
-}
-
-static enum ASTWalkState
-extract_includes_walker(struct Array *this, struct ASTNode *node)
-{
-	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(extract_includes_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(extract_includes_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(extract_includes_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(extract_includes_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(extract_includes_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) == 1) {
-			char *word = array_get(node->flatexpr.words, 0);
-			if (word && *word == '"' && word[strlen(word) - 1] == '"') {
-				word++;
-				word[strlen(word) - 1] = 0;
-				array_append(this, word);
-			}
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_VARIABLE:
-	case AST_NODE_TARGET_COMMAND:
-		break;
-	}
-
-	return AST_WALK_CONTINUE;
-}
-
-
-PARSER_EDIT(extract_includes)
-{
-	struct Array **retval = userdata;
-	struct Array *includes = mempool_array(extpool);
-	extract_includes_walker(includes, root);
-	*retval = includes;
-	return 1;
 }
 
 static int
@@ -528,6 +470,7 @@ scan_port(struct ScanPortArgs *args)
 		return;
 	}
 
+#if 0
 	struct Array *includes = NULL;
 	error = parser_edit(parser, retval->pool, extract_includes, &includes);
 	if (error != PARSER_ERROR_OK) {
@@ -547,6 +490,7 @@ scan_port(struct ScanPortArgs *args)
 		add_error(retval->errors, parser_error_tostring(parser, pool));
 		return;
 	}
+#endif
 
 	if (args->flags & SCAN_PARTIAL) {
 		error = parser_edit(parser, pool, lint_bsd_port, NULL);
@@ -806,6 +750,11 @@ get_default_option_descriptions_walker(struct Map *this, struct ASTNode *node)
 			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
 		}
 		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
+		}
+		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
 		}
 		break;

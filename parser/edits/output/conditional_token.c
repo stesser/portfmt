@@ -32,6 +32,7 @@
 
 #include <libias/array.h>
 #include <libias/flow.h>
+#include <libias/str.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -91,6 +92,16 @@ output_conditional_token_walker(struct WalkerData *this, struct ASTNode *node)
 			AST_WALK_RECUR(output_conditional_token_walker(this, child));
 		}
 		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_conditional_token_walker(this, child));
+		}
+		break;
+	case AST_NODE_INCLUDE:
+		if (node->include.sys) {
+			add_word(this, str_printf(this->pool, "<%s>", node->include.path));
+		} else {
+			add_word(this, str_printf(this->pool, "\"%s\"", node->include.path));
+		}
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(output_conditional_token_walker(this, child));
 		}
 		break;

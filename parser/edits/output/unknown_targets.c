@@ -97,6 +97,11 @@ output_unknown_targets_walker(struct WalkerData *this, struct ASTNode *node)
 			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
+		}
+		break;
 	case AST_NODE_TARGET: {
 		int skip_deps = 0;
 		ARRAY_FOREACH(node->target.sources, const char *, name) {

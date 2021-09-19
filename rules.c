@@ -1531,14 +1531,13 @@ is_comment(const char *token)
 int
 is_include_bsd_port_mk(struct ASTNode *node)
 {
-	if (node->type == AST_NODE_EXPR_FLAT &&
-	    node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-	    array_len(node->flatexpr.words) > 0) {
-		const char *word = array_get(node->flatexpr.words, 0);
-		if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
-		    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
-		    strcmp(word, "<bsd.port.post.mk>") == 0 ||
-		    strcmp(word, "<bsd.port.mk>") == 0) {
+	if (node->type == AST_NODE_INCLUDE &&
+	    node->include.type == AST_NODE_INCLUDE_BMAKE &&
+	    node->include.sys) {
+		if (strcmp(node->include.path, "bsd.port.options.mk") == 0 ||
+		    strcmp(node->include.path, "bsd.port.pre.mk") == 0 ||
+		    strcmp(node->include.path, "bsd.port.post.mk") == 0 ||
+		    strcmp(node->include.path, "bsd.port.mk") == 0) {
 			return 1;
 		}
 	}

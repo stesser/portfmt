@@ -67,6 +67,15 @@ lint_bsd_port_walker(struct WalkerData *this, struct ASTNode *node)
 			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		if (is_include_bsd_port_mk(node)) {
+			this->found = 1;
+			return AST_WALK_STOP;
+		}
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(lint_bsd_port_walker(this, child));
@@ -75,12 +84,7 @@ lint_bsd_port_walker(struct WalkerData *this, struct ASTNode *node)
 	case AST_NODE_VARIABLE:
 	case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:
-		break;
 	case AST_NODE_EXPR_FLAT:
-		if (is_include_bsd_port_mk(node)) {
-			this->found = 1;
-			return AST_WALK_STOP;
-		}
 		break;
 	}
 

@@ -69,6 +69,14 @@ refactor_sanitize_append_modifier_walker(struct WalkerData *this, struct ASTNode
 			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		if (is_include_bsd_port_mk(node)) {
+			return AST_WALK_STOP;
+		}
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
@@ -76,11 +84,7 @@ refactor_sanitize_append_modifier_walker(struct WalkerData *this, struct ASTNode
 		break;
 	case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:
-		break;
 	case AST_NODE_EXPR_FLAT:
-		if (is_include_bsd_port_mk(node)) {
-			return AST_WALK_STOP;
-		}
 		break;
 	case AST_NODE_VARIABLE:
 		if (set_contains(this->seen, node->variable.name)) {

@@ -71,6 +71,11 @@ output_target_command_token_walker(struct WalkerData *this, struct ASTNode *node
 			AST_WALK_RECUR(output_target_command_token_walker(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_target_command_token_walker(this, child));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, src) {
 			if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, src, this->param->keyuserdata))) {

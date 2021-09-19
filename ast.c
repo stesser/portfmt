@@ -41,15 +41,11 @@
 #include "ast.h"
 
 const char *ASTNodeExprFlatType_identifier[] = {
-	[AST_NODE_EXPR_DINCLUDE] = "dinclude",
 	[AST_NODE_EXPR_ERROR] = "error",
 	[AST_NODE_EXPR_EXPORT_ENV] = "export-env",
 	[AST_NODE_EXPR_EXPORT_LITERAL] = "export-literal",
 	[AST_NODE_EXPR_EXPORT] = "export",
-	[AST_NODE_EXPR_INCLUDE_POSIX] = "include",
-	[AST_NODE_EXPR_INCLUDE] = "include",
 	[AST_NODE_EXPR_INFO] = "info",
-	[AST_NODE_EXPR_SINCLUDE] = "sinclude",
 	[AST_NODE_EXPR_UNDEF] = "undef",
 	[AST_NODE_EXPR_UNEXPORT_ENV] = "unexport-env",
 	[AST_NODE_EXPR_UNEXPORT] = "unexport",
@@ -72,6 +68,20 @@ const char *NodeExprIfType_humanize[] = {
 	[AST_NODE_EXPR_IF_MAKE] = "ifmake",
 	[AST_NODE_EXPR_IF_NDEF] = "ifndef",
 	[AST_NODE_EXPR_IF_NMAKE] = "ifnmake",
+};
+
+static const char *ASTNodeIncludeType_tostring[] = {
+	[AST_NODE_INCLUDE_BMAKE] = "AST_NODE_INCLUDE_BMAKE",
+	[AST_NODE_INCLUDE_D] = "AST_NODE_INCLUDE_D",
+	[AST_NODE_INCLUDE_POSIX] = "AST_NODE_INCLUDE_POSIX",
+	[AST_NODE_INCLUDE_S] = "AST_NODE_INCLUDE_S",
+};
+
+const char *ASTNodeIncludeType_identifier[] = {
+	[AST_NODE_INCLUDE_BMAKE] = "include",
+	[AST_NODE_INCLUDE_D] = "dinclude",
+	[AST_NODE_INCLUDE_POSIX] = "include",
+	[AST_NODE_INCLUDE_S] = "sinclude",
 };
 
 static const char *ASTNodeTargetType_tostring[] = {
@@ -157,6 +167,21 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			}
 		}
 		break;
+	} case AST_NODE_INCLUDE: {
+		struct ASTNodeInclude *include = value;
+		node->include.type = include->type;
+		node->include.body = mempool_array(pool);
+		node->include.sys = include->sys;
+		node->include.loaded = include->loaded;
+		if (include->path) {
+			node->include.path = str_dup(pool, include->path);
+		}
+		if (include->body) {
+			ARRAY_FOREACH(include->body, struct ASTNode *, node) {
+				array_append(node->include.body, node);
+			}
+		}
+		break;
 	} case AST_NODE_TARGET: {
 		struct ASTNodeTarget *target = value;
 		node->target.type = target->type;
@@ -223,7 +248,10 @@ ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int
 			array_append(parent->ifexpr.body, node);
 		}
 		break;
-	} case AST_NODE_TARGET:
+	} case AST_NODE_INCLUDE:
+		array_append(parent->include.body, node);
+		break;
+	case AST_NODE_TARGET:
 		array_append(parent->target.body, node);
 		break;
 	case AST_NODE_COMMENT:
@@ -265,6 +293,9 @@ ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_
 		break;
 	case AST_NODE_EXPR_FOR:
 		nodelist = parent->forexpr.body;
+		break;
+	case AST_NODE_INCLUDE:
+		nodelist = parent->include.body;
 		break;
 	case AST_NODE_TARGET:
 		nodelist = parent->target.body;
@@ -348,7 +379,30 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			}
 		}
 		break;
-	case AST_NODE_TARGET:
+	case AST_NODE_INCLUDE: {
+		const char *path = node->include.path;
+		unless (path) {
+			path = "";
+		}
+		const char *comment = node->include.comment;
+		unless (comment) {
+			comment = "";
+		}
+		fprintf(f, "%s{ .type = AST_NODE_INCLUDE/%s, .line_start = %s, .line_end = %s, .indent = %zu, .path = %s, .sys = %d, .loaded = %d, .comment = %s }\n",
+			indent,
+			ASTNodeIncludeType_tostring[node->include.type],
+			line_start,
+			line_end,
+			node->include.indent,
+			path,
+			node->include.sys,
+			node->include.loaded,
+			comment);
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			ast_node_print_helper(child, f, level + 1);
+		}
+		break;
+	} case AST_NODE_TARGET:
 		fprintf(f, "%s{ .type = AST_NODE_TARGET, .line_start = %s, .line_end = %s, .type = %s, .sources = { %s }, .dependencies = { %s } }\n",
 			indent,
 			line_start,

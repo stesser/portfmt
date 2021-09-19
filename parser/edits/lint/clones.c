@@ -81,6 +81,11 @@ lint_clones_walker(struct WalkerData *this, struct ASTNode *node, int in_conditi
 			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional));

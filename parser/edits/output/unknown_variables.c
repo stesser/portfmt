@@ -170,6 +170,11 @@ output_unknown_variables_walker(struct WalkerData *this, struct ASTNode *node)
 			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(output_unknown_variables_walker(this, child));

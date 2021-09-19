@@ -33,6 +33,7 @@ enum ASTNodeType {
 	AST_NODE_EXPR_FLAT,
 	AST_NODE_EXPR_IF,
 	AST_NODE_EXPR_FOR,
+	AST_NODE_INCLUDE,
 	AST_NODE_TARGET,
 	AST_NODE_TARGET_COMMAND,
 	AST_NODE_VARIABLE,
@@ -44,15 +45,11 @@ enum ASTNodeCommentType {
 };
 
 enum ASTNodeExprFlatType {
-	AST_NODE_EXPR_DINCLUDE,
 	AST_NODE_EXPR_ERROR,
 	AST_NODE_EXPR_EXPORT_ENV,
 	AST_NODE_EXPR_EXPORT_LITERAL,
 	AST_NODE_EXPR_EXPORT,
-	AST_NODE_EXPR_INCLUDE_POSIX,
-	AST_NODE_EXPR_INCLUDE,
 	AST_NODE_EXPR_INFO,
-	AST_NODE_EXPR_SINCLUDE,
 	AST_NODE_EXPR_UNDEF,
 	AST_NODE_EXPR_UNEXPORT_ENV,
 	AST_NODE_EXPR_UNEXPORT,
@@ -66,6 +63,13 @@ enum ASTNodeExprIfType {
 	AST_NODE_EXPR_IF_MAKE,
 	AST_NODE_EXPR_IF_NDEF,
 	AST_NODE_EXPR_IF_NMAKE,
+};
+
+enum ASTNodeIncludeType {
+	AST_NODE_INCLUDE_BMAKE,
+	AST_NODE_INCLUDE_D,
+	AST_NODE_INCLUDE_POSIX,
+	AST_NODE_INCLUDE_S,
 };
 
 enum ASTNodeTargetType {
@@ -138,6 +142,16 @@ struct ASTNodeExprFlat {
 	size_t indent;
 };
 
+struct ASTNodeInclude {
+	enum ASTNodeIncludeType type;
+	struct Array *body;
+	const char *comment;
+	size_t indent;
+	const char *path;
+	int sys;
+	int loaded;
+};
+
 struct ASTNodeTarget {
 	enum ASTNodeTargetType type;
 	struct Array *sources;
@@ -180,6 +194,7 @@ struct ASTNode {
 		struct ASTNodeComment comment;
 		struct ASTNodeExprFlat flatexpr;
 		struct ASTNodeExprIf ifexpr;
+		struct ASTNodeInclude include;
 		struct ASTNodeExprFor forexpr;
 		struct ASTNodeTarget target;
 		struct ASTNodeTargetCommand targetcommand;
@@ -193,6 +208,7 @@ enum ASTWalkState {
 };
 
 extern const char *ASTNodeExprFlatType_identifier[];
+extern const char *ASTNodeIncludeType_identifier[];
 extern const char *ASTNodeVariableModifier_humanize[];
 extern const char *NodeExprIfType_humanize[];
 

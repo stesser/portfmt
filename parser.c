@@ -331,13 +331,14 @@ parser_is_category_makefile(struct Parser *parser, struct ASTNode *node)
 			}
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) > 0 &&
-		    strcmp(array_get(node->flatexpr.words, 0), "<bsd.port.subdir.mk>") == 0) {
+	case AST_NODE_INCLUDE:
+		if (node->include.type == AST_NODE_INCLUDE_BMAKE &&
+		    node->include.sys && node->include.path &&
+		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
 			return 1;
 		}
 		break;
+	case AST_NODE_EXPR_FLAT:
 	case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:
 	case AST_NODE_VARIABLE:
@@ -647,6 +648,8 @@ parser_find_goalcols_walker(struct Parser *parser, struct ASTNode *node, struct 
 			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		// do not recurse down into loaded includes
 	case AST_NODE_TARGET:
 	case AST_NODE_TARGET_COMMAND:
 	case AST_NODE_EXPR_FLAT:
@@ -1131,13 +1134,15 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNod
 			parser_output_category_makefile_reformatted(parser, child);
 		}
 		return;
-	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) > 0 &&
-		    strcmp(array_get(node->flatexpr.words, 0), "<bsd.port.subdir.mk>") == 0) {
+	case AST_NODE_INCLUDE:
+		if (node->include.type == AST_NODE_INCLUDE_BMAKE &&
+		    node->include.sys && node->include.path &&
+		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
 			parser_enqueue_output(parser, ".include <bsd.port.subdir.mk>\n");
 			return;
 		}
+		break;
+	case AST_NODE_EXPR_FLAT:
 	case AST_NODE_EXPR_IF:
 	case AST_NODE_EXPR_FOR:
 	case AST_NODE_TARGET:
@@ -1201,21 +1206,46 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			parser_output_print_rawlines(parser, &node->line_start);
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
+	case AST_NODE_INCLUDE:
 		if (edited) {
-			const char *name = ASTNodeExprFlatType_identifier[node->flatexpr.type];
 			const char *dot;
-			switch (node->flatexpr.type) {
-			case AST_NODE_EXPR_INCLUDE_POSIX:
+			switch (node->include.type) {
+			case AST_NODE_INCLUDE_POSIX:
 				dot = "";
 				break;
 			default:
 				dot = ".";
 				break;
 			}
+			const char *name = ASTNodeIncludeType_identifier[node->include.type];
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
-			parser_enqueue_output(parser, str_printf(pool, "%s%s%s %s\n",
-				dot, str_repeat(pool, " ", node->flatexpr.indent), name, str_join(pool, node->flatexpr.words, " ")));
+			parser_enqueue_output(parser, str_printf(pool, "%s%s%s", dot, str_repeat(pool, " ", node->include.indent), name));
+			if (node->include.path) {
+				if (node->include.type == AST_NODE_INCLUDE_POSIX) {
+					parser_enqueue_output(parser, " ");
+					parser_enqueue_output(parser, node->include.path);
+				} else if (node->include.sys) {
+					parser_enqueue_output(parser, str_printf(pool, " <%s>", node->include.path));
+				} else {
+					parser_enqueue_output(parser, str_printf(pool, " \"%s\"", node->include.path));
+				}
+			} else if (node->include.type != AST_NODE_INCLUDE_POSIX) {
+				parser_enqueue_output(parser, "\"\"");
+			}
+			if (node->include.comment && strlen(node->include.comment) > 0) {
+				parser_enqueue_output(parser, str_printf(pool, " %s", node->include.comment));
+			}
+			parser_enqueue_output(parser, "\n");
+		} else {
+			parser_output_print_rawlines(parser, &node->line_start);
+		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		if (edited) {
+			const char *name = ASTNodeExprFlatType_identifier[node->flatexpr.type];
+			// TODO: Apply some formatting like line breaks instead of just one long forever line???
+			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s\n",
+				str_repeat(pool, " ", node->flatexpr.indent), name, str_join(pool, node->flatexpr.words, " ")));
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
 		}
@@ -2060,6 +2090,11 @@ parser_lookup_target_walker(struct ASTNode *node, const char *name, struct ASTNo
 			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, char *, src) {
 			if (strcmp(src, name) == 0) {
@@ -2128,6 +2163,14 @@ parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const 
 			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
+		}
+		break;
+	case AST_NODE_INCLUDE:
+		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
+			return AST_WALK_CONTINUE;
+		}
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
 		}
 		break;

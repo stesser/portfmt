@@ -161,6 +161,11 @@ refactor_collapse_adjacent_variables_walker(struct WalkerData *this, struct ASTN
 		}
 		process_siblings(node->ifexpr.orelse, siblings);
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));

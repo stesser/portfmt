@@ -62,6 +62,11 @@ refactor_sanitize_comments_walker(struct ASTNode *node, int in_target)
 			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, in_target));
 		}
 		break;
+	case AST_NODE_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, in_target));
+		}
+		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(refactor_sanitize_comments_walker(child, 1));
