@@ -38,12 +38,13 @@
 
 #include "ast.h"
 #include "conditional.h"
+#include "enum.h"
 #include "target.h"
 #include "token.h"
 #include "variable.h"
 
 struct Token {
-	enum TokenType type;
+	enum ParserASTBuilderTokenType type;
 	char *data;
 	struct Conditional *cond;
 	struct Variable *var;
@@ -54,16 +55,16 @@ struct Token {
 };
 
 struct Token *
-token_new(enum TokenType type, struct ASTNodeLineRange *lines, const char *data,
+token_new(enum ParserASTBuilderTokenType type, struct ASTNodeLineRange *lines, const char *data,
 	  const char *varname, const char *condname, const char *targetname)
 {
-	if (((type == VARIABLE_END || type == VARIABLE_START ||
-	      type == VARIABLE_TOKEN) && varname == NULL) ||
-	    ((type == CONDITIONAL_END || type == CONDITIONAL_START ||
-	      type == CONDITIONAL_TOKEN) && condname  == NULL) ||
-	    ((type == TARGET_COMMAND_END || type == TARGET_COMMAND_START ||
-	      type == TARGET_COMMAND_TOKEN || type == TARGET_END ||
-	      type == TARGET_START) && targetname == NULL)) {
+	if (((type == PARSER_AST_BUILDER_TOKEN_VARIABLE_END || type == PARSER_AST_BUILDER_TOKEN_VARIABLE_START ||
+	      type == PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN) && varname == NULL) ||
+	    ((type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END || type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
+	      type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN) && condname  == NULL ) ||
+	    ((type == PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END || type == PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START ||
+	      type == PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN || type == PARSER_AST_BUILDER_TOKEN_TARGET_END ||
+	      type == PARSER_AST_BUILDER_TOKEN_TARGET_START) && targetname == NULL)) {
 		return NULL;
 	}
 
@@ -107,7 +108,7 @@ token_new_comment(struct ASTNodeLineRange *lines, const char *data, struct Condi
 	}
 
 	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = COMMENT;
+	t->type = PARSER_AST_BUILDER_TOKEN_COMMENT;
 	t->lines = *lines;
 	if (cond) {
 		t->cond = conditional_clone(cond);
@@ -124,7 +125,7 @@ token_new_variable_end(struct ASTNodeLineRange *lines, struct Variable *var)
 	}
 
 	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = VARIABLE_END;
+	t->type = PARSER_AST_BUILDER_TOKEN_VARIABLE_END;
 	t->lines = *lines;
 	t->var = variable_clone(var);
 
@@ -139,7 +140,7 @@ token_new_variable_start(struct ASTNodeLineRange *lines, struct Variable *var)
 	}
 
 	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = VARIABLE_START;
+	t->type = PARSER_AST_BUILDER_TOKEN_VARIABLE_START;
 	t->lines = *lines;
 	t->var = variable_clone(var);
 
@@ -154,7 +155,7 @@ token_new_variable_token(struct ASTNodeLineRange *lines, struct Variable *var, c
 	}
 
 	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = VARIABLE_TOKEN;
+	t->type = PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN;
 	t->lines = *lines;
 	t->var = variable_clone(var);
 	t->data = str_dup(NULL, data);
@@ -249,43 +250,10 @@ token_target(struct Token *token)
 	return token->target;
 }
 
-enum TokenType
+enum ParserASTBuilderTokenType
 token_type(struct Token *token)
 {
 	return token->type;
-}
-
-const char *
-token_type_tostring(enum TokenType type)
-{
-	switch (type) {
-	case COMMENT:
-		return "comment";
-	case CONDITIONAL_END:
-		return "conditional end";
-	case CONDITIONAL_TOKEN:
-		return "conditional token";
-	case CONDITIONAL_START:
-		return "conditional start";
-	case TARGET_COMMAND_END:
-		return "target command end";
-	case TARGET_COMMAND_START:
-		return "target command start";
-	case TARGET_COMMAND_TOKEN:
-		return "command token";
-	case TARGET_END:
-		return "target end";
-	case TARGET_START:
-		return "target start";
-	case VARIABLE_END:
-		return "variable end";
-	case VARIABLE_START:
-		return "variable start";
-	case VARIABLE_TOKEN:
-		return "variable token";
-	}
-
-	panic("unhandle token type: %d", type);
 }
 
 struct Variable *

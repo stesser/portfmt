@@ -41,6 +41,7 @@
 #include "ast.h"
 #include "parser.h"
 #include "parser/astbuilder.h"
+#include "parser/astbuilder/enum.h"
 #include "parser/astbuilder/conditional.h"
 #include "parser/astbuilder/token.h"
 #include "parser/astbuilder/variable.h"
@@ -74,7 +75,7 @@ static int
 is_include_bsd_port_mk_token(struct Token *t)
 {
 	struct Conditional *c = token_conditional(t);
-	return c && token_type(t) == CONDITIONAL_TOKEN &&
+	return c && token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN &&
 		conditional_type(c) == COND_INCLUDE &&
 		(strcmp(token_data(t), "<bsd.port.options.mk>") == 0 ||
 		strcmp(token_data(t), "<bsd.port.pre.mk>") == 0 ||
@@ -86,7 +87,7 @@ static int
 skip_conditional(struct Token *t, int *ignore)
 {
 	if (*ignore > 0) {
-		if (token_type(t) == CONDITIONAL_END) {
+		if (token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END) {
 			switch (conditional_type(token_conditional(t))) {
 			case COND_ENDFOR:
 			case COND_ENDIF:
@@ -99,7 +100,7 @@ skip_conditional(struct Token *t, int *ignore)
 		return 1;
 	}
 
-	if (token_type(t) == CONDITIONAL_START) {
+	if (token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START) {
 		switch (conditional_type(token_conditional(t))) {
 		case COND_IF:
 		case COND_IFDEF:
@@ -130,7 +131,7 @@ append_values(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableM
 {
 	ARRAY_FOREACH(params->values, struct Token *, v) {
 		switch (token_type(v)) {
-		case VARIABLE_TOKEN:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN:
 			if (variable_cmp(params->var, token_variable(v)) == 0) {
 				struct Token *edited = token_clone(v, NULL);
 				variable_set_modifier(token_variable(edited), mod);
@@ -151,7 +152,7 @@ append_values_last(struct Parser *parser, struct Array *tokens, enum ASTNodeVari
 	if (last_token) {
 		struct ASTNodeLineRange *lines = token_lines(last_token);
 		struct Token *t;
-		if (token_type(last_token) == VARIABLE_END) {
+		if (token_type(last_token) == PARSER_AST_BUILDER_TOKEN_VARIABLE_END) {
 			params->var = variable_clone(params->var);
 			variable_set_modifier(params->var, AST_NODE_VARIABLE_MODIFIER_APPEND);
 
@@ -189,9 +190,9 @@ assign_values(struct Parser *parser, struct Array *tokens, enum ASTNodeVariableM
 {
 	ARRAY_FOREACH(params->values, struct Token *, v) {
 		switch (token_type(v)) {
-		case VARIABLE_START:
-		case VARIABLE_TOKEN:
-		case VARIABLE_END:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_START:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_END:
 			if (variable_cmp(params->var, token_variable(v)) == 0) {
 				struct Token *edited = token_clone(v, NULL);
 				variable_set_modifier(token_variable(edited), mod);
@@ -257,7 +258,7 @@ find_insert_point_generic(struct Parser *parser, struct Array *ptokens, struct V
 	ARRAY_FOREACH(ptokens, struct Token *, t) {
 		if (insert_after >= 0 && is_include_bsd_port_mk_token(t)) {
 			break;
-		} else if (token_type(t) != VARIABLE_END) {;
+		} else if (token_type(t) != PARSER_AST_BUILDER_TOKEN_VARIABLE_END) {;
 			continue;
 		}
 
@@ -288,7 +289,7 @@ find_insert_point_same_block(struct Parser *parser, struct Array *ptokens, struc
 	ARRAY_FOREACH(ptokens, struct Token *, t) {
 		if (is_include_bsd_port_mk_token(t)) {
 			break;
-		} else if (token_type(t) != VARIABLE_END) {;
+		} else if (token_type(t) != PARSER_AST_BUILDER_TOKEN_VARIABLE_END) {;
 			continue;
 		}
 
@@ -326,7 +327,7 @@ prepend_variable(struct Parser *parser, struct Array *ptokens, struct Array *tok
 	size_t i = 0;
 	for (; i < array_len(ptokens); i++) {
 		struct Token *t = array_get(ptokens, i);
-		if (token_type(t) != COMMENT) {
+		if (token_type(t) != PARSER_AST_BUILDER_TOKEN_COMMENT) {
 			break;
 		}
 		array_append(tokens, t);
@@ -337,14 +338,14 @@ prepend_variable(struct Parser *parser, struct Array *ptokens, struct Array *tok
 		struct Token *t = array_get(ptokens, i);
 		if (!empty_line_added) {
 			switch (token_type(t)) {
-			case VARIABLE_START:
+			case PARSER_AST_BUILDER_TOKEN_VARIABLE_START:
 				if (variable_order_block(parser, variable_name(token_variable(t)), NULL, NULL) != block_var) {
 					append_empty_line(parser, tokens, token_lines(t));
 					empty_line_added = 1;
 				}
 				break;
-			case CONDITIONAL_START:
-			case TARGET_START:
+			case PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START:
+			case PARSER_AST_BUILDER_TOKEN_TARGET_START:
 				append_empty_line(parser, tokens, token_lines(t));
 				empty_line_added = 1;
 				break;
@@ -380,8 +381,8 @@ PARSER_EDIT(insert_variable)
 		// var.  Insert it before any conditional or target
 		// if there are any.
 		ARRAY_FOREACH(ptokens, struct Token *, t) {
-			if (!added && (token_type(t) == CONDITIONAL_START ||
-				       token_type(t) == TARGET_START)) {
+			if (!added && (token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
+				       token_type(t) == PARSER_AST_BUILDER_TOKEN_TARGET_START)) {
 				append_new_variable(parser, tokens, var, token_lines(t));
 				append_empty_line(parser, tokens, token_lines(t));
 				added = 1;
@@ -410,12 +411,12 @@ PARSER_EDIT(insert_variable)
 				}
 				append_new_variable(parser, tokens, var, token_lines(t));
 				added = 1;
-				struct Token *next = find_next_token(ptokens, t_index, CONDITIONAL_START, TARGET_START, VARIABLE_START);
-				if (next && token_type(next) != VARIABLE_START) {
+				struct Token *next = find_next_token(ptokens, t_index, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, PARSER_AST_BUILDER_TOKEN_TARGET_START, PARSER_AST_BUILDER_TOKEN_VARIABLE_START);
+				if (next && token_type(next) != PARSER_AST_BUILDER_TOKEN_VARIABLE_START) {
 					append_empty_line(parser, tokens, token_lines(t));
 				}
-				if (token_type(t) == COMMENT && strcmp(token_data(t), "") == 0) {
-					next = find_next_token(ptokens, t_index, VARIABLE_START, -1, -1);
+				if (token_type(t) == PARSER_AST_BUILDER_TOKEN_COMMENT && strcmp(token_data(t), "") == 0) {
+					next = find_next_token(ptokens, t_index, PARSER_AST_BUILDER_TOKEN_VARIABLE_START, -1, -1);
 					if (next) {
 						enum BlockType block_next = variable_order_block(parser, variable_name(token_variable(next)), NULL, NULL);
 						if (block_next == block_var) {
@@ -429,7 +430,7 @@ PARSER_EDIT(insert_variable)
 				append_new_variable(parser, tokens, var, token_lines(t));
 				added = 1;
 			}
-		} else if (token_type(t) == VARIABLE_END && insert_after == (ssize_t)t_index) {
+		} else if (token_type(t) == PARSER_AST_BUILDER_TOKEN_VARIABLE_END && insert_after == (ssize_t)t_index) {
 			insert_flag = 1;
 		}
 
@@ -463,7 +464,7 @@ find_last_occurrence_of_var(struct Parser *parser, struct Array *tokens, struct 
 			continue;
 		}
 		switch (token_type(t)) {
-		case VARIABLE_END:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_END:
 			if (variable_cmp(params->var, token_variable(t)) == 0) {
 				index = i;
 			} else {
@@ -495,7 +496,7 @@ PARSER_EDIT(merge_existent_var)
 			continue;
 		}
 		switch (token_type(t)) {
-		case VARIABLE_START:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_START:
 			if (variable_cmp(params->var, token_variable(t)) == 0) {
 				last_occ = find_last_occurrence_of_var(parser, ptokens, params, t_index);
 				found = 1;
@@ -514,7 +515,7 @@ PARSER_EDIT(merge_existent_var)
 				array_append(tokens, t);
 			}
 			break;
-		case VARIABLE_TOKEN:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN:
 			if (found) {
 				if (mod == AST_NODE_VARIABLE_MODIFIER_ASSIGN || mod == AST_NODE_VARIABLE_MODIFIER_OPTIONAL) {
 					// nada
@@ -528,7 +529,7 @@ PARSER_EDIT(merge_existent_var)
 				array_append(tokens, t);
 			}
 			break;
-		case VARIABLE_END:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_END:
 			if (found) {
 				found = 0;
 				if (mod == AST_NODE_VARIABLE_MODIFIER_APPEND) {
@@ -552,7 +553,7 @@ PARSER_EDIT(merge_existent_var)
 				array_append(tokens, t);
 			}
 			break;
-		case COMMENT:
+		case PARSER_AST_BUILDER_TOKEN_COMMENT:
 			token_mark_edited(t); // XXX
 		default:
 			array_append(tokens, t);
@@ -591,7 +592,7 @@ PARSER_EDIT(edit_merge)
 	struct Array *nonvars = mempool_array(pool);
 	ARRAY_FOREACH(subtokens, struct Token *, t) {
 		switch (token_type(t)) {
-		case VARIABLE_START:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_START:
 			var = token_variable(t);
 			switch (variable_modifier(var)) {
 			case AST_NODE_VARIABLE_MODIFIER_SHELL:
@@ -626,12 +627,12 @@ PARSER_EDIT(edit_merge)
 				break;
 			}
 			break;
-		case VARIABLE_TOKEN:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN:
 			if (merge) {
 				array_append(mergetokens, t);
 			}
 			break;
-		case VARIABLE_END:
+		case PARSER_AST_BUILDER_TOKEN_VARIABLE_END:
 			if (merge) {
 				array_append(mergetokens, t);
 				struct VariableMergeParameter par;
@@ -649,7 +650,7 @@ PARSER_EDIT(edit_merge)
 			merge = 0;
 			array_truncate(mergetokens);
 			break;
-		case COMMENT:
+		case PARSER_AST_BUILDER_TOKEN_COMMENT:
 			if ((params->merge_behavior & PARSER_MERGE_COMMENTS) &&
 			    (array_len(nonvars) > 0 || strcmp(token_data(t), "") != 0)) {
 				array_append(nonvars, t);

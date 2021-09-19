@@ -57,10 +57,7 @@
 #include "constants.h"
 #include "parser.h"
 #include "parser/astbuilder.h"
-#include "parser/astbuilder/conditional.h"
-#include "parser/astbuilder/target.h"
-#include "parser/astbuilder/token.h"
-#include "parser/astbuilder/variable.h"
+#include "parser/astbuilder/enum.h"
 #include "parser/edits.h"
 #include "regexp.h"
 #include "rules.h"
@@ -117,7 +114,7 @@ static void parser_output_diff(struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
 static void parser_read_internal(struct Parser *);
 static void parser_read_line(struct Parser *, char *, size_t);
-static void parser_tokenize(struct Parser *, const char *, enum TokenType, size_t);
+static void parser_tokenize(struct Parser *, const char *, enum ParserASTBuilderTokenType, size_t);
 static void print_newline_array(struct Parser *, struct ASTNode *, struct Array *);
 static void print_token_array(struct Parser *, struct ASTNode *, struct Array *);
 static char *range_tostring(struct Mempool *, struct ASTNodeLineRange *);
@@ -516,7 +513,7 @@ parser_enqueue_output(struct Parser *parser, const char *s)
 }
 
 void
-parser_tokenize(struct Parser *parser, const char *line, enum TokenType type, size_t start)
+parser_tokenize(struct Parser *parser, const char *line, enum ParserASTBuilderTokenType type, size_t start)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -1376,116 +1373,14 @@ parser_output_dump_tokens_helper(struct Parser *parser)
 	}
 
 	struct ParserASTBuilder *builder = mempool_add(pool, parser_astbuilder_from_ast(parser, parser->ast), parser_astbuilder_free);
-	struct Array *tokens = builder->tokens;
-	size_t maxvarlen = 0;
-	ARRAY_FOREACH(tokens, struct Token *, o) {
-		if (token_type(o) == VARIABLE_START && token_variable(o)) {
-			maxvarlen = MAX(maxvarlen, strlen(variable_tostring(token_variable(o), pool)));
-		}
-	}
-
-	struct Array *vars = mempool_array(pool);
-	ARRAY_FOREACH(tokens, struct Token *, t) {
-		const char *type;
-		switch (token_type(t)) {
-		case VARIABLE_END:
-			type = "variable-end";
-			break;
-		case VARIABLE_START:
-			type = "variable-start";
-			break;
-		case VARIABLE_TOKEN:
-			type = "variable-token";
-			break;
-		case TARGET_COMMAND_END:
-			type = "target-command-end";
-			break;
-		case TARGET_COMMAND_START:
-			type = "target-command-start";
-			break;
-		case TARGET_COMMAND_TOKEN:
-			type = "target-command-token";
-			break;
-		case TARGET_END:
-			type = "target-end";
-			break;
-		case TARGET_START:
-			type = "target-start";
-			break;
-		case CONDITIONAL_END:
-			type = "conditional-end";
-			break;
-		case CONDITIONAL_START:
-			type = "conditional-start";
-			break;
-		case CONDITIONAL_TOKEN:
-			type = "conditional-token";
-			break;
-		case COMMENT:
-			type = "comment";
-			break;
-		default:
-			parser_set_error(parser, PARSER_ERROR_UNHANDLED_TOKEN_TYPE, NULL);
-			return;
-		}
-		if (token_variable(t) &&
-		    (token_type(t) == VARIABLE_TOKEN ||
-		     token_type(t) == VARIABLE_START ||
-		     token_type(t) == VARIABLE_END)) {
-			array_append(vars, variable_tostring(token_variable(t), pool));
-		} else if (token_conditional(t) &&
-			   (token_type(t) == CONDITIONAL_END ||
-			    token_type(t) == CONDITIONAL_START ||
-			    token_type(t) == CONDITIONAL_TOKEN)) {
-			array_append(vars, conditional_tostring(token_conditional(t), pool));
-		} else if (token_target(t) && token_type(t) == TARGET_START) {
-			ARRAY_FOREACH(target_names(token_target(t)), char *, name) {
-				array_append(vars, str_dup(pool, name));
-			}
-			ARRAY_FOREACH(target_dependencies(token_target(t)), char *, dep) {
-				array_append(vars, str_printf(pool, "->%s", dep));
-			}
-		} else if (token_target(t) &&
-			   (token_type(t) == TARGET_COMMAND_END ||
-			    token_type(t) == TARGET_COMMAND_START ||
-			    token_type(t) == TARGET_COMMAND_TOKEN ||
-			    token_type(t) == TARGET_START ||
-			    token_type(t) == TARGET_END)) {
-			array_append(vars, str_dup(pool, "-"));
-		} else {
-			array_append(vars, str_dup(pool, "-"));
-		}
-
-		ARRAY_FOREACH(vars, char *, var) {
-			ssize_t len = maxvarlen - strlen(var);
-			const char *range = range_tostring(pool, token_lines(t));
-			char *tokentype;
-			if (array_len(vars) > 1) {
-				tokentype = str_printf(pool, "%s#%zu", type, var_index + 1);
-			} else {
-				tokentype = str_dup(pool, type);
-			}
-			parser_enqueue_output(parser, str_printf(pool, "%-20s %8s ", tokentype, range));
-			parser_enqueue_output(parser, var);
-
-			if (len > 0) {
-				parser_enqueue_output(parser, str_repeat(pool, " ", len));
-			}
-			parser_enqueue_output(parser, " ");
-
-			if (token_data(t) &&
-			    (token_type(t) != CONDITIONAL_START &&
-			     token_type(t) != CONDITIONAL_END)) {
-				parser_enqueue_output(parser, token_data(t));
-			} else {
-				parser_enqueue_output(parser, "-");
-			}
-			parser_enqueue_output(parser, "\n");
-		}
-		array_truncate(vars);
-	}
-
-	parser_set_error(parser, PARSER_ERROR_OK, NULL);
+	size_t len = 0;
+	char *buf = NULL;
+	FILE *f = open_memstream(&buf, &len);
+	panic_unless(f, "open_memstream: %s", strerror(errno));
+	parser_astbuilder_print_token_stream(builder, f);
+	fclose(f);
+	parser_enqueue_output(parser, buf);
+	free(buf);
 }
 
 void
@@ -1605,10 +1500,10 @@ parser_read_internal(struct Parser *parser)
 
 	pos = consume_comment(buf);
 	if (pos > 0) {
-		parser_astbuilder_append_token(parser->builder, COMMENT, buf);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
 		goto next;
 	} else if (is_empty_line(buf)) {
-		parser_astbuilder_append_token(parser->builder, COMMENT, buf);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
 		goto next;
 	}
 
@@ -1616,33 +1511,33 @@ parser_read_internal(struct Parser *parser)
 		pos = consume_conditional(buf);
 		if (pos > 0) {
 			parser->builder->condname = str_trimr(parser->builder->pool, str_ndup(parser->builder->pool, buf, pos));
-			parser_astbuilder_append_token(parser->builder, CONDITIONAL_START, parser->builder->condname);
-			parser_astbuilder_append_token(parser->builder, CONDITIONAL_TOKEN, parser->builder->condname);
-			parser_tokenize(parser, buf, CONDITIONAL_TOKEN, pos);
-			parser_astbuilder_append_token(parser->builder, CONDITIONAL_END, parser->builder->condname);
+			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, parser->builder->condname);
+			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, parser->builder->condname);
+			parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, pos);
+			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, parser->builder->condname);
 			goto next;
 		}
 		if (consume_var(buf) == 0 && consume_target(buf) == 0 &&
 		    *buf != 0 && *buf == '\t') {
-			parser_astbuilder_append_token(parser->builder, TARGET_COMMAND_START, NULL);
-			parser_tokenize(parser, buf, TARGET_COMMAND_TOKEN, 0);
-			parser_astbuilder_append_token(parser->builder, TARGET_COMMAND_END, NULL);
+			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START, NULL);
+			parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN, 0);
+			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END, NULL);
 			goto next;
 		}
 		if (consume_var(buf) > 0) {
 			goto var;
 		}
-		parser_astbuilder_append_token(parser->builder, TARGET_END, NULL);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
 		parser->in_target = 0;
 	}
 
 	pos = consume_conditional(buf);
 	if (pos > 0) {
 		parser->builder->condname = str_trimr(parser->builder->pool, str_ndup(parser->builder->pool, buf, pos));
-		parser_astbuilder_append_token(parser->builder, CONDITIONAL_START, parser->builder->condname);
-		parser_astbuilder_append_token(parser->builder, CONDITIONAL_TOKEN, parser->builder->condname);
-		parser_tokenize(parser, buf, CONDITIONAL_TOKEN, pos);
-		parser_astbuilder_append_token(parser->builder, CONDITIONAL_END, parser->builder->condname);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, parser->builder->condname);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, parser->builder->condname);
+		parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, pos);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, parser->builder->condname);
 		goto next;
 	}
 
@@ -1650,7 +1545,7 @@ parser_read_internal(struct Parser *parser)
 	if (pos > 0) {
 		parser->in_target = 1;
 		parser->builder->targetname = str_dup(parser->builder->pool, buf);
-		parser_astbuilder_append_token(parser->builder, TARGET_START, buf);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_START, buf);
 		goto next;
 	}
 
@@ -1662,15 +1557,15 @@ var:
 			goto next;
 		}
 		parser->builder->varname = str_trim(parser->builder->pool, str_ndup(parser->builder->pool, buf, pos));
-		parser_astbuilder_append_token(parser->builder, VARIABLE_START, NULL);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_VARIABLE_START, NULL);
 	}
-	parser_tokenize(parser, buf, VARIABLE_TOKEN, pos);
+	parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN, pos);
 	if (parser->builder->varname == NULL) {
 		parser_set_error(parser, PARSER_ERROR_UNSPECIFIED, NULL);
 	}
 next:
 	if (parser->builder->varname) {
-		parser_astbuilder_append_token(parser->builder, VARIABLE_END, NULL);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_VARIABLE_END, NULL);
 		parser->builder->varname = NULL;
 	}
 }
@@ -1707,7 +1602,7 @@ parser_read_finish(struct Parser *parser)
 	}
 
 	if (parser->in_target) {
-		parser_astbuilder_append_token(parser->builder, TARGET_END, NULL);
+		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
 	}
 
 	parser->read_finished = 1;

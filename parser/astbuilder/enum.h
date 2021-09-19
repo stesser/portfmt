@@ -27,29 +27,20 @@
  */
 #pragma once
 
-enum ParserASTBuilderTokenType;
-struct Conditional;
-struct Token;
-struct Variable;
-struct Target;
-struct ASTNodeLineRange;
+enum ParserASTBuilderTokenType {
+	PARSER_AST_BUILDER_TOKEN_COMMENT,
+	PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END,
+	PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN,
+	PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START,
+	PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END,
+	PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START,
+	PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN,
+	PARSER_AST_BUILDER_TOKEN_TARGET_END,
+	PARSER_AST_BUILDER_TOKEN_TARGET_START,
+	PARSER_AST_BUILDER_TOKEN_VARIABLE_END,
+	PARSER_AST_BUILDER_TOKEN_VARIABLE_START,
+	PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN,
+};
 
-struct Token *token_new(enum ParserASTBuilderTokenType, struct ASTNodeLineRange *, const char *, const char *, const char *, const char *);
-struct Token *token_new_comment(struct ASTNodeLineRange *, const char *, struct Conditional *);
-struct Token *token_new_variable_end(struct ASTNodeLineRange *, struct Variable *);
-struct Token *token_new_variable_start(struct ASTNodeLineRange *, struct Variable *);
-struct Token *token_new_variable_token(struct ASTNodeLineRange *, struct Variable *, const char *);
-void token_free(struct Token *);
-struct Token *token_as_comment(struct Token *);
-struct Token *token_clone(struct Token *, const char *);
-struct Conditional *token_conditional(struct Token *);
-char *token_data(struct Token *);
-int token_edited(struct Token *);
-void token_mark_edited(struct Token *);
-int token_goalcol(struct Token *);
-struct ASTNodeLineRange *token_lines(struct Token *);
-struct Target *token_target(struct Token *);
-enum ParserASTBuilderTokenType token_type(struct Token *);
-const char *token_type_tostring(enum ParserASTBuilderTokenType);
-struct Variable *token_variable(struct Token *);
-void token_set_goalcol(struct Token *, int);
+extern const char *ParserASTBuilderTokenType_tostring[];
+extern const char *ParserASTBuilderTokenType_humanize[];
