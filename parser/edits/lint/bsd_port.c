@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <regex.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -38,6 +39,7 @@
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
+#include "rules.h"
 
 struct WalkerData {
 	int found;
@@ -75,16 +77,9 @@ lint_bsd_port_walker(struct WalkerData *this, struct ASTNode *node)
 	case AST_NODE_TARGET_COMMAND:
 		break;
 	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) > 0) {
-			const char *word = array_get(node->flatexpr.words, 0);
-			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.mk>") == 0) {
-				this->found = 1;
-				return AST_WALK_STOP;
-			}
+		if (is_include_bsd_port_mk(node)) {
+			this->found = 1;
+			return AST_WALK_STOP;
 		}
 		break;
 	}

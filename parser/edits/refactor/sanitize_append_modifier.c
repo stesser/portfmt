@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <regex.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -40,6 +41,7 @@
 #include "ast.h"
 #include "parser.h"
 #include "parser/edits.h"
+#include "rules.h"
 
 struct WalkerData {
 	struct Set *seen;
@@ -76,15 +78,8 @@ refactor_sanitize_append_modifier_walker(struct WalkerData *this, struct ASTNode
 	case AST_NODE_TARGET_COMMAND:
 		break;
 	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) > 0) {
-			const char *word = array_get(node->flatexpr.words, 0);
-			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.mk>") == 0) {
-				return AST_WALK_STOP;
-			}
+		if (is_include_bsd_port_mk(node)) {
+			return AST_WALK_STOP;
 		}
 		break;
 	case AST_NODE_VARIABLE:

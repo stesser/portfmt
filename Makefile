@@ -97,7 +97,7 @@ parser/edits/edit/bump_revision.o: config.h libias/array.h libias/mempool.h libi
 parser/edits/edit/merge.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/astbuilder/conditional.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h rules.h
 parser/edits/edit/set_version.o: config.h libias/array.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/kakoune/select_object_on_line.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
-parser/edits/lint/bsd_port.o: config.h libias/array.h libias/flow.h libias/str.h ast.h parser.h parser/edits.h
+parser/edits/lint/bsd_port.o: config.h libias/array.h libias/flow.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/lint/clones.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/commented_portrevision.o: config.h libias/array.h libias/color.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/lint/order.o: config.h libias/array.h libias/color.h libias/diff.h libias/flow.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h
@@ -109,7 +109,7 @@ parser/edits/output/variable_value.o: config.h libias/array.h libias/flow.h libi
 parser/edits/refactor/collapse_adjacent_variables.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/dedup_tokens.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/remove_consecutive_empty_lines.o: config.h libias/array.h libias/flow.h libias/mempool.h ast.h parser.h parser/edits.h
-parser/edits/refactor/sanitize_append_modifier.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h
+parser/edits/refactor/sanitize_append_modifier.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/sanitize_cmake_args.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/refactor/sanitize_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/refactor/sanitize_eol_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h
@@ -121,7 +121,7 @@ portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libi
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
 portscan/status.o: config.h libias/flow.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
-rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h regexp.h rules.h parser.h parser/astbuilder/conditional.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h
+rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h regexp.h rules.h parser.h parser/astbuilder/token.h parser/astbuilder/variable.h parser/edits.h
 
 deps:
 	@for f in $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \

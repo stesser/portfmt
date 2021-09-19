@@ -96,7 +96,7 @@ int ignore_wrap_col(struct Parser *, const char *, enum ASTNodeVariableModifier)
 int indent_goalcol(const char *, enum ASTNodeVariableModifier);
 int is_comment(const char *);
 int is_referenced_var(struct Parser *, const char *);
-int is_include_bsd_port_mk(struct Token *);
+int is_include_bsd_port_mk(struct ASTNode *);
 int is_known_target(struct Parser *, const char *);
 int is_special_source(const char *);
 int is_special_target(const char *);

@@ -142,16 +142,11 @@ get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
 		}
 		break;
 	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) > 0) {
-			const char *word = array_get(node->flatexpr.words, 0);
-			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.mk>") == 0) {
-				return AST_WALK_STOP;
-			}
-	} case AST_NODE_COMMENT:
+		if (is_include_bsd_port_mk(node)) {
+			return AST_WALK_STOP;
+		}
+		break;
+	case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:
 		break;
 	}
@@ -304,16 +299,11 @@ target_list(struct TargetListWalkData *this, struct ASTNode *node)
 		}
 		break;
 	case AST_NODE_EXPR_FLAT:
-		if (node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
-		    array_len(node->flatexpr.words) > 0) {
-			const char *word = array_get(node->flatexpr.words, 0);
-			if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.post.mk>") == 0 ||
-			    strcmp(word, "<bsd.port.mk>") == 0) {
-				return AST_WALK_STOP;
-			}
-	} case AST_NODE_COMMENT:
+		if (is_include_bsd_port_mk(node)) {
+			return AST_WALK_STOP;
+		}
+		break;
+	case AST_NODE_COMMENT:
 	case AST_NODE_VARIABLE:
 	case AST_NODE_TARGET_COMMAND:
 		break;

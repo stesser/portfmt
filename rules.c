@@ -48,7 +48,6 @@
 #include "regexp.h"
 #include "rules.h"
 #include "parser.h"
-#include "parser/astbuilder/conditional.h"
 #include "parser/astbuilder/token.h"
 #include "parser/astbuilder/variable.h"
 #include "parser/edits.h"
@@ -1532,15 +1531,21 @@ is_comment(const char *token)
 }
 
 int
-is_include_bsd_port_mk(struct Token *t)
+is_include_bsd_port_mk(struct ASTNode *node)
 {
-	struct Conditional *c = token_conditional(t);
-	return c && token_type(t) == CONDITIONAL_TOKEN &&
-		conditional_type(c) == COND_INCLUDE &&
-		(strcmp(token_data(t), "<bsd.port.options.mk>") == 0 ||
-		strcmp(token_data(t), "<bsd.port.pre.mk>") == 0 ||
-		strcmp(token_data(t), "<bsd.port.post.mk>") == 0 ||
-		strcmp(token_data(t), "<bsd.port.mk>") == 0);
+	if (node->type == AST_NODE_EXPR_FLAT &&
+	    node->flatexpr.type == AST_NODE_EXPR_INCLUDE &&
+	    array_len(node->flatexpr.words) > 0) {
+		const char *word = array_get(node->flatexpr.words, 0);
+		if (strcmp(word, "<bsd.port.options.mk>") == 0 ||
+		    strcmp(word, "<bsd.port.pre.mk>") == 0 ||
+		    strcmp(word, "<bsd.port.post.mk>") == 0 ||
+		    strcmp(word, "<bsd.port.mk>") == 0) {
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 int

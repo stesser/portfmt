@@ -69,6 +69,18 @@ static void append_values(struct Parser *, struct Array *, enum ASTNodeVariableM
 static void append_values_last(struct Parser *, struct Array *, enum ASTNodeVariableModifier, struct VariableMergeParameter *);
 static void assign_values(struct Parser *, struct Array *, enum ASTNodeVariableModifier, const struct VariableMergeParameter *);
 
+static int
+is_include_bsd_port_mk_token(struct Token *t)
+{
+	struct Conditional *c = token_conditional(t);
+	return c && token_type(t) == CONDITIONAL_TOKEN &&
+		conditional_type(c) == COND_INCLUDE &&
+		(strcmp(token_data(t), "<bsd.port.options.mk>") == 0 ||
+		strcmp(token_data(t), "<bsd.port.pre.mk>") == 0 ||
+		strcmp(token_data(t), "<bsd.port.post.mk>") == 0 ||
+		strcmp(token_data(t), "<bsd.port.mk>") == 0);
+}
+
 PARSER_EDIT(extract_tokens)
 {
 	struct Array **tokens = userdata;
@@ -206,7 +218,7 @@ find_insert_point_generic(struct Parser *parser, struct Array *ptokens, struct V
 	*block_before_var = BLOCK_UNKNOWN;
 	int always_greater = 1;
 	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (insert_after >= 0 && is_include_bsd_port_mk(t)) {
+		if (insert_after >= 0 && is_include_bsd_port_mk_token(t)) {
 			break;
 		} else if (token_type(t) != VARIABLE_END) {;
 			continue;
@@ -237,7 +249,7 @@ find_insert_point_same_block(struct Parser *parser, struct Array *ptokens, struc
 	enum BlockType block_var = variable_order_block(parser, variable_name(var), NULL, NULL);
 	*block_before_var = BLOCK_UNKNOWN;
 	ARRAY_FOREACH(ptokens, struct Token *, t) {
-		if (is_include_bsd_port_mk(t)) {
+		if (is_include_bsd_port_mk_token(t)) {
 			break;
 		} else if (token_type(t) != VARIABLE_END) {;
 			continue;
