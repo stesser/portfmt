@@ -103,33 +103,18 @@ refactor_sanitize_eol_comments_walker(struct ASTNode *node)
 	 * is just as good.
 	 */
 	case AST_NODE_VARIABLE: {
-		SCOPE_MEMPOOL(pool);
-
-		ssize_t last_index = -1;
-		ARRAY_FOREACH(node->variable.words, const char *, word) {
-			if (!preserve_eol_comment(word)) {
-				last_index = word_index;
-				break;
-			}
-		}
-
-		if (last_index < 0) {
+		if (preserve_eol_comment(node->variable.comment)) {
 			return AST_WALK_CONTINUE;
 		}
-
 		struct ASTNode *comment = ast_node_new(node->pool, AST_NODE_COMMENT, &node->line_start, &(struct ASTNodeComment){
 			.type = AST_NODE_COMMENT_LINE,
 		});
-		struct Array *words = mempool_array(pool);
-		ARRAY_FOREACH_SLICE(node->variable.words, last_index, -1, const char *, word) {
-			array_append(words, word);
-		}
-		array_append(comment->comment.lines, str_join(comment->pool, words, " "));
-		ast_node_parent_insert_before_sibling(node, comment);
-		comment->edited = 1;
-
-		array_truncate_at(node->variable.words, last_index);
+		array_append(comment->comment.lines, node->variable.comment);
+		node->variable.comment = NULL;
 		node->edited = 1;
+		comment->edited = 1;
+		ast_node_parent_insert_before_sibling(node, comment);
+		break;
 	} case AST_NODE_COMMENT:
 	case AST_NODE_TARGET_COMMAND:
 	case AST_NODE_EXPR_FLAT:

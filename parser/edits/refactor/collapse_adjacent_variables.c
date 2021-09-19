@@ -66,12 +66,7 @@ is_candidate(struct ASTNode *node)
 static int
 has_eol_comment(struct ASTNode *node)
 {
-	ARRAY_FOREACH(node->variable.words, const char *, word) {
-		if (is_comment(word)) {
-			return 1;
-		}
-	}
-	return 0;
+	return node->variable.comment && strlen(node->variable.comment) > 0;
 }
 
 static void

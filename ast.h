@@ -173,6 +173,7 @@ struct ASTNodeVariable {
 	const char *name;
 	enum ASTNodeVariableModifier modifier;
 	struct Array *words;
+	const char *comment;
 };
 
 struct ASTNodeRoot {

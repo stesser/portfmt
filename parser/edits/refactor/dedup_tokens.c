@@ -46,7 +46,6 @@
 
 enum DedupAction {
 	DEFAULT,
-	APPEND,
 	USES,
 };
 
@@ -104,9 +103,7 @@ refactor_dedup_tokens_walker(struct WalkerData *this, struct ASTNode *node)
 				// XXX: Handle *_DEPENDS (turn 'RUN_DEPENDS=foo>=1.5.6:misc/foo foo>0:misc/foo'
 				// into 'RUN_DEPENDS=foo>=1.5.6:misc/foo')?
 				char *helper = NULL;
-				if (is_comment(word)) {
-					action = APPEND;
-				} else if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {
+				if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {
 					if (strcmp(helper, "USES") == 0 || strcmp(helper, "USES_OFF") == 0) {
 						action = USES;
 					}
@@ -114,10 +111,6 @@ refactor_dedup_tokens_walker(struct WalkerData *this, struct ASTNode *node)
 					action = USES;
 				}
 				switch (action) {
-				case APPEND:
-					array_append(words, word);
-					set_add(seen, word);
-					break;
 				case USES: {
 					char *buf = str_dup(pool, word);
 					char *args = strchr(buf, ':');

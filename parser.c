@@ -706,36 +706,41 @@ print_newline_array(struct Parser *parser, struct ASTNode *node, struct Array *a
 	parser_enqueue_output(parser, ASTNodeVariableModifier_humanize[node->variable.modifier]);
 	startlen += strlen(ASTNodeVariableModifier_humanize[node->variable.modifier]);
 
+	size_t ntabs = ceil((MAX(16, node->meta.goalcol) - startlen) / 8.0);
+	char *sep = str_repeat(pool, "\t", ntabs);
+
 	if (array_len(arr) == 0) {
+		if (node->variable.comment && strlen(node->variable.comment) > 0) {
+			parser_enqueue_output(parser, sep);
+			parser_enqueue_output(parser, node->variable.comment);
+		}
 		parser_enqueue_output(parser, "\n");
 		parser_set_error(parser, PARSER_ERROR_OK, NULL);
 		return;
 	}
 
-	size_t ntabs = ceil((MAX(16, node->meta.goalcol) - startlen) / 8.0);
-	char *sep = str_repeat(pool, "\t", ntabs);
 	const char *end = " \\\n";
 	ARRAY_FOREACH(arr, const char *, line) {
-		const char *next = array_get(arr, line_index + 1);
 		if (!line || strlen(line) == 0) {
 			continue;
 		}
 		if (line_index == array_len(arr) - 1) {
-			end = "\n";
+			end = "";
 		}
 		parser_enqueue_output(parser, sep);
 		parser_enqueue_output(parser, line);
-		// Do not wrap end of line comments
-		if (next && is_comment(next)) {
-			sep = str_dup(pool, " ");
-			continue;
-		}
 		parser_enqueue_output(parser, end);
 		if (line_index == 0) {
 			size_t ntabs = ceil(MAX(16, node->meta.goalcol) / 8.0);
 			sep = str_repeat(pool, "\t", ntabs);
 		}
 	}
+
+	if (node->variable.comment && strlen(node->variable.comment) > 0) {
+		parser_enqueue_output(parser, " ");
+		parser_enqueue_output(parser, node->variable.comment);
+	}
+	parser_enqueue_output(parser, "\n");
 }
 
 void

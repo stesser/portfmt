@@ -501,14 +501,9 @@ ast_from_token_stream(struct Array *tokens)
 			ast_node_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = token_edited(t);
 			node->line_end = node->line_start;
-			ARRAY_FOREACH_SLICE(current_var, 1, -1, struct Token *, t) {
-				if (t_index == 0) {
-					node->line_start = *token_lines(t);
-				}
-				if (token_edited(t)) {
-					node->edited = 1;
-				}
-				array_append(node->variable.words, str_dup(node->pool, token_data(t)));
+			node->variable.comment = split_off_comment(node->pool, current_var, 1, -1, node->variable.words);
+			if (array_len(current_var) > 1) {
+				node->line_start = *token_lines(array_get(current_var, 1));
 			}
 			break;
 		} case PARSER_AST_BUILDER_TOKEN_COMMENT:

@@ -1624,17 +1624,6 @@ compare_tokens(const void *ap, const void *bp, void *userdata)
 	const char *a = *(const char**)ap;
 	const char *b = *(const char**)bp;
 
-	/* End-of-line comments always go last */
-	if (is_comment(a) && is_comment(b)) {
-		return 0;
-	}
-	if (is_comment(a)) {
-		return 1;
-	}
-	if (is_comment(b)) {
-		return -1;
-	}
-
 	int result;
 	if (compare_license_perms(data->parser, data->var, a, b, &result) ||
 	    compare_plist_files(data->parser, data->var, a, b, &result) ||
