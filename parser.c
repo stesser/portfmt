@@ -1235,7 +1235,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 					parser_enqueue_output(parser, str_printf(pool, " \"%s\"", node->include.path));
 				}
 			} else if (node->include.type != AST_NODE_INCLUDE_POSIX) {
-				parser_enqueue_output(parser, "\"\"");
+				parser_enqueue_output(parser, " \"\"");
 			}
 			if (node->include.comment && strlen(node->include.comment) > 0) {
 				parser_enqueue_output(parser, str_printf(pool, " %s", node->include.comment));
