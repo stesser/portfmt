@@ -57,43 +57,9 @@ kak_error(struct Parser *parser, const char *errstr)
 }
 
 static enum ASTWalkState
-kakoune_select_object_on_line_walker(struct WalkerData *this, struct ASTNode *node)
+kakoune_select_object_on_line_walker(struct ASTNode *node, struct WalkerData *this)
 {
-	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(kakoune_select_object_on_line_walker(this, child));
-		}
-		break;
-	case AST_NODE_VARIABLE:
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
-		break;
-	}
+	AST_WALK_DEFAULT(kakoune_select_object_on_line_walker, node, this);
 
 	if (this->kak_cursor_line >= node->line_start.a && this->kak_cursor_line < node->line_start.b) {
 		this->range = &node->line_start;
@@ -135,7 +101,7 @@ PARSER_EDIT(kakoune_select_object_on_line)
 		return 1;
 	}
 
-	if (AST_WALK_STOP == kakoune_select_object_on_line_walker(&this, root)) {
+	if (AST_WALK_STOP == kakoune_select_object_on_line_walker(root, &this)) {
 		parser_enqueue_output(parser, str_printf(pool, "select %zu.1,%zu.10000000\n", this.range->a, this.range->b - 1));
 	} else {
 		kak_error(parser, "no selectable object found on this line");

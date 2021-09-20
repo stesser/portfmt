@@ -88,6 +88,7 @@ struct Parser {
 };
 
 struct ParserFindGoalcolsState {
+	struct Parser *parser;
 	int moving_goalcol;
 	struct Array *nodes;
 };
@@ -291,59 +292,25 @@ range_tostring(struct Mempool *pool, struct ASTNodeLineRange *range)
 }
 
 static int
-parser_is_category_makefile(struct Parser *parser, struct ASTNode *node)
+parser_is_category_makefile(struct ASTNode *node, struct Parser *parser)
 {
 	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
 		return 0;
 	}
 
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			if (parser_is_category_makefile(parser, child)) {
-				return 1;
-			}
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			if (parser_is_category_makefile(parser, child)) {
-				return 1;
-			}
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			if (parser_is_category_makefile(parser, child)) {
-				return 1;
-			}
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			if (parser_is_category_makefile(parser, child)) {
-				return 1;
-			}
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			if (parser_is_category_makefile(parser, child)) {
-				return 1;
-			}
-		}
-		break;
 	case AST_NODE_INCLUDE:
 		if (node->include.type == AST_NODE_INCLUDE_BMAKE &&
 		    node->include.sys && node->include.path &&
 		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
-			return 1;
+			return AST_WALK_STOP;
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_VARIABLE:
+	default:
 		break;
 	}
+
+	AST_WALK_DEFAULT(parser_is_category_makefile, node, parser);
 
 	return 0;
 }
@@ -623,37 +590,14 @@ parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 }
 
 static enum ASTWalkState
-parser_find_goalcols_walker(struct Parser *parser, struct ASTNode *node, struct ParserFindGoalcolsState *this)
+parser_find_goalcols_walker(struct ASTNode *node, struct ParserFindGoalcolsState *this)
 {
-	if (parser->error != PARSER_ERROR_OK) {
+	if (this->parser->error != PARSER_ERROR_OK) {
 		return AST_WALK_STOP;
 	}
 
+	// do not recurse down into loaded includes
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_find_goalcols_walker(parser, child, this));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		// do not recurse down into loaded includes
-	case AST_NODE_TARGET:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
-		break;
 	case AST_NODE_COMMENT:
 		/* Ignore comments in between variables and
 		 * treat variables after them as part of the
@@ -667,7 +611,7 @@ parser_find_goalcols_walker(struct Parser *parser, struct ASTNode *node, struct 
 		break;
 	case AST_NODE_VARIABLE:
 		if (array_len(node->variable.words) > 0) {
-			if (skip_goalcol(parser, node->variable.name)) {
+			if (skip_goalcol(this->parser, node->variable.name)) {
 				node->meta.goalcol = indent_goalcol(node->variable.name, node->variable.modifier);
 			} else {
 				array_append(this->nodes, node);
@@ -675,8 +619,11 @@ parser_find_goalcols_walker(struct Parser *parser, struct ASTNode *node, struct 
 			}
 		}
 		break;
+	default:
+		break;
 	}
 
+	AST_WALK_DEFAULT(parser_find_goalcols_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -685,10 +632,11 @@ parser_find_goalcols(struct Parser *parser)
 {
 	SCOPE_MEMPOOL(pool);
 	struct ParserFindGoalcolsState this = {
+		.parser = parser,
 		.moving_goalcol = 0,
 		.nodes = mempool_array(pool),
 	};
-	parser_find_goalcols_walker(parser, parser->ast, &this);
+	parser_find_goalcols_walker(parser->ast, &this);
 	parser_propagate_goalcol(&this);
 }
 
@@ -1395,7 +1343,7 @@ parser_output_reformatted(struct Parser *parser)
 		return;
 	}
 
-	if (parser_is_category_makefile(parser, parser->ast)) {
+	if (parser_is_category_makefile(parser->ast, parser)) {
 		parser_output_category_makefile_reformatted(parser, parser->ast);
 	} else {
 		parser_output_reformatted_walker(parser, parser->ast);
@@ -1703,7 +1651,7 @@ parser_read_finish(struct Parser *parser)
 	// To properly support editing category Makefiles always
 	// collapse all the SUBDIR into one assignment regardless
 	// of settings.
-	if ((parser_is_category_makefile(parser, parser->ast) ||
+	if ((parser_is_category_makefile(parser->ast, parser) ||
 	     parser->settings.behavior & PARSER_COLLAPSE_ADJACENT_VARIABLES) &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_collapse_adjacent_variables, NULL)) {
 		return parser->error;
@@ -2138,34 +2086,6 @@ static enum ASTWalkState
 parser_lookup_target_walker(struct ASTNode *node, const char *name, struct ASTNode **retval)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_VARIABLE:
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
-		}
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval));
-		}
-		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, char *, src) {
 			if (strcmp(src, name) == 0) {
@@ -2173,11 +2093,12 @@ parser_lookup_target_walker(struct ASTNode *node, const char *name, struct ASTNo
 				return AST_WALK_STOP;
 			}
 		}
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_target_walker(child, name, retval)); // XXX: Really needed?
-		}
+		break;
+	default:
 		break;
 	}
+
+	AST_WALK_DEFAULT(parser_lookup_target_walker, node, name, retval);
 
 	return AST_WALK_CONTINUE;
 }
@@ -2194,15 +2115,6 @@ static enum ASTWalkState
 parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const char *name, enum ParserLookupVariableBehavior behavior, struct Array *tokens, struct Array *comments, struct ASTNode **retval)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_TARGET_COMMAND:
-		break;
 	case AST_NODE_VARIABLE:
 		if (strcmp(node->variable.name, name) == 0) {
 			*retval = node;
@@ -2219,38 +2131,17 @@ parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const 
 		}
 		break;
 	case AST_NODE_EXPR_FOR:
-		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
-			return AST_WALK_CONTINUE;
-		}
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
-		}
-		break;
 	case AST_NODE_EXPR_IF:
-		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
-			return AST_WALK_CONTINUE;
-		}
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
-		}
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
-		}
-		break;
 	case AST_NODE_INCLUDE:
 		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
 			return AST_WALK_CONTINUE;
 		}
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
-		}
 		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(parser_lookup_variable_walker(child, pool, name, behavior, tokens, comments, retval));
-		}
+	default:
 		break;
 	}
+
+	AST_WALK_DEFAULT(parser_lookup_variable_walker, node, pool, name, behavior, tokens, comments, retval);
 
 	return AST_WALK_CONTINUE;
 }
@@ -2308,7 +2199,7 @@ parser_lookup_variable_str(struct Parser *parser, const char *name, enum ParserL
 enum ParserError
 parser_merge(struct Parser *parser, struct Parser *subparser, enum ParserMergeBehavior settings)
 {
-	if (parser_is_category_makefile(parser, parser->ast)) {
+	if (parser_is_category_makefile(parser->ast, parser)) {
 		settings &= ~PARSER_MERGE_AFTER_LAST_IN_GROUP;
 	}
 	struct ParserEdit params = { subparser, NULL, settings };

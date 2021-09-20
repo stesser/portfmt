@@ -54,43 +54,11 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-refactor_dedup_tokens_walker(struct WalkerData *this, struct ASTNode *node)
+refactor_dedup_tokens_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);
 
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_dedup_tokens_walker(this, child));
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
-		break;
 	case AST_NODE_VARIABLE:
 		if (skip_dedup(this->parser, node->variable.name, node->variable.modifier)) {
 			return AST_WALK_CONTINUE;
@@ -143,7 +111,11 @@ refactor_dedup_tokens_walker(struct WalkerData *this, struct ASTNode *node)
 			}
 		}
 		break;
+	default:
+		break;
 	}
+
+	AST_WALK_DEFAULT(refactor_dedup_tokens_walker, node, this);
 
 	return AST_WALK_CONTINUE;
 }
@@ -155,9 +127,9 @@ PARSER_EDIT(refactor_dedup_tokens)
 		return 0;
 	}
 
-	refactor_dedup_tokens_walker(&(struct WalkerData){
+	refactor_dedup_tokens_walker(root, &(struct WalkerData){
 		.parser = parser,
-	}, root);
+	});
 
 	return 1;
 }

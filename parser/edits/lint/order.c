@@ -100,19 +100,9 @@ row_compare(const void *ap, const void *bp, void *userdata)
 }
 
 static enum ASTWalkState
-get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
+get_variables(struct ASTNode *node, struct GetVariablesWalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_variables(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_variables(this, child));
-		}
-		break;
 	case AST_NODE_EXPR_IF:
 		if (array_len(node->ifexpr.test) == 1) {
 			const char *word = array_get(node->ifexpr.test, 0);
@@ -122,22 +112,13 @@ get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
 				return AST_WALK_CONTINUE;
 			}
 		}
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_variables(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_variables(this, child));
-		}
 		break;
 	case AST_NODE_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			return AST_WALK_STOP;
-		}
-		// XXX: Should we recurse down into includes?
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_variables(this, child));
+		} else {
+			// XXX: Should we recurse down into includes?
+			return AST_WALK_CONTINUE;
 		}
 		break;
 	case AST_NODE_VARIABLE:
@@ -147,12 +128,11 @@ get_variables(struct GetVariablesWalkerData *this, struct ASTNode *node)
 			array_append(this->vars, node->variable.name);
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
+	default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(get_variables, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -232,10 +212,10 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct ASTNode *root)
 {
 	struct Array *output = mempool_array(pool);
 	struct Array *vars = mempool_array(pool);
-	get_variables(&(struct GetVariablesWalkerData){
+	get_variables(root, &(struct GetVariablesWalkerData){
 		.parser = parser,
 		.vars = vars,
-	}, root);
+	});
 
 	enum BlockType block = BLOCK_UNKNOWN;
 	enum BlockType last_block = BLOCK_UNKNOWN;
@@ -259,19 +239,9 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct ASTNode *root)
 }
 
 static enum ASTWalkState
-target_list(struct TargetListWalkData *this, struct ASTNode *node)
+target_list(struct ASTNode *node, struct TargetListWalkData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(target_list(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(target_list(this, child));
-		}
-		break;
 	case AST_NODE_EXPR_IF:
 		if (array_len(node->ifexpr.test) == 1) {
 			const char *word = array_get(node->ifexpr.test, 0);
@@ -281,18 +251,14 @@ target_list(struct TargetListWalkData *this, struct ASTNode *node)
 				return AST_WALK_CONTINUE;
 			}
 		}
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(target_list(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(target_list(this, child));
-		}
 		break;
 	case AST_NODE_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			return AST_WALK_STOP;
+		} else {
+			// XXX: Should we recurse down into includes?
+			return AST_WALK_CONTINUE;
 		}
-		// XXX: Should we recurse down into includes?
 		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, target) {
@@ -302,17 +268,11 @@ target_list(struct TargetListWalkData *this, struct ASTNode *node)
 				array_append(this->targets, target);
 			}
 		}
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(target_list(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_COMMENT:
-	case AST_NODE_VARIABLE:
-	case AST_NODE_TARGET_COMMAND:
+	default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(target_list, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -323,10 +283,10 @@ check_variable_order(struct Parser *parser, struct ASTNode *root, int no_color)
 	struct Array *origin = variable_list(pool, parser, root);
 
 	struct Array *vars = mempool_array(pool);
-	get_variables(&(struct GetVariablesWalkerData){
+	get_variables(root, &(struct GetVariablesWalkerData){
 		.parser = parser,
 		.vars = vars,
-	}, root);
+	});
 	array_sort(vars, compare_order, parser);
 
 	struct Set *uses_candidates = NULL;
@@ -443,9 +403,9 @@ check_target_order(struct Parser *parser, struct ASTNode *root, int no_color, in
 	SCOPE_MEMPOOL(pool);
 
 	struct Array *targets = mempool_array(pool);
-	target_list(&(struct TargetListWalkData){
+	target_list(root, &(struct TargetListWalkData){
 		.targets = targets,
-	}, root);
+	});
 
 	struct Array *origin = mempool_array(pool);
 	if (status_var) {

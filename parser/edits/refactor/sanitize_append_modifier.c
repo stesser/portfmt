@@ -48,43 +48,13 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-refactor_sanitize_append_modifier_walker(struct WalkerData *this, struct ASTNode *node)
+refactor_sanitize_append_modifier_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
-		}
-		break;
 	case AST_NODE_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			return AST_WALK_STOP;
 		}
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_append_modifier_walker(this, child));
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
 		break;
 	case AST_NODE_VARIABLE:
 		if (set_contains(this->seen, node->variable.name)) {
@@ -107,8 +77,11 @@ refactor_sanitize_append_modifier_walker(struct WalkerData *this, struct ASTNode
 			}
 		}
 		break;
+	default:
+		break;
 	}
 
+	AST_WALK_DEFAULT(refactor_sanitize_append_modifier_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -122,9 +95,9 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 	}
 
 	/* Sanitize += before bsd.options.mk */
-	refactor_sanitize_append_modifier_walker(&(struct WalkerData){
+	refactor_sanitize_append_modifier_walker(root, &(struct WalkerData){
 		.seen = mempool_set(pool, str_compare, NULL, NULL),
-	}, root);
+	});
 
 	return 1;
 }

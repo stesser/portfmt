@@ -732,56 +732,27 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 }
 
 static enum ASTWalkState
-get_default_option_descriptions_walker(struct Map *this, struct ASTNode *node)
+get_default_option_descriptions_walker(struct ASTNode *node, struct Map *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(get_default_option_descriptions_walker(this, child));
-		}
-		break;
 	case AST_NODE_VARIABLE:
 		if (str_endswith(node->variable.name, "_DESC") &&
 		    !map_contains(this, node->variable.name)) {
 			map_add(this, str_dup(NULL, node->variable.name), str_join(NULL, node->variable.words, " "));
 		}
 		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(get_default_option_descriptions_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
 PARSER_EDIT(get_default_option_descriptions)
 {
 	struct Map *default_option_descriptions = mempool_map(extpool, str_compare, NULL, free, free);
-	get_default_option_descriptions_walker(default_option_descriptions, root);
+	get_default_option_descriptions_walker(root, default_option_descriptions);
 	struct Map **retval = (struct Map **)userdata;
 	*retval = default_option_descriptions;
 	return 1;

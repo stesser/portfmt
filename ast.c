@@ -98,7 +98,7 @@ const char *ASTNodeVariableModifier_humanize[] = {
 	[AST_NODE_VARIABLE_MODIFIER_SHELL] = "!=",
 };
 
-static void ast_node_print_helper(struct ASTNode *, FILE *, size_t);
+static enum ASTWalkState ast_node_print_helper(struct ASTNode *, FILE *, size_t);
 
 struct ASTNode *
 ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRange *lines, void *value)
@@ -468,7 +468,7 @@ ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_
 	new_sibling->parent = node->parent;
 }
 
-void
+enum ASTWalkState
 ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 {
 	SCOPE_MEMPOOL(pool);
@@ -476,11 +476,6 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 	const char *line_start = str_printf(pool, "[%zu,%zu)", node->line_start.a, node->line_start.b);
 	const char *line_end = str_printf(pool, "[%zu,%zu)", node->line_end.a, node->line_end.b);
 	switch(node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			ast_node_print_helper(child, f, level);
-		}
-		break;
 	case AST_NODE_COMMENT:
 		fprintf(f, "%s{ .type = AST_NODE_COMMENT, .line_start = %s, .line_end = %s, .comment = %s }\n",
 			indent,
@@ -514,9 +509,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			str_join(pool, node->forexpr.words, ", "),
 			comment,
 			end_comment);
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			ast_node_print_helper(child, f, level + 1);
-		}
+		level++;
 		break;
 	} case AST_NODE_EXPR_IF: {
 		const char *comment = "";
@@ -549,7 +542,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 				ast_node_print_helper(child, f, level + 1);
 			}
 		}
-		break;
+		return AST_WALK_CONTINUE;
 	} case AST_NODE_INCLUDE: {
 		const char *path = node->include.path;
 		unless (path) {
@@ -569,9 +562,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			node->include.sys,
 			node->include.loaded,
 			comment);
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			ast_node_print_helper(child, f, level + 1);
-		}
+		level++;
 		break;
 	} case AST_NODE_TARGET:
 		fprintf(f, "%s{ .type = AST_NODE_TARGET, .line_start = %s, .line_end = %s, .type = %s, .sources = { %s }, .dependencies = { %s } }\n",
@@ -581,11 +572,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			ASTNodeTargetType_tostring[node->target.type],
 			str_join(pool, node->target.sources, ", "),
 			str_join(pool, node->target.dependencies, ", "));
-		if (array_len(node->target.body) > 0) {
-			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-				ast_node_print_helper(child, f, level + 1);
-			}
-		}
+		level++;
 		break;
 	case AST_NODE_TARGET_COMMAND:
 		fprintf(f, "%s{ .type = AST_NODE_TARGET_COMMAND, .line_start = %s, .line_end = %s, .words = { %s } }\n",
@@ -603,7 +590,12 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			ASTNodeVariableModifier_humanize[node->variable.modifier],
 			str_join(pool, node->variable.words, ", "));
 		break;
+	default:
+		break;
 	}
+
+	AST_WALK_DEFAULT(ast_node_print_helper, node, f, level);
+	return AST_WALK_CONTINUE;
 }
 
 void
@@ -611,7 +603,6 @@ ast_node_print(struct ASTNode *node, FILE *f)
 {
 	ast_node_print_helper(node, f, 0);
 }
-
 
 void
 ast_free(struct ASTNode *node) {

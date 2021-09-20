@@ -127,7 +127,7 @@ process_siblings(struct Array *nodelist, struct Array *siblings)
 }
 
 static enum ASTWalkState
-refactor_collapse_adjacent_variables_walker(struct WalkerData *this, struct ASTNode *node, struct Array *last_siblings)
+refactor_collapse_adjacent_variables_walker(struct ASTNode *node, struct WalkerData *this, struct Array *last_siblings)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *siblings = mempool_array(pool);
@@ -135,35 +135,35 @@ refactor_collapse_adjacent_variables_walker(struct WalkerData *this, struct ASTN
 	switch (node->type) {
 	case AST_NODE_ROOT:
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->root.body, siblings);
 		break;
 	case AST_NODE_EXPR_FOR:
 		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->forexpr.body, siblings);
 		break;
 	case AST_NODE_EXPR_IF:
 		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->ifexpr.body, siblings);
 
 		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->ifexpr.orelse, siblings);
 		break;
 	case AST_NODE_INCLUDE:
 		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(this, child, siblings));
+			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->target.body, siblings);
 		break;
@@ -187,10 +187,10 @@ PARSER_EDIT(refactor_collapse_adjacent_variables)
 		return 0;
 	}
 
-	refactor_collapse_adjacent_variables_walker(&(struct WalkerData){
+	refactor_collapse_adjacent_variables_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = pool,
-	}, root, mempool_array(pool));
+	}, mempool_array(pool));
 
 	return 1;
 }

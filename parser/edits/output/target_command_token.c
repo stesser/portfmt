@@ -46,36 +46,9 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-output_target_command_token_walker(struct WalkerData *this, struct ASTNode *node)
+output_target_command_token_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_target_command_token_walker(this, child));
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_VARIABLE:
-	case AST_NODE_EXPR_FLAT:
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_target_command_token_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_target_command_token_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_target_command_token_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_target_command_token_walker(this, child));
-		}
-		break;
 	case AST_NODE_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, src) {
 			if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, src, this->param->keyuserdata))) {
@@ -83,9 +56,6 @@ output_target_command_token_walker(struct WalkerData *this, struct ASTNode *node
 				this->target = src;
 				break;
 			}
-		}
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_target_command_token_walker(this, child));
 		}
 		break;
 	case AST_NODE_TARGET_COMMAND:
@@ -98,8 +68,11 @@ output_target_command_token_walker(struct WalkerData *this, struct ASTNode *node
 			}
 		}
 		break;
+	default:
+		break;
 	}
 
+	AST_WALK_DEFAULT(output_target_command_token_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -112,12 +85,12 @@ PARSER_EDIT(output_target_command_token)
 	}
 
 	param->found = 0;
-	output_target_command_token_walker(&(struct WalkerData){
+	output_target_command_token_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
 		.target = NULL,
-	}, root);
+	});
 
 	return 0;
 }

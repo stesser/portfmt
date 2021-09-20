@@ -54,37 +54,9 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-refactor_sanitize_cmake_args_walker(struct WalkerData *this, struct ASTNode *node)
+refactor_sanitize_cmake_args_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_cmake_args_walker(this, child));
-		}
-		break;
 	case AST_NODE_VARIABLE: {
 		SCOPE_MEMPOOL(pool);
 
@@ -118,11 +90,11 @@ refactor_sanitize_cmake_args_walker(struct WalkerData *this, struct ASTNode *nod
 		array_truncate(node->variable.words);
 		ARRAY_JOIN(node->variable.words, words);
 		break;
-	} case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	} default:
 		break;
 	}
+
+	AST_WALK_DEFAULT(refactor_sanitize_cmake_args_walker, node, this);
 
 	return AST_WALK_CONTINUE;
 }
@@ -134,9 +106,9 @@ PARSER_EDIT(refactor_sanitize_cmake_args)
 		return 0;
 	}
 
-	refactor_sanitize_cmake_args_walker(&(struct WalkerData){
+	refactor_sanitize_cmake_args_walker(root, &(struct WalkerData){
 		.parser = parser,
-	}, root);
+	});
 
 	return 1;
 }

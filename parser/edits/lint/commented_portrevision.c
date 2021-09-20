@@ -48,39 +48,11 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-lint_commented_portrevision_walker(struct WalkerData *this, struct ASTNode *node)
+lint_commented_portrevision_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);
 
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_commented_portrevision_walker(this, child));
-		}
-		break;
 	case AST_NODE_COMMENT:
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
 			const char *comment = str_trim(pool, line);
@@ -107,12 +79,11 @@ lint_commented_portrevision_walker(struct WalkerData *this, struct ASTNode *node
 			}
 		}
 		break;
-	case AST_NODE_VARIABLE:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(lint_commented_portrevision_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -123,7 +94,7 @@ PARSER_EDIT(lint_commented_portrevision)
 	struct WalkerData this = {
 		.comments = mempool_set(pool, str_compare, NULL, free),
 	};
-	lint_commented_portrevision_walker(&this, root);
+	lint_commented_portrevision_walker(root, &this);
 
 	struct Set **retval = userdata;
 	int no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;

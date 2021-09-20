@@ -75,33 +75,9 @@ add_target(struct WalkerData *this, const char *name, int deps)
 }
 
 static enum ASTWalkState
-output_unknown_targets_walker(struct WalkerData *this, struct ASTNode *node)
+output_unknown_targets_walker(struct ASTNode *node, struct WalkerData *this) 
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
-		}
-		break;
-
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_targets_walker(this, child));
-		}
-		break;
 	case AST_NODE_TARGET: {
 		int skip_deps = 0;
 		ARRAY_FOREACH(node->target.sources, const char *, name) {
@@ -114,17 +90,12 @@ output_unknown_targets_walker(struct WalkerData *this, struct ASTNode *node)
 				add_target(this, name, 1);
 			}
 		}
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_targets_walker(this, child)); // XXX: do we really need this?
-		}
 		break;
-	} case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_VARIABLE:
-	case AST_NODE_EXPR_FLAT:
+	} default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(output_unknown_targets_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -139,13 +110,13 @@ PARSER_EDIT(output_unknown_targets)
 	}
 
 	param->found = 0;
-	output_unknown_targets_walker(&(struct WalkerData){
+	output_unknown_targets_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
 		.targets = mempool_set(pool, str_compare, NULL, NULL),
 		.post_plist_targets = parser_metadata(parser, PARSER_METADATA_POST_PLIST_TARGETS),
-	}, root);
+	});
 
 	return 0;
 }

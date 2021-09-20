@@ -148,38 +148,9 @@ check_opthelper(struct WalkerData *this, const char *option, int optuse, int opt
 }
 
 static enum ASTWalkState
-output_unknown_variables_walker(struct WalkerData *this, struct ASTNode *node)
+output_unknown_variables_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
-		}
-		break;
-
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_unknown_variables_walker(this, child));
-		}
-		break;
 	case AST_NODE_VARIABLE: {
 		const char *name = node->variable.name;
 		struct UnknownVariable varskey = { .name = (char *)name, .hint = NULL };
@@ -194,12 +165,11 @@ output_unknown_variables_walker(struct WalkerData *this, struct ASTNode *node)
 			}
 		}
 		break;
-	} case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	} default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(output_unknown_variables_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -221,7 +191,7 @@ PARSER_EDIT(output_unknown_variables)
 		.param = param,
 		.vars = mempool_set(pool, var_compare, NULL, var_free),
 	};
-	output_unknown_variables_walker(&this, root);
+	output_unknown_variables_walker(root, &this);
 
 	struct Set *options = parser_metadata(parser, PARSER_METADATA_OPTIONS);
 	SET_FOREACH (options, const char *, option) {

@@ -232,3 +232,40 @@ void ast_node_print(struct ASTNode *, FILE *);
 	if ((x) == AST_WALK_STOP) { \
 		return AST_WALK_STOP; \
 	}
+
+#define AST_WALK_DEFAULT(f, node, ...) \
+switch (node->type) { \
+case AST_NODE_ROOT: \
+	ARRAY_FOREACH(node->root.body, struct ASTNode *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	break; \
+case AST_NODE_EXPR_FOR: \
+	ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	break; \
+case AST_NODE_EXPR_IF: \
+	ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	break; \
+case AST_NODE_INCLUDE: \
+	ARRAY_FOREACH(node->include.body, struct ASTNode *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	break; \
+case AST_NODE_TARGET: \
+	ARRAY_FOREACH(node->target.body, struct ASTNode *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	break; \
+case AST_NODE_COMMENT: \
+case AST_NODE_EXPR_FLAT: \
+case AST_NODE_TARGET_COMMAND: \
+case AST_NODE_VARIABLE: \
+	break; \
+}

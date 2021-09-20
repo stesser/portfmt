@@ -56,18 +56,9 @@ add_word(struct WalkerData *this, const char *word)
 }
 
 static enum ASTWalkState
-output_conditional_token_walker(struct WalkerData *this, struct ASTNode *node)
+output_conditional_token_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_conditional_token_walker(this, child));
-		}
-		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_VARIABLE:
-		break;
 	case AST_NODE_EXPR_FLAT:
 		ARRAY_FOREACH(node->flatexpr.words, const char *, word) {
 			add_word(this, word);
@@ -80,19 +71,10 @@ output_conditional_token_walker(struct WalkerData *this, struct ASTNode *node)
 		ARRAY_FOREACH(node->forexpr.words, const char *, word) {
 			add_word(this, word);
 		}
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_conditional_token_walker(this, child));
-		}
 		break;
 	case AST_NODE_EXPR_IF:
 		ARRAY_FOREACH(node->ifexpr.test, const char *, word) {
 			add_word(this, word);
-		}
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_conditional_token_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_conditional_token_walker(this, child));
 		}
 		break;
 	case AST_NODE_INCLUDE:
@@ -101,17 +83,12 @@ output_conditional_token_walker(struct WalkerData *this, struct ASTNode *node)
 		} else {
 			add_word(this, str_printf(this->pool, "\"%s\"", node->include.path));
 		}
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_conditional_token_walker(this, child));
-		}
 		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_conditional_token_walker(this, child));
-		}
+	default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(output_conditional_token_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -124,11 +101,11 @@ PARSER_EDIT(output_conditional_token)
 	}
 
 	param->found = 0;
-	output_conditional_token_walker(&(struct WalkerData){
+	output_conditional_token_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
-	}, root);
+	});
 
 	return 0;
 }

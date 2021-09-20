@@ -45,37 +45,9 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-output_variable_value_walker(struct WalkerData *this, struct ASTNode *node)
+output_variable_value_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_variable_value_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_variable_value_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_variable_value_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_variable_value_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_variable_value_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(output_variable_value_walker(this, child));
-		}
-		break;
 	case AST_NODE_VARIABLE:
 		if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, node->variable.name, this->param->keyuserdata))) {
 			this->param->found = 1;
@@ -88,12 +60,11 @@ output_variable_value_walker(struct WalkerData *this, struct ASTNode *node)
 			}
 		}
 		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(output_variable_value_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -106,11 +77,11 @@ PARSER_EDIT(output_variable_value)
 	}
 
 	param->found = 0;
-	output_variable_value_walker(&(struct WalkerData){
+	output_variable_value_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
-	}, root);
+	});
 
 	return 0;
 }

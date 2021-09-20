@@ -60,38 +60,15 @@ add_clones(struct WalkerData *this)
 }
 
 static enum ASTWalkState
-lint_clones_walker(struct WalkerData *this, struct ASTNode *node, int in_conditional)
+lint_clones_walker(struct ASTNode *node, struct WalkerData *this, int in_conditional)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional));
-		}
-		break;
 	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
-		}
-		break;
 	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
-		}
-		break;
 	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional + 1));
-		}
+		in_conditional++;
 		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(lint_clones_walker(this, child, in_conditional));
-		}
-		break;
-	case AST_NODE_VARIABLE: {
+	case AST_NODE_VARIABLE:
 		if (node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_ASSIGN) {
 			if (in_conditional > 0) {
 				set_add(this->seen_in_cond, node->variable.name);
@@ -104,11 +81,11 @@ lint_clones_walker(struct WalkerData *this, struct ASTNode *node, int in_conditi
 			}
 		}
 		break;
-	} case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	default:
 		break;
 	}
+
+	AST_WALK_DEFAULT(lint_clones_walker, node, this, in_conditional);
 
 	if (in_conditional <= 0) {
 		add_clones(this);
@@ -129,7 +106,7 @@ PARSER_EDIT(lint_clones)
 		.seen_in_cond = mempool_set(pool, str_compare, NULL, NULL),
 		.clones = mempool_set(pool, str_compare, NULL, free),
 	};
-	lint_clones_walker(&this, root, 0);
+	lint_clones_walker(root, &this, 0);
 
 	if (clones_ret == NULL && set_len(this.clones) > 0) {
 		if (!no_color) {

@@ -55,41 +55,13 @@ is_empty_line(const char *s)
 }
 
 static enum ASTWalkState
-refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct ASTNode *node)
+refactor_remove_consecutive_empty_lines_walker(struct ASTNode *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);
 
 	this->counter++;
 
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_remove_consecutive_empty_lines_walker(this, child));
-		}
-		break;
 	case AST_NODE_COMMENT: {
 		int empty = 0;
 		struct Array *lines = mempool_array(pool);
@@ -111,12 +83,11 @@ refactor_remove_consecutive_empty_lines_walker(struct WalkerData *this, struct A
 			node->edited = 1;
 		}
 		break;
-	} case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_VARIABLE:
+	} default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(refactor_remove_consecutive_empty_lines_walker, node, this);
 	return AST_WALK_CONTINUE;
 }
 
@@ -127,9 +98,9 @@ PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 		return 0;
 	}
 
-	refactor_remove_consecutive_empty_lines_walker(&(struct WalkerData){
+	refactor_remove_consecutive_empty_lines_walker(root, &(struct WalkerData){
 		.counter = 0,
-	}, root);
+	});
 
 	return 1;
 }

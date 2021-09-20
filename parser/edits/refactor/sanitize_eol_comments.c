@@ -68,34 +68,6 @@ static enum ASTWalkState
 refactor_sanitize_eol_comments_walker(struct ASTNode *node)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
-		}
-		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
-		}
-		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
-		}
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
-		}
-		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
-		}
-		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
-			AST_WALK_RECUR(refactor_sanitize_eol_comments_walker(child));
-		}
-		break;
 	/* Try to push end of line comments out of the way above
 	 * the variable as a way to preserve them.  They clash badly
 	 * with sorting tokens in variables.  We could add more
@@ -115,12 +87,11 @@ refactor_sanitize_eol_comments_walker(struct ASTNode *node)
 		comment->edited = 1;
 		ast_node_parent_insert_before_sibling(node, comment);
 		break;
-	} case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	} default:
 		break;
 	}
 
+	AST_WALK_DEFAULT(refactor_sanitize_eol_comments_walker, node);
 	return AST_WALK_CONTINUE;
 }
 
