@@ -216,6 +216,7 @@ enum ASTWalkState {
 	AST_WALK_STOP,
 };
 
+extern const char *ASTNodeType_tostring[];
 extern const char *ASTNodeExprFlatType_identifier[];
 extern const char *ASTNodeIncludeType_identifier[];
 extern const char *ASTNodeVariableModifier_humanize[];
