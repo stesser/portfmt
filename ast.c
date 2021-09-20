@@ -269,37 +269,31 @@ ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int
 	}
 }
 
-void
-ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_sibling)
-// Insert `new_sibling` in the `node`'s parent just before `node`
+struct Array *
+ast_node_siblings(struct ASTNode *node)
 {
-	struct ASTNode *parent = node->parent;
-	struct Array *nodelist = NULL;
 	ssize_t index = -1;
+	struct ASTNode *parent = node->parent;
 	switch (parent->type) {
 	case AST_NODE_ROOT:
-		nodelist = parent->root.body;
-		break;
+		return parent->root.body;
 	case AST_NODE_EXPR_IF:
-		nodelist = parent->ifexpr.body;
-		index = array_find(nodelist, node, NULL, NULL);
+		index = array_find(parent->ifexpr.body, node, NULL, NULL);
 		if (index < 0) {
-			nodelist = parent->ifexpr.orelse;
-			index = array_find(nodelist, node, NULL, NULL);
+			index = array_find(parent->ifexpr.orelse, node, NULL, NULL);
 			if (index < 0) {
 				panic("node does not appear in parent nodelist");
 			}
+			return parent->ifexpr.orelse;
+		} else {
+			return parent->ifexpr.body;
 		}
-		break;
 	case AST_NODE_EXPR_FOR:
-		nodelist = parent->forexpr.body;
-		break;
+		return parent->forexpr.body;
 	case AST_NODE_INCLUDE:
-		nodelist = parent->include.body;
-		break;
+		return parent->include.body;
 	case AST_NODE_TARGET:
-		nodelist = parent->target.body;
-		break;
+		return parent->target.body;
 	case AST_NODE_COMMENT:
 	case AST_NODE_EXPR_FLAT:
 	case AST_NODE_TARGET_COMMAND:
@@ -307,14 +301,21 @@ ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_
 		panic("leaf node as parent");
 	}
 
+	panic("no siblings found?");
+}
+
+void
+ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_sibling)
+// Insert `new_sibling` in the `node`'s parent just before `node`
+{
+	struct Array *nodelist = ast_node_siblings(node);
+	ssize_t index = -1;
+	index = array_find(nodelist, node, NULL, NULL);
 	if (index < 0) {
-		index = array_find(nodelist, node, NULL, NULL);
-		if (index < 0) {
-			panic("node does not appear in parent nodelist");
-		}
+		panic("node does not appear in parent nodelist");
 	}
 	array_insert(nodelist, index, new_sibling);
-	new_sibling->parent = parent;
+	new_sibling->parent = node->parent;
 }
 
 void
