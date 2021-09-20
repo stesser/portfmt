@@ -45,6 +45,7 @@ static enum ASTWalkState
 {
 	switch (node->type) {
 	case AST_NODE_ROOT:
+	case AST_NODE_DELETED:
 	case AST_NODE_EXPR_FOR:
 	case AST_NODE_EXPR_IF:
 	case AST_NODE_INCLUDE:

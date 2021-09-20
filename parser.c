@@ -1086,6 +1086,8 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNod
 			parser_output_category_makefile_reformatted(parser, child);
 		}
 		return;
+	case AST_NODE_DELETED:
+		break;
 	case AST_NODE_INCLUDE:
 		if (node->include.type == AST_NODE_INCLUDE_BMAKE &&
 		    node->include.sys && node->include.path &&
@@ -1147,6 +1149,8 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 		}
+		break;
+	case AST_NODE_DELETED:
 		break;
 	case AST_NODE_COMMENT:
 		if (node->edited) { // Ignore PARSER_OUTPUT_REFORMAT

@@ -116,6 +116,9 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 		node->parent = node;
 		node->root.body = mempool_array(pool);
 		break;
+	case AST_NODE_DELETED:
+		panic("cannot create deleted node");
+		break;
 	case AST_NODE_COMMENT: {
 		struct ASTNodeComment *comment = value;
 		node->comment.type = comment->type;
@@ -247,6 +250,8 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 		ARRAY_FOREACH(template->root.body, struct ASTNode *, child) {
 			array_append(node->root.body, ast_node_clone_helper(pool, ptrmap, child, node));
 		}
+		break;
+	case AST_NODE_DELETED:
 		break;
 	case AST_NODE_EXPR_FOR:
 		if (template->forexpr.comment) {
@@ -388,6 +393,8 @@ ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int
 	case AST_NODE_ROOT:
 		array_append(parent->root.body, node);
 		break;
+	case AST_NODE_DELETED:
+		break;
 	case AST_NODE_EXPR_FOR:
 		array_append(parent->forexpr.body, node);
 		break;
@@ -427,6 +434,8 @@ ast_node_siblings(struct ASTNode *node)
 	switch (parent->type) {
 	case AST_NODE_ROOT:
 		return parent->root.body;
+	case AST_NODE_DELETED:
+		panic("cannot return siblings of deleted node");
 	case AST_NODE_EXPR_IF:
 		index = array_find(parent->ifexpr.body, node, NULL, NULL);
 		if (index < 0) {

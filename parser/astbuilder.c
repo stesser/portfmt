@@ -526,6 +526,8 @@ ast_to_token_stream(struct ASTNode *node, struct Mempool *extpool, struct Array 
 			ast_to_token_stream(child, extpool, tokens);
 		}
 		break;
+	case AST_NODE_DELETED:
+		break;
 	case AST_NODE_COMMENT: {
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
 			struct Token *t = token_new_comment(&node->line_start, line, NULL);

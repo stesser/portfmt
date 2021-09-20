@@ -139,6 +139,8 @@ refactor_collapse_adjacent_variables_walker(struct ASTNode *node, struct WalkerD
 		}
 		process_siblings(node->root.body, siblings);
 		break;
+	case AST_NODE_DELETED:
+		break;
 	case AST_NODE_EXPR_FOR:
 		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
