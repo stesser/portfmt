@@ -31,23 +31,23 @@ struct Parser;
 struct Array;
 struct Mempool;
 enum ParserASTBuilderTokenType;
-struct ASTNodeLineRange;
+struct ASTLineRange;
 
 struct ParserASTBuilder {
 	struct Parser *parser;
 	struct Array *tokens;
 	struct Mempool *pool;
-	struct ASTNodeLineRange lines;
+	struct ASTLineRange lines;
 	char *condname;
 	char *targetname;
 	char *varname;
 };
 
 struct ParserASTBuilder *parser_astbuilder_new(struct Parser *);
-struct ParserASTBuilder *parser_astbuilder_from_ast(struct Parser *, struct ASTNode *);
+struct ParserASTBuilder *parser_astbuilder_from_ast(struct Parser *, struct AST *);
 void parser_astbuilder_free(struct ParserASTBuilder *);
 void parser_astbuilder_append_token(struct ParserASTBuilder *, enum ParserASTBuilderTokenType, const char *);
 void parser_astbuilder_print_token_stream(struct ParserASTBuilder *, FILE *);
-struct ASTNode *parser_astbuilder_finish(struct ParserASTBuilder *);
+struct AST *parser_astbuilder_finish(struct ParserASTBuilder *);
 
-struct ASTNode *ast_from_token_stream(struct Array *);
+struct AST *ast_from_token_stream(struct Array *);

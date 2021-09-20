@@ -148,10 +148,10 @@ check_opthelper(struct WalkerData *this, const char *option, int optuse, int opt
 }
 
 static enum ASTWalkState
-output_unknown_variables_walker(struct ASTNode *node, struct WalkerData *this)
+output_unknown_variables_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_VARIABLE: {
+	case AST_VARIABLE: {
 		const char *name = node->variable.name;
 		struct UnknownVariable varskey = { .name = (char *)name, .hint = NULL };
 		if (variable_order_block(this->parser, name, NULL, NULL) == BLOCK_UNKNOWN &&

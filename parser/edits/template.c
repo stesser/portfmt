@@ -41,19 +41,19 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-%%name%%_walker(struct ASTNode *node, struct WalkerData *this)
+%%name%%_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_ROOT:
-	case AST_NODE_DELETED:
-	case AST_NODE_EXPR_FOR:
-	case AST_NODE_EXPR_IF:
-	case AST_NODE_INCLUDE:
-	case AST_NODE_TARGET:
-	case AST_NODE_COMMENT:
-	case AST_NODE_VARIABLE:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_EXPR_FLAT:
+	case AST_ROOT:
+	case AST_COMMENT:
+	case AST_DELETED:
+	case AST_EXPR:
+	case AST_FOR:
+	case AST_IF:
+	case AST_INCLUDE:
+	case AST_TARGET:
+	case AST_TARGET_COMMAND:
+	case AST_VARIABLE:
 		break;
 	}
 

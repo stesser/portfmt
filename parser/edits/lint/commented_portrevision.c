@@ -48,12 +48,12 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-lint_commented_portrevision_walker(struct ASTNode *node, struct WalkerData *this)
+lint_commented_portrevision_walker(struct AST *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);
 
 	switch (node->type) {
-	case AST_NODE_COMMENT:
+	case AST_COMMENT:
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
 			const char *comment = str_trim(pool, line);
 			if (strlen(comment) <= 1) {

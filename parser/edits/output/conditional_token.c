@@ -56,15 +56,15 @@ add_word(struct WalkerData *this, const char *word)
 }
 
 static enum ASTWalkState
-output_conditional_token_walker(struct ASTNode *node, struct WalkerData *this)
+output_conditional_token_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_EXPR_FLAT:
-		ARRAY_FOREACH(node->flatexpr.words, const char *, word) {
+	case AST_EXPR:
+		ARRAY_FOREACH(node->expr.words, const char *, word) {
 			add_word(this, word);
 		}
 		break;
-	case AST_NODE_EXPR_FOR:
+	case AST_FOR:
 		ARRAY_FOREACH(node->forexpr.bindings, const char *, word) {
 			add_word(this, word);
 		}
@@ -72,12 +72,12 @@ output_conditional_token_walker(struct ASTNode *node, struct WalkerData *this)
 			add_word(this, word);
 		}
 		break;
-	case AST_NODE_EXPR_IF:
+	case AST_IF:
 		ARRAY_FOREACH(node->ifexpr.test, const char *, word) {
 			add_word(this, word);
 		}
 		break;
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (node->include.sys) {
 			add_word(this, str_printf(this->pool, "<%s>", node->include.path));
 		} else {

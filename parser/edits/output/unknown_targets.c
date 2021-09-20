@@ -75,10 +75,10 @@ add_target(struct WalkerData *this, const char *name, int deps)
 }
 
 static enum ASTWalkState
-output_unknown_targets_walker(struct ASTNode *node, struct WalkerData *this) 
+output_unknown_targets_walker(struct AST *node, struct WalkerData *this) 
 {
 	switch (node->type) {
-	case AST_NODE_TARGET: {
+	case AST_TARGET: {
 		int skip_deps = 0;
 		ARRAY_FOREACH(node->target.sources, const char *, name) {
 			if (add_target(this, name, 0)) {

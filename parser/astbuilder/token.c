@@ -51,11 +51,11 @@ struct Token {
 	struct Target *target;
 	int goalcol;
 	int edited;
-	struct ASTNodeLineRange lines;
+	struct ASTLineRange lines;
 };
 
 struct Token *
-token_new(enum ParserASTBuilderTokenType type, struct ASTNodeLineRange *lines, const char *data,
+token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const char *data,
 	  const char *varname, const char *condname, const char *targetname)
 {
 	if (((type == PARSER_AST_BUILDER_TOKEN_VARIABLE_END || type == PARSER_AST_BUILDER_TOKEN_VARIABLE_START ||
@@ -101,7 +101,7 @@ token_new(enum ParserASTBuilderTokenType type, struct ASTNodeLineRange *lines, c
 }
 
 struct Token *
-token_new_comment(struct ASTNodeLineRange *lines, const char *data, struct Conditional *cond)
+token_new_comment(struct ASTLineRange *lines, const char *data, struct Conditional *cond)
 {
 	if (lines == NULL || data == NULL) {
 		return NULL;
@@ -118,7 +118,7 @@ token_new_comment(struct ASTNodeLineRange *lines, const char *data, struct Condi
 }
 
 struct Token *
-token_new_variable_end(struct ASTNodeLineRange *lines, struct Variable *var)
+token_new_variable_end(struct ASTLineRange *lines, struct Variable *var)
 {
 	if (lines == NULL || var == NULL) {
 		return NULL;
@@ -133,7 +133,7 @@ token_new_variable_end(struct ASTNodeLineRange *lines, struct Variable *var)
 }
 
 struct Token *
-token_new_variable_start(struct ASTNodeLineRange *lines, struct Variable *var)
+token_new_variable_start(struct ASTLineRange *lines, struct Variable *var)
 {
 	if (lines == NULL || var == NULL) {
 		return NULL;
@@ -148,7 +148,7 @@ token_new_variable_start(struct ASTNodeLineRange *lines, struct Variable *var)
 }
 
 struct Token *
-token_new_variable_token(struct ASTNodeLineRange *lines, struct Variable *var, const char *data)
+token_new_variable_token(struct ASTLineRange *lines, struct Variable *var, const char *data)
 {
 	if (lines == NULL || var == NULL || data == NULL) {
 		return NULL;
@@ -238,7 +238,7 @@ token_goalcol(struct Token *token)
 	return token->goalcol;
 }
 
-struct ASTNodeLineRange *
+struct ASTLineRange *
 token_lines(struct Token *token)
 {
 	return &token->lines;

@@ -64,8 +64,8 @@ struct Row {
 	char *hint;
 };
 
-static int check_target_order(struct Parser *, struct ASTNode *, int, int);
-static int check_variable_order(struct Parser *, struct ASTNode *, int);
+static int check_target_order(struct Parser *, struct AST *, int, int);
+static int check_variable_order(struct Parser *, struct AST *, int);
 static int output_diff(struct Parser *, struct Array *, struct Array *, int);
 static void output_row(struct Parser *, struct Row *, size_t);
 
@@ -100,10 +100,10 @@ row_compare(const void *ap, const void *bp, void *userdata)
 }
 
 static enum ASTWalkState
-get_variables(struct ASTNode *node, struct GetVariablesWalkerData *this)
+get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_EXPR_IF:
+	case AST_IF:
 		if (array_len(node->ifexpr.test) == 1) {
 			const char *word = array_get(node->ifexpr.test, 0);
 			if (strcmp(word, "defined(DEVELOPER)") == 0 ||
@@ -113,7 +113,7 @@ get_variables(struct ASTNode *node, struct GetVariablesWalkerData *this)
 			}
 		}
 		break;
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			return AST_WALK_STOP;
 		} else {
@@ -121,7 +121,7 @@ get_variables(struct ASTNode *node, struct GetVariablesWalkerData *this)
 			return AST_WALK_CONTINUE;
 		}
 		break;
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		// Ignore port local variables that start with an _
 		if (node->variable.name[0] != '_' && array_find(this->vars, node->variable.name, str_compare, NULL) == -1 &&
 		    !is_referenced_var(this->parser, node->variable.name)) {
@@ -208,7 +208,7 @@ get_hint(struct Mempool *pool, struct Parser *parser, const char *var, enum Bloc
 }
 
 static struct Array *
-variable_list(struct Mempool *pool, struct Parser *parser, struct ASTNode *root)
+variable_list(struct Mempool *pool, struct Parser *parser, struct AST *root)
 {
 	struct Array *output = mempool_array(pool);
 	struct Array *vars = mempool_array(pool);
@@ -239,10 +239,10 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct ASTNode *root)
 }
 
 static enum ASTWalkState
-target_list(struct ASTNode *node, struct TargetListWalkData *this)
+target_list(struct AST *node, struct TargetListWalkData *this)
 {
 	switch (node->type) {
-	case AST_NODE_EXPR_IF:
+	case AST_IF:
 		if (array_len(node->ifexpr.test) == 1) {
 			const char *word = array_get(node->ifexpr.test, 0);
 			if (strcmp(word, "defined(DEVELOPER)") == 0 ||
@@ -252,7 +252,7 @@ target_list(struct ASTNode *node, struct TargetListWalkData *this)
 			}
 		}
 		break;
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			return AST_WALK_STOP;
 		} else {
@@ -260,7 +260,7 @@ target_list(struct ASTNode *node, struct TargetListWalkData *this)
 			return AST_WALK_CONTINUE;
 		}
 		break;
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, target) {
 			// Ignore port local targets that start with an _
 			if (target[0] != '_' && !is_special_target(target) &&
@@ -277,7 +277,7 @@ target_list(struct ASTNode *node, struct TargetListWalkData *this)
 }
 
 int
-check_variable_order(struct Parser *parser, struct ASTNode *root, int no_color)
+check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *origin = variable_list(pool, parser, root);
@@ -398,7 +398,7 @@ check_variable_order(struct Parser *parser, struct ASTNode *root, int no_color)
 }
 
 int
-check_target_order(struct Parser *parser, struct ASTNode *root, int no_color, int status_var)
+check_target_order(struct Parser *parser, struct AST *root, int no_color, int status_var)
 {
 	SCOPE_MEMPOOL(pool);
 

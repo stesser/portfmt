@@ -732,10 +732,10 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 }
 
 static enum ASTWalkState
-get_default_option_descriptions_walker(struct ASTNode *node, struct Map *this)
+get_default_option_descriptions_walker(struct AST *node, struct Map *this)
 {
 	switch (node->type) {
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if (str_endswith(node->variable.name, "_DESC") &&
 		    !map_contains(this, node->variable.name)) {
 			map_add(this, str_dup(NULL, node->variable.name), str_join(NULL, node->variable.words, " "));

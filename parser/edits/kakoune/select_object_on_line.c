@@ -44,7 +44,7 @@
 
 struct WalkerData {
 	size_t kak_cursor_line;
-	struct ASTNodeLineRange *range;
+	struct ASTLineRange *range;
 };
 
 static void
@@ -57,7 +57,7 @@ kak_error(struct Parser *parser, const char *errstr)
 }
 
 static enum ASTWalkState
-kakoune_select_object_on_line_walker(struct ASTNode *node, struct WalkerData *this)
+kakoune_select_object_on_line_walker(struct AST *node, struct WalkerData *this)
 {
 	AST_WALK_DEFAULT(kakoune_select_object_on_line_walker, node, this);
 

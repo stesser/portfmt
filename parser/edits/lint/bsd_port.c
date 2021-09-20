@@ -46,10 +46,10 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-lint_bsd_port_walker(struct ASTNode *node, struct WalkerData *this)
+lint_bsd_port_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			this->found = 1;
 			return AST_WALK_STOP;

@@ -55,14 +55,14 @@ is_empty_line(const char *s)
 }
 
 static enum ASTWalkState
-refactor_remove_consecutive_empty_lines_walker(struct ASTNode *node, struct WalkerData *this)
+refactor_remove_consecutive_empty_lines_walker(struct AST *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);
 
 	this->counter++;
 
 	switch (node->type) {
-	case AST_NODE_COMMENT: {
+	case AST_COMMENT: {
 		int empty = 0;
 		struct Array *lines = mempool_array(pool);
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {

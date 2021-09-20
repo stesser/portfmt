@@ -159,10 +159,10 @@ PARSER_EDIT(edit_set_version)
 	int rev_opt = 0;
 	if (parser_lookup_variable_str(parser, ver, PARSER_LOOKUP_FIRST, pool, &version, NULL)) {
 		char *revision;
-		struct ASTNode *rev_var;
+		struct AST *rev_var;
 		if (strcmp(version, newversion) != 0 &&
 		    (rev_var = parser_lookup_variable_str(parser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, &revision, NULL))) {
-			rev_opt = rev_var->variable.modifier == AST_NODE_VARIABLE_MODIFIER_OPTIONAL;
+			rev_opt = rev_var->variable.modifier == AST_VARIABLE_MODIFIER_OPTIONAL;
 			const char *errstr = NULL;
 			rev = strtonum(revision, 0, INT_MAX, &errstr);
 			if (errstr != NULL) {

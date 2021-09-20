@@ -54,10 +54,10 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-refactor_sanitize_cmake_args_walker(struct ASTNode *node, struct WalkerData *this)
+refactor_sanitize_cmake_args_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_VARIABLE: {
+	case AST_VARIABLE: {
 		SCOPE_MEMPOOL(pool);
 
 		char *helper = NULL;

@@ -48,15 +48,15 @@ struct WalkerData {
 };
 
 static int
-is_candidate(struct ASTNode *node)
+is_candidate(struct AST *node)
 {
-	if (node->type != AST_NODE_VARIABLE) {
+	if (node->type != AST_VARIABLE) {
 		return 0;
 	}
 
 	switch (node->variable.modifier) {
-	case AST_NODE_VARIABLE_MODIFIER_APPEND:
-	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
+	case AST_VARIABLE_MODIFIER_APPEND:
+	case AST_VARIABLE_MODIFIER_ASSIGN:
 		return 1;
 	default:
 		return 0;
@@ -64,7 +64,7 @@ is_candidate(struct ASTNode *node)
 }
 
 static int
-has_eol_comment(struct ASTNode *node)
+has_eol_comment(struct AST *node)
 {
 	return node->variable.comment && strlen(node->variable.comment) > 0;
 }
@@ -78,9 +78,9 @@ merge_variables(struct Array *nodelist, struct Array *group)
 
 	SCOPE_MEMPOOL(pool);
 
-	struct ASTNode *first = array_get(group, 0);
-	struct ASTNode *last = array_get(group, array_len(group) - 1);
-	ARRAY_FOREACH_SLICE(group, 1, -1, struct ASTNode *, node) {
+	struct AST *first = array_get(group, 0);
+	struct AST *last = array_get(group, array_len(group) - 1);
+	ARRAY_FOREACH_SLICE(group, 1, -1, struct AST *, node) {
 		ARRAY_FOREACH(node->variable.words, const char *, word) {
 			array_append(first->variable.words, word);
 		}
@@ -89,8 +89,8 @@ merge_variables(struct Array *nodelist, struct Array *group)
 	first->line_end = last->line_end;
 
 	struct Array *newnodelist = mempool_array(pool);
-	ARRAY_FOREACH(nodelist, struct ASTNode *, node) {
-		if (node->type == AST_NODE_VARIABLE) {
+	ARRAY_FOREACH(nodelist, struct AST *, node) {
+		if (node->type == AST_VARIABLE) {
 			if (array_find(group, node, NULL, NULL) < 1) {
 				array_append(newnodelist, node);
 			}
@@ -109,7 +109,7 @@ process_siblings(struct Array *nodelist, struct Array *siblings)
 
 	struct Array *group = mempool_array(pool);
 	const char *name = NULL;
-	ARRAY_FOREACH(siblings, struct ASTNode *, node) {
+	ARRAY_FOREACH(siblings, struct AST *, node) {
 		unless (name) {
 			name = node->variable.name;
 		}
@@ -127,52 +127,52 @@ process_siblings(struct Array *nodelist, struct Array *siblings)
 }
 
 static enum ASTWalkState
-refactor_collapse_adjacent_variables_walker(struct ASTNode *node, struct WalkerData *this, struct Array *last_siblings)
+refactor_collapse_adjacent_variables_walker(struct AST *node, struct WalkerData *this, struct Array *last_siblings)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *siblings = mempool_array(pool);
 
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+	case AST_ROOT:
+		ARRAY_FOREACH(node->root.body, struct AST *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->root.body, siblings);
 		break;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		break;
-	case AST_NODE_EXPR_FOR:
-		ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+	case AST_FOR:
+		ARRAY_FOREACH(node->forexpr.body, struct AST *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->forexpr.body, siblings);
 		break;
-	case AST_NODE_EXPR_IF:
-		ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+	case AST_IF:
+		ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->ifexpr.body, siblings);
 
-		ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+		ARRAY_FOREACH(node->ifexpr.orelse, struct AST *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->ifexpr.orelse, siblings);
 		break;
-	case AST_NODE_INCLUDE:
-		ARRAY_FOREACH(node->include.body, struct ASTNode *, child) {
+	case AST_INCLUDE:
+		ARRAY_FOREACH(node->include.body, struct AST *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		break;
-	case AST_NODE_TARGET:
-		ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+	case AST_TARGET:
+		ARRAY_FOREACH(node->target.body, struct AST *, child) {
 			AST_WALK_RECUR(refactor_collapse_adjacent_variables_walker(child, this, siblings));
 		}
 		process_siblings(node->target.body, siblings);
 		break;
-	case AST_NODE_COMMENT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_VARIABLE:
-	case AST_NODE_EXPR_FLAT:
+	case AST_COMMENT:
+	case AST_TARGET_COMMAND:
+	case AST_VARIABLE:
+	case AST_EXPR:
 		array_append(last_siblings, node);
 		break;
 	}

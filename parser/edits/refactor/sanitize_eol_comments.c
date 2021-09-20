@@ -65,7 +65,7 @@ preserve_eol_comment(const char *word)
 }
 
 static enum ASTWalkState
-refactor_sanitize_eol_comments_walker(struct ASTNode *node)
+refactor_sanitize_eol_comments_walker(struct AST *node)
 {
 	switch (node->type) {
 	/* Try to push end of line comments out of the way above
@@ -74,18 +74,18 @@ refactor_sanitize_eol_comments_walker(struct ASTNode *node)
 	 * special cases for this, but often having them at the top
 	 * is just as good.
 	 */
-	case AST_NODE_VARIABLE: {
+	case AST_VARIABLE: {
 		if (preserve_eol_comment(node->variable.comment)) {
 			return AST_WALK_CONTINUE;
 		}
-		struct ASTNode *comment = ast_node_new(node->pool, AST_NODE_COMMENT, &node->line_start, &(struct ASTNodeComment){
-			.type = AST_NODE_COMMENT_LINE,
+		struct AST *comment = ast_new(node->pool, AST_COMMENT, &node->line_start, &(struct ASTComment){
+			.type = AST_COMMENT_LINE,
 		});
 		array_append(comment->comment.lines, node->variable.comment);
 		node->variable.comment = NULL;
 		node->edited = 1;
 		comment->edited = 1;
-		ast_node_parent_insert_before_sibling(node, comment);
+		ast_parent_insert_before_sibling(node, comment);
 		break;
 	} default:
 		break;

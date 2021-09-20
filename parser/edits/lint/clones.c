@@ -60,16 +60,16 @@ add_clones(struct WalkerData *this)
 }
 
 static enum ASTWalkState
-lint_clones_walker(struct ASTNode *node, struct WalkerData *this, int in_conditional)
+lint_clones_walker(struct AST *node, struct WalkerData *this, int in_conditional)
 {
 	switch (node->type) {
-	case AST_NODE_EXPR_FOR:
-	case AST_NODE_EXPR_IF:
-	case AST_NODE_INCLUDE:
+	case AST_FOR:
+	case AST_IF:
+	case AST_INCLUDE:
 		in_conditional++;
 		break;
-	case AST_NODE_VARIABLE:
-		if (node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_ASSIGN) {
+	case AST_VARIABLE:
+		if (node->variable.modifier == AST_VARIABLE_MODIFIER_ASSIGN) {
 			if (in_conditional > 0) {
 				set_add(this->seen_in_cond, node->variable.name);
 			} else if (set_contains(this->seen, node->variable.name)) {

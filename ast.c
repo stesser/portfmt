@@ -41,82 +41,82 @@
 
 #include "ast.h"
 
-const char *ASTNodeType_tostring[] = {
-	[AST_NODE_ROOT] = "AST_NODE_ROOT",
-	[AST_NODE_DELETED] = "AST_NODE_DELETED",
-	[AST_NODE_COMMENT] = "AST_NODE_COMMENT",
-	[AST_NODE_EXPR_FLAT] = "AST_NODE_EXPR_FLAT",
-	[AST_NODE_EXPR_IF] = "AST_NODE_EXPR_IF",
-	[AST_NODE_EXPR_FOR] = "AST_NODE_EXPR_FOR",
-	[AST_NODE_INCLUDE] = "AST_NODE_INCLUDE",
-	[AST_NODE_TARGET] = "AST_NODE_TARGET",
-	[AST_NODE_TARGET_COMMAND] = "AST_NODE_TARGET_COMMAND",
-	[AST_NODE_VARIABLE] = "AST_NODE_VARIABLE",
+const char *ASTType_tostring[] = {
+	[AST_ROOT] = "AST_ROOT",
+	[AST_DELETED] = "AST_DELETED",
+	[AST_COMMENT] = "AST_COMMENT",
+	[AST_EXPR] = "AST_EXPR",
+	[AST_IF] = "AST_IF",
+	[AST_FOR] = "AST_FOR",
+	[AST_INCLUDE] = "AST_INCLUDE",
+	[AST_TARGET] = "AST_TARGET",
+	[AST_TARGET_COMMAND] = "AST_TARGET_COMMAND",
+	[AST_VARIABLE] = "AST_VARIABLE",
 };
 
-const char *ASTNodeExprFlatType_identifier[] = {
-	[AST_NODE_EXPR_ERROR] = "error",
-	[AST_NODE_EXPR_EXPORT_ENV] = "export-env",
-	[AST_NODE_EXPR_EXPORT_LITERAL] = "export-literal",
-	[AST_NODE_EXPR_EXPORT] = "export",
-	[AST_NODE_EXPR_INFO] = "info",
-	[AST_NODE_EXPR_UNDEF] = "undef",
-	[AST_NODE_EXPR_UNEXPORT_ENV] = "unexport-env",
-	[AST_NODE_EXPR_UNEXPORT] = "unexport",
-	[AST_NODE_EXPR_WARNING] = "warning",
+const char *ASTExprType_identifier[] = {
+	[AST_EXPR_ERROR] = "error",
+	[AST_EXPR_EXPORT_ENV] = "export-env",
+	[AST_EXPR_EXPORT_LITERAL] = "export-literal",
+	[AST_EXPR_EXPORT] = "export",
+	[AST_EXPR_INFO] = "info",
+	[AST_EXPR_UNDEF] = "undef",
+	[AST_EXPR_UNEXPORT_ENV] = "unexport-env",
+	[AST_EXPR_UNEXPORT] = "unexport",
+	[AST_EXPR_WARNING] = "warning",
 };
 
-static const char *NodeExprIfType_tostring[] = {
-	[AST_NODE_EXPR_IF_IF] = "AST_NODE_EXPR_IF_IF",
-	[AST_NODE_EXPR_IF_DEF] = "AST_NODE_EXPR_IF_DEF",
-	[AST_NODE_EXPR_IF_ELSE] = "AST_NODE_EXPR_IF_ELSE",
-	[AST_NODE_EXPR_IF_MAKE] = "AST_NODE_EXPR_IF_MAKE",
-	[AST_NODE_EXPR_IF_NDEF] = "AST_NODE_EXPR_IF_NDEF",
-	[AST_NODE_EXPR_IF_NMAKE] = "AST_NODE_EXPR_IF_NMAKE",
+static const char *ASTIfType_tostring[] = {
+	[AST_IF_IF] = "AST_IF_IF",
+	[AST_IF_DEF] = "AST_IF_DEF",
+	[AST_IF_ELSE] = "AST_IF_ELSE",
+	[AST_IF_MAKE] = "AST_IF_MAKE",
+	[AST_IF_NDEF] = "AST_IF_NDEF",
+	[AST_IF_NMAKE] = "AST_IF_NMAKE",
 };
 
-const char *NodeExprIfType_humanize[] = {
-	[AST_NODE_EXPR_IF_IF] = "if",
-	[AST_NODE_EXPR_IF_ELSE] = "else",
-	[AST_NODE_EXPR_IF_DEF] = "ifdef",
-	[AST_NODE_EXPR_IF_MAKE] = "ifmake",
-	[AST_NODE_EXPR_IF_NDEF] = "ifndef",
-	[AST_NODE_EXPR_IF_NMAKE] = "ifnmake",
+const char *ASTIfType_humanize[] = {
+	[AST_IF_IF] = "if",
+	[AST_IF_ELSE] = "else",
+	[AST_IF_DEF] = "ifdef",
+	[AST_IF_MAKE] = "ifmake",
+	[AST_IF_NDEF] = "ifndef",
+	[AST_IF_NMAKE] = "ifnmake",
 };
 
-static const char *ASTNodeIncludeType_tostring[] = {
-	[AST_NODE_INCLUDE_BMAKE] = "AST_NODE_INCLUDE_BMAKE",
-	[AST_NODE_INCLUDE_D] = "AST_NODE_INCLUDE_D",
-	[AST_NODE_INCLUDE_POSIX] = "AST_NODE_INCLUDE_POSIX",
-	[AST_NODE_INCLUDE_S] = "AST_NODE_INCLUDE_S",
+static const char *ASTIncludeType_tostring[] = {
+	[AST_INCLUDE_BMAKE] = "AST_INCLUDE_BMAKE",
+	[AST_INCLUDE_D] = "AST_INCLUDE_D",
+	[AST_INCLUDE_POSIX] = "AST_INCLUDE_POSIX",
+	[AST_INCLUDE_S] = "AST_INCLUDE_S",
 };
 
-const char *ASTNodeIncludeType_identifier[] = {
-	[AST_NODE_INCLUDE_BMAKE] = "include",
-	[AST_NODE_INCLUDE_D] = "dinclude",
-	[AST_NODE_INCLUDE_POSIX] = "include",
-	[AST_NODE_INCLUDE_S] = "sinclude",
+const char *ASTIncludeType_identifier[] = {
+	[AST_INCLUDE_BMAKE] = "include",
+	[AST_INCLUDE_D] = "dinclude",
+	[AST_INCLUDE_POSIX] = "include",
+	[AST_INCLUDE_S] = "sinclude",
 };
 
-static const char *ASTNodeTargetType_tostring[] = {
-	[AST_NODE_TARGET_NAMED] = "AST_NODE_TARGET_NAMED",
-	[AST_NODE_TARGET_UNASSOCIATED] = "AST_NODE_TARGET_UNASSOCIATED",
+static const char *ASTTargetType_tostring[] = {
+	[AST_TARGET_NAMED] = "AST_TARGET_NAMED",
+	[AST_TARGET_UNASSOCIATED] = "AST_TARGET_UNASSOCIATED",
 };
 
-const char *ASTNodeVariableModifier_humanize[] = {
-	[AST_NODE_VARIABLE_MODIFIER_APPEND] = "+=",
-	[AST_NODE_VARIABLE_MODIFIER_ASSIGN] = "=",
-	[AST_NODE_VARIABLE_MODIFIER_EXPAND] = ":=",
-	[AST_NODE_VARIABLE_MODIFIER_OPTIONAL] = "?=",
-	[AST_NODE_VARIABLE_MODIFIER_SHELL] = "!=",
+const char *ASTVariableModifier_humanize[] = {
+	[AST_VARIABLE_MODIFIER_APPEND] = "+=",
+	[AST_VARIABLE_MODIFIER_ASSIGN] = "=",
+	[AST_VARIABLE_MODIFIER_EXPAND] = ":=",
+	[AST_VARIABLE_MODIFIER_OPTIONAL] = "?=",
+	[AST_VARIABLE_MODIFIER_SHELL] = "!=",
 };
 
-static enum ASTWalkState ast_node_print_helper(struct ASTNode *, FILE *, size_t);
+static enum ASTWalkState ast_print_helper(struct AST *, FILE *, size_t);
 
-struct ASTNode *
-ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRange *lines, void *value)
+struct AST *
+ast_new(struct Mempool *pool, enum ASTType type, struct ASTLineRange *lines, void *value)
 {
-	struct ASTNode *node = mempool_alloc(pool, sizeof(struct ASTNode));
+	struct AST *node = mempool_alloc(pool, sizeof(struct AST));
 	node->pool = pool;
 	if (lines) {
 		node->line_start = *lines;
@@ -125,15 +125,15 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 	node->type = type;
 
 	switch (type) {
-	case AST_NODE_ROOT:
+	case AST_ROOT:
 		node->parent = node;
 		node->root.body = mempool_array(pool);
 		break;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		panic("cannot create deleted node");
 		break;
-	case AST_NODE_COMMENT: {
-		struct ASTNodeComment *comment = value;
+	case AST_COMMENT: {
+		struct ASTComment *comment = value;
 		node->comment.type = comment->type;
 		node->comment.lines = mempool_array(pool);
 		if (comment->lines) {
@@ -142,19 +142,19 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			}
 		}
 		break;
-	} case AST_NODE_EXPR_FLAT: {
-		struct ASTNodeExprFlat *flatexpr = value;
-		node->flatexpr.type = flatexpr->type;
-		node->flatexpr.words = mempool_array(pool);
-		node->flatexpr.indent = flatexpr->indent;
-		if (flatexpr->words) {
-			ARRAY_FOREACH(flatexpr->words, const char *, word) {
-				array_append(node->flatexpr.words, str_dup(pool, word));
+	} case AST_EXPR: {
+		struct ASTExpr *expr = value;
+		node->expr.type = expr->type;
+		node->expr.words = mempool_array(pool);
+		node->expr.indent = expr->indent;
+		if (expr->words) {
+			ARRAY_FOREACH(expr->words, const char *, word) {
+				array_append(node->expr.words, str_dup(pool, word));
 			}
 		}
 		break;
-	} case AST_NODE_EXPR_FOR: {
-		struct ASTNodeExprFor *forexpr = value;
+	} case AST_FOR: {
+		struct ASTFor *forexpr = value;
 		node->forexpr.bindings = mempool_array(pool);
 		node->forexpr.words = mempool_array(pool);
 		node->forexpr.body = mempool_array(pool);
@@ -170,8 +170,8 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			}
 		}
 		break;
-	} case AST_NODE_EXPR_IF: {
-		struct ASTNodeExprIf *ifexpr = value;
+	} case AST_IF: {
+		struct ASTIf *ifexpr = value;
 		node->ifexpr.type = ifexpr->type;
 		node->ifexpr.test = mempool_array(pool);
 		node->ifexpr.body = mempool_array(pool);
@@ -184,8 +184,8 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			}
 		}
 		break;
-	} case AST_NODE_INCLUDE: {
-		struct ASTNodeInclude *include = value;
+	} case AST_INCLUDE: {
+		struct ASTInclude *include = value;
 		node->include.type = include->type;
 		node->include.body = mempool_array(pool);
 		node->include.sys = include->sys;
@@ -194,13 +194,13 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			node->include.path = str_dup(pool, include->path);
 		}
 		if (include->body) {
-			ARRAY_FOREACH(include->body, struct ASTNode *, node) {
+			ARRAY_FOREACH(include->body, struct AST *, node) {
 				array_append(node->include.body, node);
 			}
 		}
 		break;
-	} case AST_NODE_TARGET: {
-		struct ASTNodeTarget *target = value;
+	} case AST_TARGET: {
+		struct ASTTarget *target = value;
 		node->target.type = target->type;
 		node->target.sources = mempool_array(pool);
 		node->target.dependencies = mempool_array(pool);
@@ -216,8 +216,8 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			}
 		}
 		break;
-	} case AST_NODE_TARGET_COMMAND: {
-		struct ASTNodeTargetCommand *targetcommand = value;
+	} case AST_TARGET_COMMAND: {
+		struct ASTTargetCommand *targetcommand = value;
 		node->targetcommand.target = targetcommand->target;
 		node->targetcommand.words = mempool_array(pool);
 		if (targetcommand->words) {
@@ -226,8 +226,8 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 			}
 		}
 		break;
-	} case AST_NODE_VARIABLE: {
-		struct ASTNodeVariable *variable = value;
+	} case AST_VARIABLE: {
+		struct ASTVariable *variable = value;
 		node->variable.name = str_dup(pool, variable->name);
 		node->variable.modifier = variable->modifier;
 		node->variable.words = mempool_array(pool);
@@ -243,10 +243,10 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 	return node;
 }
 
-static struct ASTNode *
-ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *template, struct ASTNode *parent)
+static struct AST *
+ast_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct AST *template, struct AST *parent)
 {
-	struct ASTNode *node = mempool_alloc(pool, sizeof(struct ASTNode));
+	struct AST *node = mempool_alloc(pool, sizeof(struct AST));
 	map_add(ptrmap, template, node);
 	node->pool = pool;
 	node->parent = parent;
@@ -258,15 +258,15 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 	node->meta = template->meta;
 
 	switch (template->type) {
-	case AST_NODE_ROOT:
+	case AST_ROOT:
 		node->root.body = mempool_array(pool);
-		ARRAY_FOREACH(template->root.body, struct ASTNode *, child) {
-			array_append(node->root.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		ARRAY_FOREACH(template->root.body, struct AST *, child) {
+			array_append(node->root.body, ast_clone_helper(pool, ptrmap, child, node));
 		}
 		break;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		break;
-	case AST_NODE_EXPR_FOR:
+	case AST_FOR:
 		if (template->forexpr.comment) {
 			node->forexpr.comment = str_dup(pool, template->forexpr.comment);
 		}
@@ -283,11 +283,11 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 			array_append(node->forexpr.words, str_dup(pool, word));
 		}
 		node->forexpr.body = mempool_array(pool);
-		ARRAY_FOREACH(template->forexpr.body, struct ASTNode *, child) {
-			array_append(node->forexpr.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		ARRAY_FOREACH(template->forexpr.body, struct AST *, child) {
+			array_append(node->forexpr.body, ast_clone_helper(pool, ptrmap, child, node));
 		}
 		break;
-	case AST_NODE_EXPR_IF:
+	case AST_IF:
 		if (template->ifexpr.comment) {
 			node->ifexpr.comment = str_dup(pool, template->ifexpr.comment);
 		}
@@ -295,21 +295,21 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 			node->ifexpr.end_comment = str_dup(pool, template->ifexpr.end_comment);
 		}
 		node->ifexpr.indent = template->ifexpr.indent;
-		node->ifexpr.ifparent = ((struct ASTNode *)map_get(ptrmap, template))->ifexpr.ifparent;
+		node->ifexpr.ifparent = ((struct AST *)map_get(ptrmap, template))->ifexpr.ifparent;
 		node->ifexpr.test = mempool_array(pool);
 		ARRAY_FOREACH(template->ifexpr.test, const char *, word) {
 			array_append(node->ifexpr.test, str_dup(pool, word));
 		}
 		node->ifexpr.body = mempool_array(pool);
-		ARRAY_FOREACH(template->ifexpr.body, struct ASTNode *, child) {
-			array_append(node->ifexpr.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		ARRAY_FOREACH(template->ifexpr.body, struct AST *, child) {
+			array_append(node->ifexpr.body, ast_clone_helper(pool, ptrmap, child, node));
 		}
 		node->ifexpr.orelse = mempool_array(pool);
-		ARRAY_FOREACH(template->ifexpr.orelse, struct ASTNode *, child) {
-			array_append(node->ifexpr.orelse, ast_node_clone_helper(pool, ptrmap, child, node));
+		ARRAY_FOREACH(template->ifexpr.orelse, struct AST *, child) {
+			array_append(node->ifexpr.orelse, ast_clone_helper(pool, ptrmap, child, node));
 		}
 		break;
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (template->include.comment) {
 			node->include.comment = str_dup(pool, template->include.comment);
 		}
@@ -320,11 +320,11 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 		node->include.sys = template->include.sys;
 		node->include.loaded = template->include.loaded;
 		node->include.body = mempool_array(pool);
-		ARRAY_FOREACH(template->include.body, struct ASTNode *, child) {
-			array_append(node->include.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		ARRAY_FOREACH(template->include.body, struct AST *, child) {
+			array_append(node->include.body, ast_clone_helper(pool, ptrmap, child, node));
 		}
 		break;
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		node->target.type = template->target.type;
 		if (template->target.comment) {
 			node->target.comment = str_dup(pool, template->target.comment);
@@ -338,30 +338,30 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 			array_append(node->target.dependencies, str_dup(pool, dependency));
 		}
 		node->target.body = mempool_array(pool);
-		ARRAY_FOREACH(template->target.body, struct ASTNode *, child) {
-			array_append(node->target.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		ARRAY_FOREACH(template->target.body, struct AST *, child) {
+			array_append(node->target.body, ast_clone_helper(pool, ptrmap, child, node));
 		}
 		break;
-	case AST_NODE_COMMENT:
+	case AST_COMMENT:
 		node->comment.type = template->comment.type;
 		node->comment.lines = mempool_array(pool);
 		ARRAY_FOREACH(template->comment.lines, const char *, line) {
 			array_append(node->comment.lines, str_dup(pool, line));
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
-		node->flatexpr.type = template->flatexpr.type;
-		node->flatexpr.indent = template->flatexpr.indent;
-		if (template->flatexpr.comment) {
-			node->flatexpr.comment = str_dup(pool, template->flatexpr.comment);
+	case AST_EXPR:
+		node->expr.type = template->expr.type;
+		node->expr.indent = template->expr.indent;
+		if (template->expr.comment) {
+			node->expr.comment = str_dup(pool, template->expr.comment);
 		}
-		node->flatexpr.words = mempool_array(pool);
-		ARRAY_FOREACH(template->flatexpr.words, const char *, word) {
-			array_append(node->flatexpr.words, str_dup(pool, word));
+		node->expr.words = mempool_array(pool);
+		ARRAY_FOREACH(template->expr.words, const char *, word) {
+			array_append(node->expr.words, str_dup(pool, word));
 		}
 		break;
-	case AST_NODE_TARGET_COMMAND:
-		node->targetcommand.target = &((struct ASTNode *)map_get(ptrmap, template))->target;
+	case AST_TARGET_COMMAND:
+		node->targetcommand.target = &((struct AST *)map_get(ptrmap, template))->target;
 		if (template->targetcommand.comment) {
 			node->targetcommand.comment = str_dup(pool, template->targetcommand.comment);
 		}
@@ -370,7 +370,7 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 			array_append(node->targetcommand.words, str_dup(pool, word));
 		}
 		break;
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		node->variable.name = str_dup(pool, template->variable.name);
 		node->variable.modifier = template->variable.modifier;
 		if (template->variable.comment) {
@@ -386,16 +386,16 @@ ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *
 	return node;
 }
 
-struct ASTNode *
-ast_node_clone(struct Mempool *extpool, struct ASTNode *template)
+struct AST *
+ast_clone(struct Mempool *extpool, struct AST *template)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Map *ptrmap = mempool_map(pool, NULL, NULL, NULL, NULL);
-	return ast_node_clone_helper(extpool, ptrmap, template, NULL);
+	return ast_clone_helper(extpool, ptrmap, template, NULL);
 }
 
 void
-ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int orelse)
+ast_parent_append_sibling(struct AST *parent, struct AST *node, int orelse)
 {
 	unless (parent) {
 		panic("null parent");
@@ -403,53 +403,53 @@ ast_node_parent_append_sibling(struct ASTNode *parent, struct ASTNode *node, int
 
 	node->parent = parent;
 	switch (parent->type) {
-	case AST_NODE_ROOT:
+	case AST_ROOT:
 		array_append(parent->root.body, node);
 		break;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		break;
-	case AST_NODE_EXPR_FOR:
+	case AST_FOR:
 		array_append(parent->forexpr.body, node);
 		break;
-	case AST_NODE_EXPR_IF: {
+	case AST_IF: {
 		if (orelse) {
 			array_append(parent->ifexpr.orelse, node);
 		} else {
 			array_append(parent->ifexpr.body, node);
 		}
 		break;
-	} case AST_NODE_INCLUDE:
+	} case AST_INCLUDE:
 		array_append(parent->include.body, node);
 		break;
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		array_append(parent->target.body, node);
 		break;
-	case AST_NODE_COMMENT:
-		panic("cannot add child to AST_NODE_COMMENT");
+	case AST_COMMENT:
+		panic("cannot add child to AST_COMMENT");
 		break;
-	case AST_NODE_TARGET_COMMAND:
-		panic("cannot add child to AST_NODE_TARGET_COMMAND");
+	case AST_TARGET_COMMAND:
+		panic("cannot add child to AST_TARGET_COMMAND");
 		break;
-	case AST_NODE_EXPR_FLAT:
-		panic("cannot add child to AST_NODE_EXPR_FLAT");
+	case AST_EXPR:
+		panic("cannot add child to AST_EXPR");
 		break;
-	case AST_NODE_VARIABLE:
-		panic("cannot add child to AST_NODE_VARIABLE");
+	case AST_VARIABLE:
+		panic("cannot add child to AST_VARIABLE");
 		break;
 	}
 }
 
 struct Array *
-ast_node_siblings(struct ASTNode *node)
+ast_siblings(struct AST *node)
 {
 	ssize_t index = -1;
-	struct ASTNode *parent = node->parent;
+	struct AST *parent = node->parent;
 	switch (parent->type) {
-	case AST_NODE_ROOT:
+	case AST_ROOT:
 		return parent->root.body;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		panic("cannot return siblings of deleted node");
-	case AST_NODE_EXPR_IF:
+	case AST_IF:
 		index = array_find(parent->ifexpr.body, node, NULL, NULL);
 		if (index < 0) {
 			index = array_find(parent->ifexpr.orelse, node, NULL, NULL);
@@ -460,16 +460,16 @@ ast_node_siblings(struct ASTNode *node)
 		} else {
 			return parent->ifexpr.body;
 		}
-	case AST_NODE_EXPR_FOR:
+	case AST_FOR:
 		return parent->forexpr.body;
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		return parent->include.body;
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		return parent->target.body;
-	case AST_NODE_COMMENT:
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_TARGET_COMMAND:
-	case AST_NODE_VARIABLE:
+	case AST_COMMENT:
+	case AST_EXPR:
+	case AST_TARGET_COMMAND:
+	case AST_VARIABLE:
 		panic("leaf node as parent");
 	}
 
@@ -477,10 +477,10 @@ ast_node_siblings(struct ASTNode *node)
 }
 
 void
-ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_sibling)
+ast_parent_insert_before_sibling(struct AST *node, struct AST *new_sibling)
 // Insert `new_sibling` in the `node`'s parent just before `node`
 {
-	struct Array *nodelist = ast_node_siblings(node);
+	struct Array *nodelist = ast_siblings(node);
 	ssize_t index = -1;
 	index = array_find(nodelist, node, NULL, NULL);
 	if (index < 0) {
@@ -491,38 +491,38 @@ ast_node_parent_insert_before_sibling(struct ASTNode *node, struct ASTNode *new_
 }
 
 enum ASTWalkState
-ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
+ast_print_helper(struct AST *node, FILE *f, size_t level)
 {
 	SCOPE_MEMPOOL(pool);
 	const char *indent = str_repeat(pool, "\t", level);
 	const char *line_start = str_printf(pool, "[%zu,%zu)", node->line_start.a, node->line_start.b);
 	const char *line_end = str_printf(pool, "[%zu,%zu)", node->line_end.a, node->line_end.b);
 	switch(node->type) {
-	case AST_NODE_COMMENT:
-		fprintf(f, "%s{ .type = AST_NODE_COMMENT, .line_start = %s, .line_end = %s, .comment = %s }\n",
+	case AST_COMMENT:
+		fprintf(f, "%s{ .type = COMMENT, .line_start = %s, .line_end = %s, .comment = %s }\n",
 			indent,
 			line_start,
 			line_end,
 			str_join(pool, node->comment.lines, "\\n"));
 		break;
-	case AST_NODE_EXPR_FLAT:
-		fprintf(f, "%s{ .type = AST_NODE_EXPR_FLAT, .line_start = %s, .line_end = %s, .indent = %zu, .words = { %s } }\n",
+	case AST_EXPR:
+		fprintf(f, "%s{ .type = EXPR, .line_start = %s, .line_end = %s, .indent = %zu, .words = { %s } }\n",
 			indent,
 			line_start,
 			line_end,
-			node->flatexpr.indent,
-			str_join(pool, node->flatexpr.words, ", "));
+			node->expr.indent,
+			str_join(pool, node->expr.words, ", "));
 		break;
-	case AST_NODE_EXPR_FOR: {
+	case AST_FOR: {
 		const char *comment = "";
-		if (node->ifexpr.comment) {
-			comment = node->ifexpr.comment;
+		if (node->forexpr.comment) {
+			comment = node->forexpr.comment;
 		}
 		const char *end_comment = "";
-		if (node->ifexpr.end_comment) {
-			end_comment = node->ifexpr.end_comment;
+		if (node->forexpr.end_comment) {
+			end_comment = node->forexpr.end_comment;
 		}
-		fprintf(f, "%s{ .type = AST_NODE_EXPR_FOR, .line_start = %s, .line_end = %s, .indent = %zu, .bindings = { %s }, .words = { %s }, .comment = %s, .end_comment = %s }\n",
+		fprintf(f, "%s{ .type = FOR, .line_start = %s, .line_end = %s, .indent = %zu, .bindings = { %s }, .words = { %s }, .comment = %s, .end_comment = %s }\n",
 			indent,
 			line_start,
 			line_end,
@@ -533,7 +533,7 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			end_comment);
 		level++;
 		break;
-	} case AST_NODE_EXPR_IF: {
+	} case AST_IF: {
 		const char *comment = "";
 		if (node->ifexpr.comment) {
 			comment = node->ifexpr.comment;
@@ -542,11 +542,11 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 		if (node->ifexpr.end_comment) {
 			end_comment = node->ifexpr.end_comment;
 		}
-		fprintf(f, "%s{ .type = AST_NODE_EXPR_IF, .line_start = %s, .line_end = %s, .iftype = %s, .indent = %zu, .test = { %s }, .elseif = %d, .comment = %s, .end_comment = %s }\n",
+		fprintf(f, "%s{ .type = IF, .line_start = %s, .line_end = %s, .iftype = %s, .indent = %zu, .test = { %s }, .elseif = %d, .comment = %s, .end_comment = %s }\n",
 			indent,
 			line_start,
 			line_end,
-			NodeExprIfType_tostring[node->ifexpr.type],
+			ASTIfType_tostring[node->ifexpr.type],
 			node->ifexpr.indent,
 			str_join(pool, node->ifexpr.test, ", "),
 			node->ifexpr.ifparent != NULL,
@@ -554,18 +554,18 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			end_comment);
 		if (array_len(node->ifexpr.body) > 0) {
 			fprintf(f, "%s=> if:\n", indent);
-			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
-				ast_node_print_helper(child, f, level + 1);
+			ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
+				ast_print_helper(child, f, level + 1);
 			}
 		}
 		if (array_len(node->ifexpr.orelse) > 0) {
 			fprintf(f, "%s=> else:\n", indent);
-			ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
-				ast_node_print_helper(child, f, level + 1);
+			ARRAY_FOREACH(node->ifexpr.orelse, struct AST *, child) {
+				ast_print_helper(child, f, level + 1);
 			}
 		}
 		return AST_WALK_CONTINUE;
-	} case AST_NODE_INCLUDE: {
+	} case AST_INCLUDE: {
 		const char *path = node->include.path;
 		unless (path) {
 			path = "";
@@ -574,9 +574,9 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 		unless (comment) {
 			comment = "";
 		}
-		fprintf(f, "%s{ .type = AST_NODE_INCLUDE/%s, .line_start = %s, .line_end = %s, .indent = %zu, .path = %s, .sys = %d, .loaded = %d, .comment = %s }\n",
+		fprintf(f, "%s{ .type = INCLUDE/%s, .line_start = %s, .line_end = %s, .indent = %zu, .path = %s, .sys = %d, .loaded = %d, .comment = %s }\n",
 			indent,
-			ASTNodeIncludeType_tostring[node->include.type],
+			ASTIncludeType_tostring[node->include.type],
 			line_start,
 			line_end,
 			node->include.indent,
@@ -586,48 +586,50 @@ ast_node_print_helper(struct ASTNode *node, FILE *f, size_t level)
 			comment);
 		level++;
 		break;
-	} case AST_NODE_TARGET:
-		fprintf(f, "%s{ .type = AST_NODE_TARGET, .line_start = %s, .line_end = %s, .type = %s, .sources = { %s }, .dependencies = { %s } }\n",
+	} case AST_TARGET:
+		fprintf(f, "%s{ .type = TARGET, .line_start = %s, .line_end = %s, .type = %s, .sources = { %s }, .dependencies = { %s } }\n",
 			indent,
 			line_start,
 			line_end,
-			ASTNodeTargetType_tostring[node->target.type],
+			ASTTargetType_tostring[node->target.type],
 			str_join(pool, node->target.sources, ", "),
 			str_join(pool, node->target.dependencies, ", "));
 		level++;
 		break;
-	case AST_NODE_TARGET_COMMAND:
-		fprintf(f, "%s{ .type = AST_NODE_TARGET_COMMAND, .line_start = %s, .line_end = %s, .words = { %s } }\n",
+	case AST_TARGET_COMMAND:
+		fprintf(f, "%s{ .type = TARGET_COMMAND, .line_start = %s, .line_end = %s, .words = { %s } }\n",
 			indent,
 			line_start,
 			line_end,
 			str_join(pool, node->targetcommand.words, ", "));
 		break;
-	case AST_NODE_VARIABLE:
-		fprintf(f, "%s{ .type = AST_NODE_VARIABLE, .line_start = %s, .line_end = %s, .name = %s, .modifier = %s, .words = { %s } }\n",
+	case AST_VARIABLE:
+		fprintf(f, "%s{ .type = VARIABLE, .line_start = %s, .line_end = %s, .name = %s, .modifier = %s, .words = { %s } }\n",
 			indent,
 			line_start,
 			line_end,
 			node->variable.name,
-			ASTNodeVariableModifier_humanize[node->variable.modifier],
+			ASTVariableModifier_humanize[node->variable.modifier],
 			str_join(pool, node->variable.words, ", "));
 		break;
 	default:
 		break;
 	}
 
-	AST_WALK_DEFAULT(ast_node_print_helper, node, f, level);
+	AST_WALK_DEFAULT(ast_print_helper, node, f, level);
 	return AST_WALK_CONTINUE;
 }
 
 void
-ast_node_print(struct ASTNode *node, FILE *f)
+ast_print(struct AST *node, FILE *f)
 {
-	ast_node_print_helper(node, f, 0);
+	ast_print_helper(node, f, 0);
 }
 
 void
-ast_free(struct ASTNode *node) {
+ast_free(struct AST *node)
+// This will free the entire tree not just this particular node
+{
 	if (node) {
 		mempool_free(node->pool);
 	}

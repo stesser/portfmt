@@ -48,17 +48,17 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-refactor_sanitize_append_modifier_walker(struct ASTNode *node, struct WalkerData *this)
+refactor_sanitize_append_modifier_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
 			return AST_WALK_STOP;
 		}
 		break;
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if (set_contains(this->seen, node->variable.name)) {
-			if (node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_APPEND) {
+			if (node->variable.modifier == AST_VARIABLE_MODIFIER_APPEND) {
 				node->edited = 1;
 			} else {
 				set_remove(this->seen, node->variable.name);
@@ -69,9 +69,9 @@ refactor_sanitize_append_modifier_walker(struct ASTNode *node, struct WalkerData
 			    strcmp(node->variable.name, "CFLAGS") != 0 &&
 			    strcmp(node->variable.name, "LDFLAGS") != 0 &&
 			    strcmp(node->variable.name, "RUSTFLAGS") != 0 &&
-			    node->variable.modifier == AST_NODE_VARIABLE_MODIFIER_APPEND) {
-				if (node->parent->type != AST_NODE_EXPR_IF && node->parent->type != AST_NODE_EXPR_FOR) {
-					node->variable.modifier = AST_NODE_VARIABLE_MODIFIER_ASSIGN;
+			    node->variable.modifier == AST_VARIABLE_MODIFIER_APPEND) {
+				if (node->parent->type != AST_IF && node->parent->type != AST_FOR) {
+					node->variable.modifier = AST_VARIABLE_MODIFIER_ASSIGN;
 				}
 				node->edited = 1;
 			}

@@ -46,10 +46,10 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-output_target_command_token_walker(struct ASTNode *node, struct WalkerData *this)
+output_target_command_token_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, src) {
 			if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, src, this->param->keyuserdata))) {
 				this->param->found = 1;
@@ -58,7 +58,7 @@ output_target_command_token_walker(struct ASTNode *node, struct WalkerData *this
 			}
 		}
 		break;
-	case AST_NODE_TARGET_COMMAND:
+	case AST_TARGET_COMMAND:
 		ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
 			if (this->target && (this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
 				this->param->found = 1;

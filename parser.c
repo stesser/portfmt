@@ -78,7 +78,7 @@ struct Parser {
 	struct ParserASTBuilder *builder;
 
 	struct Mempool *pool;
-	struct ASTNode *ast;
+	struct AST *ast;
 	struct Array *result;
 	struct Array *rawlines;
 	void *metadata[PARSER_METADATA_USES + 1];
@@ -106,19 +106,19 @@ static void parser_metadata_free(struct Parser *);
 static void parser_metadata_port_options(struct Parser *);
 static void parser_output_dump_tokens(struct Parser *);
 static void parser_output_prepare(struct Parser *);
-static void parser_output_print_rawlines(struct Parser *, struct ASTNodeLineRange *);
-static void parser_output_print_target_command(struct Parser *, struct ASTNode *);
-static void parser_output_print_variable(struct Parser *, struct Mempool *, struct ASTNode *);
-static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTNodeVariable *, struct Array *);
+static void parser_output_print_rawlines(struct Parser *, struct ASTLineRange *);
+static void parser_output_print_target_command(struct Parser *, struct AST *);
+static void parser_output_print_variable(struct Parser *, struct Mempool *, struct AST *);
+static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
 static void parser_output_reformatted(struct Parser *);
 static void parser_output_diff(struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
 static void parser_read_internal(struct Parser *);
 static void parser_read_line(struct Parser *, char *, size_t);
 static void parser_tokenize(struct Parser *, const char *, enum ParserASTBuilderTokenType, size_t);
-static void print_newline_array(struct Parser *, struct ASTNode *, struct Array *);
-static void print_token_array(struct Parser *, struct ASTNode *, struct Array *);
-static char *range_tostring(struct Mempool *, struct ASTNodeLineRange *);
+static void print_newline_array(struct Parser *, struct AST *, struct Array *);
+static void print_token_array(struct Parser *, struct AST *, struct Array *);
+static char *range_tostring(struct Mempool *, struct ASTLineRange *);
 
 size_t
 consume_comment(const char *buf)
@@ -279,7 +279,7 @@ is_empty_line(const char *buf)
 }
 
 char *
-range_tostring(struct Mempool *pool, struct ASTNodeLineRange *range)
+range_tostring(struct Mempool *pool, struct ASTLineRange *range)
 {
 	panic_unless(range, "range_tostring() is not NULL-safe");
 	panic_unless(range->a < range->b, "range is inverted");
@@ -292,15 +292,15 @@ range_tostring(struct Mempool *pool, struct ASTNodeLineRange *range)
 }
 
 static int
-parser_is_category_makefile(struct ASTNode *node, struct Parser *parser)
+parser_is_category_makefile(struct AST *node, struct Parser *parser)
 {
 	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
 		return 0;
 	}
 
 	switch (node->type) {
-	case AST_NODE_INCLUDE:
-		if (node->include.type == AST_NODE_INCLUDE_BMAKE &&
+	case AST_INCLUDE:
+		if (node->include.type == AST_INCLUDE_BMAKE &&
 		    node->include.sys && node->include.path &&
 		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
 			return AST_WALK_STOP;
@@ -581,7 +581,7 @@ static void
 parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 {
 	this->moving_goalcol = MAX(16, this->moving_goalcol);
-	ARRAY_FOREACH(this->nodes, struct ASTNode *, node) {
+	ARRAY_FOREACH(this->nodes, struct AST *, node) {
 		node->meta.goalcol = this->moving_goalcol;
 	}
 
@@ -590,7 +590,7 @@ parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 }
 
 static enum ASTWalkState
-parser_find_goalcols_walker(struct ASTNode *node, struct ParserFindGoalcolsState *this)
+parser_find_goalcols_walker(struct AST *node, struct ParserFindGoalcolsState *this)
 {
 	if (this->parser->error != PARSER_ERROR_OK) {
 		return AST_WALK_STOP;
@@ -598,7 +598,7 @@ parser_find_goalcols_walker(struct ASTNode *node, struct ParserFindGoalcolsState
 
 	// do not recurse down into loaded includes
 	switch (node->type) {
-	case AST_NODE_COMMENT:
+	case AST_COMMENT:
 		/* Ignore comments in between variables and
 		 * treat variables after them as part of the
 		 * same block, i.e., indent them the same way.
@@ -609,7 +609,7 @@ parser_find_goalcols_walker(struct ASTNode *node, struct ParserFindGoalcolsState
 			}
 		}
 		break;
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if (array_len(node->variable.words) > 0) {
 			if (skip_goalcol(this->parser, node->variable.name)) {
 				node->meta.goalcol = indent_goalcol(node->variable.name, node->variable.modifier);
@@ -641,7 +641,7 @@ parser_find_goalcols(struct Parser *parser)
 }
 
 void
-print_newline_array(struct Parser *parser, struct ASTNode *node, struct Array *arr)
+print_newline_array(struct Parser *parser, struct AST *node, struct Array *arr)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -651,8 +651,8 @@ print_newline_array(struct Parser *parser, struct ASTNode *node, struct Array *a
 		startlen++;
 		parser_enqueue_output(parser, " ");
 	}
-	parser_enqueue_output(parser, ASTNodeVariableModifier_humanize[node->variable.modifier]);
-	startlen += strlen(ASTNodeVariableModifier_humanize[node->variable.modifier]);
+	parser_enqueue_output(parser, ASTVariableModifier_humanize[node->variable.modifier]);
+	startlen += strlen(ASTVariableModifier_humanize[node->variable.modifier]);
 
 	size_t ntabs;
 	if (startlen > MAX(16, node->meta.goalcol)) {
@@ -697,7 +697,7 @@ print_newline_array(struct Parser *parser, struct ASTNode *node, struct Array *a
 }
 
 void
-print_token_array(struct Parser *parser, struct ASTNode *node, struct Array *tokens)
+print_token_array(struct Parser *parser, struct AST *node, struct Array *tokens)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -748,7 +748,7 @@ print_token_array(struct Parser *parser, struct ASTNode *node, struct Array *tok
 }
 
 void
-parser_output_print_rawlines(struct Parser *parser, struct ASTNodeLineRange *lines)
+parser_output_print_rawlines(struct Parser *parser, struct ASTLineRange *lines)
 {
 	for (size_t i = lines->a; i < lines->b; i++) {
 		parser_enqueue_output(parser, array_get(parser->rawlines, i - 1));
@@ -757,7 +757,7 @@ parser_output_print_rawlines(struct Parser *parser, struct ASTNodeLineRange *lin
 }
 
 void
-parser_output_print_target_command(struct Parser *parser, struct ASTNode *node)
+parser_output_print_target_command(struct Parser *parser, struct AST *node)
 {
 	if (array_len(node->targetcommand.words) == 0) {
 		return;
@@ -868,7 +868,7 @@ parser_output_print_target_command(struct Parser *parser, struct ASTNode *node)
 	if (!(parser->settings.behavior & PARSER_FORMAT_TARGET_COMMANDS) ||
 	    complexity > parser->settings.target_command_format_threshold) {
 		if (!node->edited) {
-			struct ASTNodeLineRange range = { .a = node->line_start.a, .b = node->line_end.b };
+			struct ASTLineRange range = { .a = node->line_start.a, .b = node->line_end.b };
 			parser_output_print_rawlines(parser, &range);
 			return;
 		}
@@ -959,7 +959,7 @@ matches_opt_use_prefix(const char *s)
 }
 
 struct Array *
-parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct ASTNodeVariable *var, struct Array *arr)
+parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct ASTVariable *var, struct Array *arr)
 {
 	if (array_len(arr) == 0) {
 		return arr;
@@ -993,12 +993,12 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 		suffix++;
 
 		char *prefix = str_map(pool, t, suffix - t, toupper);
-		enum ASTNodeVariableModifier mod = AST_NODE_VARIABLE_MODIFIER_ASSIGN;
+		enum ASTVariableModifier mod = AST_VARIABLE_MODIFIER_ASSIGN;
 		if ((suffix - t) >= 1 && prefix[suffix - t - 1] == '=') {
 			prefix[suffix - t - 1] = 0;
 		}
 		if ((suffix - t) >= 2 && prefix[suffix - t - 2] == '+') {
-			mod = AST_NODE_VARIABLE_MODIFIER_APPEND;
+			mod = AST_VARIABLE_MODIFIER_APPEND;
 			prefix[suffix - t - 2] = 0;
 		}
 		struct Array *buf = mempool_array(pool);
@@ -1006,7 +1006,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 			struct Array *values = mempool_array(pool);
 			char *var = str_printf(pool, "USE_%s", prefix);
 			array_append(buf, prefix);
-			array_append(buf, ASTNodeVariableModifier_humanize[mod]);
+			array_append(buf, ASTVariableModifier_humanize[mod]);
 			char *s, *token;
 			s = str_dup(pool, suffix);
 			while ((token = strsep(&s, ",")) != NULL) {
@@ -1025,7 +1025,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 			}
 		} else {
 			array_append(buf, prefix);
-			array_append(buf, ASTNodeVariableModifier_humanize[mod]);
+			array_append(buf, ASTVariableModifier_humanize[mod]);
 			array_append(buf, suffix);
 		}
 
@@ -1035,13 +1035,13 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 }
 
 void
-parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct ASTNode *node)
+parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct AST *node)
 {
-	panic_unless(node->type == AST_NODE_VARIABLE, "expected AST_NODE_VARIABLE");
+	panic_unless(node->type == AST_VARIABLE, "expected AST_VARIABLE");
 	struct Array *words = node->variable.words;
 
 	/* Leave variables unformatted that have $\ in them. */
-	struct ASTNodeLineRange range = { .a = node->line_start.a, .b = node->line_end.b };
+	struct ASTLineRange range = { .a = node->line_start.a, .b = node->line_end.b };
 	if ((array_len(words) == 1 && strstr(array_get(words, 0), "$\001") != NULL) ||
 	    (leave_unformatted(parser, node->variable.name) &&
 	     !node->edited)) {
@@ -1073,7 +1073,7 @@ parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct
 }
 
 static void
-parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNode *node)
+parser_output_category_makefile_reformatted(struct Parser *parser, struct AST *node)
 {
 	if (parser->error != PARSER_ERROR_OK) {
 		return;
@@ -1086,36 +1086,36 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNod
 	const char *indent = "    ";
 
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+	case AST_ROOT:
+		ARRAY_FOREACH(node->root.body, struct AST *, child) {
 			parser_output_category_makefile_reformatted(parser, child);
 		}
 		return;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		break;
-	case AST_NODE_INCLUDE:
-		if (node->include.type == AST_NODE_INCLUDE_BMAKE &&
+	case AST_INCLUDE:
+		if (node->include.type == AST_INCLUDE_BMAKE &&
 		    node->include.sys && node->include.path &&
 		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
 			parser_enqueue_output(parser, ".include <bsd.port.subdir.mk>\n");
 			return;
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
-	case AST_NODE_EXPR_IF:
-	case AST_NODE_EXPR_FOR:
-	case AST_NODE_TARGET:
-	case AST_NODE_TARGET_COMMAND:
+	case AST_EXPR:
+	case AST_IF:
+	case AST_FOR:
+	case AST_TARGET:
+	case AST_TARGET_COMMAND:
 		parser_set_error(parser, PARSER_ERROR_UNSPECIFIED,
 				 "unsupported node type in category Makefile"); // TODO
 		return;
-	case AST_NODE_COMMENT:
+	case AST_COMMENT:
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
 			parser_enqueue_output(parser, line);
 			parser_enqueue_output(parser, "\n");
 		}
 		return;
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if (strcmp(node->variable.name, "COMMENT") == 0) {
 			parser_enqueue_output(parser, indent);
 			parser_enqueue_output(parser, "COMMENT = ");
@@ -1144,20 +1144,20 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct ASTNod
 }
 
 static enum ASTWalkState
-parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
+parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 {
 	SCOPE_MEMPOOL(pool);
 
 	int edited = node->edited || (parser->settings.behavior & PARSER_OUTPUT_REFORMAT);
 	switch (node->type) {
-	case AST_NODE_ROOT:
-		ARRAY_FOREACH(node->root.body, struct ASTNode *, child) {
+	case AST_ROOT:
+		ARRAY_FOREACH(node->root.body, struct AST *, child) {
 			AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 		}
 		break;
-	case AST_NODE_DELETED:
+	case AST_DELETED:
 		break;
-	case AST_NODE_COMMENT:
+	case AST_COMMENT:
 		if (node->edited) { // Ignore PARSER_OUTPUT_REFORMAT
 			ARRAY_FOREACH(node->comment.lines, const char *, line) {
 				parser_enqueue_output(parser, line);
@@ -1167,22 +1167,22 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			parser_output_print_rawlines(parser, &node->line_start);
 		}
 		break;
-	case AST_NODE_INCLUDE:
+	case AST_INCLUDE:
 		if (edited) {
 			const char *dot;
 			switch (node->include.type) {
-			case AST_NODE_INCLUDE_POSIX:
+			case AST_INCLUDE_POSIX:
 				dot = "";
 				break;
 			default:
 				dot = ".";
 				break;
 			}
-			const char *name = ASTNodeIncludeType_identifier[node->include.type];
+			const char *name = ASTIncludeType_identifier[node->include.type];
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_printf(pool, "%s%s%s", dot, str_repeat(pool, " ", node->include.indent), name));
 			if (node->include.path) {
-				if (node->include.type == AST_NODE_INCLUDE_POSIX) {
+				if (node->include.type == AST_INCLUDE_POSIX) {
 					parser_enqueue_output(parser, " ");
 					parser_enqueue_output(parser, node->include.path);
 				} else if (node->include.sys) {
@@ -1190,7 +1190,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				} else {
 					parser_enqueue_output(parser, str_printf(pool, " \"%s\"", node->include.path));
 				}
-			} else if (node->include.type != AST_NODE_INCLUDE_POSIX) {
+			} else if (node->include.type != AST_INCLUDE_POSIX) {
 				parser_enqueue_output(parser, " \"\"");
 			}
 			if (node->include.comment && strlen(node->include.comment) > 0) {
@@ -1201,22 +1201,22 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			parser_output_print_rawlines(parser, &node->line_start);
 		}
 		break;
-	case AST_NODE_EXPR_FLAT:
+	case AST_EXPR:
 		if (edited) {
-			const char *name = ASTNodeExprFlatType_identifier[node->flatexpr.type];
+			const char *name = ASTExprType_identifier[node->expr.type];
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s",
-				str_repeat(pool, " ", node->flatexpr.indent), name, str_join(pool, node->flatexpr.words, " ")));
-			if (node->flatexpr.comment && strlen(node->flatexpr.comment) > 0) {
+				str_repeat(pool, " ", node->expr.indent), name, str_join(pool, node->expr.words, " ")));
+			if (node->expr.comment && strlen(node->expr.comment) > 0) {
 				parser_enqueue_output(parser, " ");
-				parser_enqueue_output(parser, node->flatexpr.comment);
+				parser_enqueue_output(parser, node->expr.comment);
 			}
 			parser_enqueue_output(parser, "\n");
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
 		}
 		break;
-	case AST_NODE_EXPR_FOR:
+	case AST_FOR:
 		if (edited) {
 			const char *indent = str_repeat(pool, " ", node->forexpr.indent);
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
@@ -1229,7 +1229,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				parser_enqueue_output(parser, node->forexpr.comment);
 			}
 			parser_enqueue_output(parser, "\n");
-			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			ARRAY_FOREACH(node->forexpr.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			parser_enqueue_output(parser, str_printf(pool, ".%sendfor", indent));
@@ -1240,20 +1240,20 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			parser_enqueue_output(parser, "\n");
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
-			ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) {
+			ARRAY_FOREACH(node->forexpr.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			parser_output_print_rawlines(parser, &node->line_end);
 		}
 		break;
-	case AST_NODE_EXPR_IF:
+	case AST_IF:
 		if (edited) {
 			const char *prefix = "";
 			if (node->ifexpr.ifparent) {
 				prefix = "el";
 			}
 			parser_enqueue_output(parser, str_printf(pool, ".%s%s%s ", str_repeat(pool, " ", node->ifexpr.indent),
-				prefix, NodeExprIfType_humanize[node->ifexpr.type]));
+				prefix, ASTIfType_humanize[node->ifexpr.type]));
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_join(pool, node->ifexpr.test, " "));
 			if (node->ifexpr.comment && strlen(node->ifexpr.comment) > 0) {
@@ -1261,18 +1261,18 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				parser_enqueue_output(parser, node->ifexpr.comment);
 			}
 			parser_enqueue_output(parser, "\n");
-			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			if (array_len(node->ifexpr.orelse) > 0) {
-				struct ASTNode *next = array_get(node->ifexpr.orelse, 0);
-				if (next && next->type == AST_NODE_EXPR_IF && next->ifexpr.type == AST_NODE_EXPR_IF_ELSE) {
+				struct AST *next = array_get(node->ifexpr.orelse, 0);
+				if (next && next->type == AST_IF && next->ifexpr.type == AST_IF_ELSE) {
 					parser_output_print_rawlines(parser, &next->line_start); // .else
-					ARRAY_FOREACH(next->ifexpr.body, struct ASTNode *, child) {
+					ARRAY_FOREACH(next->ifexpr.body, struct AST *, child) {
 						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
 				} else {
-					ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+					ARRAY_FOREACH(node->ifexpr.orelse, struct AST *, child) {
 						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
 				}
@@ -1287,18 +1287,18 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			}
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
-			ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) {
+			ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 			if (array_len(node->ifexpr.orelse) > 0) {
-				struct ASTNode *next = array_get(node->ifexpr.orelse, 0);
-				if (next && next->type == AST_NODE_EXPR_IF && next->ifexpr.type == AST_NODE_EXPR_IF_ELSE) {
+				struct AST *next = array_get(node->ifexpr.orelse, 0);
+				if (next && next->type == AST_IF && next->ifexpr.type == AST_IF_ELSE) {
 					parser_output_print_rawlines(parser, &next->line_start); // .else
-					ARRAY_FOREACH(next->ifexpr.body, struct ASTNode *, child) {
+					ARRAY_FOREACH(next->ifexpr.body, struct AST *, child) {
 						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
 				} else {
-					ARRAY_FOREACH(node->ifexpr.orelse, struct ASTNode *, child) {
+					ARRAY_FOREACH(node->ifexpr.orelse, struct AST *, child) {
 						AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 					}
 				}
@@ -1308,7 +1308,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 			}
 		}
 		break;
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		if (edited) {
 			const char *sep = "";
 			if (array_len(node->target.dependencies) > 0) {
@@ -1323,20 +1323,20 @@ parser_output_reformatted_walker(struct Parser *parser, struct ASTNode *node)
 				parser_enqueue_output(parser, node->target.comment);
 			}
 			parser_enqueue_output(parser, "\n");
-			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			ARRAY_FOREACH(node->target.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 		} else {
 			parser_output_print_rawlines(parser, &node->line_start);
-			ARRAY_FOREACH(node->target.body, struct ASTNode *, child) {
+			ARRAY_FOREACH(node->target.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
 		}
 		break;
-	case AST_NODE_TARGET_COMMAND:
+	case AST_TARGET_COMMAND:
 		parser_output_print_target_command(parser, node);
 		break;
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 			parser_output_print_variable(parser, pool, node);
 		break;
 	}
@@ -1432,7 +1432,7 @@ parser_output_dump_tokens(struct Parser *parser)
 	} else if (parser->settings.debug_level == 1) {
 		FILE *f = open_memstream(&buf, &len);
 		panic_unless(f, "open_memstream: %s", strerror(errno));
-		ast_node_print(parser->ast, f);
+		ast_print(parser->ast, f);
 		fclose(f);
 		parser_enqueue_output(parser, buf);
 		free(buf);
@@ -1683,7 +1683,7 @@ parser_read_finish(struct Parser *parser)
 	return parser->error;
 }
 
-struct ASTNode *
+struct AST *
 parser_ast(struct Parser *parser)
 {
 	panic_unless(parser->read_finished, "parser_ast() called before parser_read_finish()");
@@ -2092,10 +2092,10 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 }
 
 static enum ASTWalkState
-parser_lookup_target_walker(struct ASTNode *node, const char *name, struct ASTNode **retval)
+parser_lookup_target_walker(struct AST *node, const char *name, struct AST **retval)
 {
 	switch (node->type) {
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		ARRAY_FOREACH(node->target.sources, char *, src) {
 			if (strcmp(src, name) == 0) {
 				*retval = node;
@@ -2112,19 +2112,19 @@ parser_lookup_target_walker(struct ASTNode *node, const char *name, struct ASTNo
 	return AST_WALK_CONTINUE;
 }
 
-struct ASTNode *
+struct AST *
 parser_lookup_target(struct Parser *parser, const char *name)
 {
-	struct ASTNode *node = NULL;
+	struct AST *node = NULL;
 	parser_lookup_target_walker(parser->ast, name, &node);
 	return node;
 }
 
 static enum ASTWalkState
-parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const char *name, enum ParserLookupVariableBehavior behavior, struct Array *tokens, struct Array *comments, struct ASTNode **retval)
+parser_lookup_variable_walker(struct AST *node, struct Mempool *pool, const char *name, enum ParserLookupVariableBehavior behavior, struct Array *tokens, struct Array *comments, struct AST **retval)
 {
 	switch (node->type) {
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if (strcmp(node->variable.name, name) == 0) {
 			*retval = node;
 			ARRAY_FOREACH(node->variable.words, const char *, word) {
@@ -2139,9 +2139,9 @@ parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const 
 			}
 		}
 		break;
-	case AST_NODE_EXPR_FOR:
-	case AST_NODE_EXPR_IF:
-	case AST_NODE_INCLUDE:
+	case AST_FOR:
+	case AST_IF:
+	case AST_INCLUDE:
 		if (behavior & PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS) {
 			return AST_WALK_CONTINUE;
 		}
@@ -2155,13 +2155,13 @@ parser_lookup_variable_walker(struct ASTNode *node, struct Mempool *pool, const 
 	return AST_WALK_CONTINUE;
 }
 
-struct ASTNode *
+struct AST *
 parser_lookup_variable(struct Parser *parser, const char *name, enum ParserLookupVariableBehavior behavior, struct Mempool *extpool, struct Array **retval, struct Array **comment)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *tokens = mempool_array(pool);
 	struct Array *comments = mempool_array(pool);
-	struct ASTNode *node = NULL;
+	struct AST *node = NULL;
 	parser_lookup_variable_walker(parser->ast, pool, name, behavior, tokens, comments, &node);
 	if (node) {
 		mempool_inherit(extpool, pool);
@@ -2183,14 +2183,14 @@ parser_lookup_variable(struct Parser *parser, const char *name, enum ParserLooku
 	}
 }
 
-struct ASTNode *
+struct AST *
 parser_lookup_variable_str(struct Parser *parser, const char *name, enum ParserLookupVariableBehavior behavior, struct Mempool *extpool, char **retval, char **comment)
 {
 	SCOPE_MEMPOOL(pool);
 
 	struct Array *comments;
 	struct Array *words;
-	struct ASTNode *node = parser_lookup_variable(parser, name, behavior, pool, &words, &comments);
+	struct AST *node = parser_lookup_variable(parser, name, behavior, pool, &words, &comments);
 	if (node) {
 		if (comment) {
 			*comment = str_join(extpool, comments, " ");

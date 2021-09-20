@@ -1483,9 +1483,9 @@ matches_license_name(struct Parser *parser, const char *var)
 }
 
 int
-ignore_wrap_col(struct Parser *parser, const char *varname, enum ASTNodeVariableModifier modifier)
+ignore_wrap_col(struct Parser *parser, const char *varname, enum ASTVariableModifier modifier)
 {
-	if (modifier == AST_NODE_VARIABLE_MODIFIER_SHELL ||
+	if (modifier == AST_VARIABLE_MODIFIER_SHELL ||
 	    matches_license_name(parser, varname)) {
 		return 1;
 	}
@@ -1494,20 +1494,20 @@ ignore_wrap_col(struct Parser *parser, const char *varname, enum ASTNodeVariable
 }
 
 int
-indent_goalcol(const char *var, enum ASTNodeVariableModifier modifier)
+indent_goalcol(const char *var, enum ASTVariableModifier modifier)
 {
 	size_t varlength = strlen(var) + 1;
 	if (str_endswith(var, "+")) {
 		varlength += 1; // " " before modifier
 	}
 	switch (modifier) {
-	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
+	case AST_VARIABLE_MODIFIER_ASSIGN:
 		varlength += 1;
 		break;
-	case AST_NODE_VARIABLE_MODIFIER_APPEND:
-	case AST_NODE_VARIABLE_MODIFIER_EXPAND:
-	case AST_NODE_VARIABLE_MODIFIER_OPTIONAL:
-	case AST_NODE_VARIABLE_MODIFIER_SHELL:
+	case AST_VARIABLE_MODIFIER_APPEND:
+	case AST_VARIABLE_MODIFIER_EXPAND:
+	case AST_VARIABLE_MODIFIER_OPTIONAL:
+	case AST_VARIABLE_MODIFIER_SHELL:
 		varlength += 2;
 		break;
 	default:
@@ -1532,10 +1532,10 @@ is_comment(const char *token)
 }
 
 int
-is_include_bsd_port_mk(struct ASTNode *node)
+is_include_bsd_port_mk(struct AST *node)
 {
-	if (node->type == AST_NODE_INCLUDE &&
-	    node->include.type == AST_NODE_INCLUDE_BMAKE &&
+	if (node->type == AST_INCLUDE &&
+	    node->include.type == AST_INCLUDE_BMAKE &&
 	    node->include.sys) {
 		if (strcmp(node->include.path, "bsd.port.options.mk") == 0 ||
 		    strcmp(node->include.path, "bsd.port.pre.mk") == 0 ||
@@ -1561,9 +1561,9 @@ leave_unformatted(struct Parser *parser, const char *var)
 }
 
 int
-should_sort(struct Parser *parser, const char *var, enum ASTNodeVariableModifier modifier)
+should_sort(struct Parser *parser, const char *var, enum ASTVariableModifier modifier)
 {
-	if (modifier == AST_NODE_VARIABLE_MODIFIER_SHELL) {
+	if (modifier == AST_VARIABLE_MODIFIER_SHELL) {
 		return 0;
 	}
 	if ((parser_settings(parser).behavior & PARSER_ALWAYS_SORT_VARIABLES)) {
@@ -1579,7 +1579,7 @@ print_as_newlines(struct Parser *parser, const char *var)
 }
 
 int
-skip_dedup(struct Parser *parser, const char *var, enum ASTNodeVariableModifier modifier)
+skip_dedup(struct Parser *parser, const char *var, enum ASTVariableModifier modifier)
 {
 	return !should_sort(parser, var, modifier) && !variable_has_flag(parser, var, VAR_DEDUP);
 }

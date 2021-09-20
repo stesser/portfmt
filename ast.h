@@ -27,71 +27,70 @@
  */
 #pragma once
 
-enum ASTNodeType {
-	AST_NODE_ROOT,
-	AST_NODE_DELETED,
-	AST_NODE_COMMENT,
-	AST_NODE_EXPR_FLAT,
-	AST_NODE_EXPR_IF,
-	AST_NODE_EXPR_FOR,
-	AST_NODE_INCLUDE,
-	AST_NODE_TARGET,
-	AST_NODE_TARGET_COMMAND,
-	AST_NODE_VARIABLE,
+enum ASTType {
+	AST_ROOT,
+	AST_DELETED,
+	AST_COMMENT,
+	AST_EXPR,
+	AST_IF,
+	AST_FOR,
+	AST_INCLUDE,
+	AST_TARGET,
+	AST_TARGET_COMMAND,
+	AST_VARIABLE,
 };
 
-enum ASTNodeCommentType {
-	AST_NODE_COMMENT_LINE,
-	// TODO: AST_NODE_COMMENT_EOL,
+enum ASTCommentType {
+	AST_COMMENT_LINE,
 };
 
-enum ASTNodeExprFlatType {
-	AST_NODE_EXPR_ERROR,
-	AST_NODE_EXPR_EXPORT_ENV,
-	AST_NODE_EXPR_EXPORT_LITERAL,
-	AST_NODE_EXPR_EXPORT,
-	AST_NODE_EXPR_INFO,
-	AST_NODE_EXPR_UNDEF,
-	AST_NODE_EXPR_UNEXPORT_ENV,
-	AST_NODE_EXPR_UNEXPORT,
-	AST_NODE_EXPR_WARNING,
+enum ASTExprType {
+	AST_EXPR_ERROR,
+	AST_EXPR_EXPORT_ENV,
+	AST_EXPR_EXPORT_LITERAL,
+	AST_EXPR_EXPORT,
+	AST_EXPR_INFO,
+	AST_EXPR_UNDEF,
+	AST_EXPR_UNEXPORT_ENV,
+	AST_EXPR_UNEXPORT,
+	AST_EXPR_WARNING,
 };
 
-enum ASTNodeExprIfType {
-	AST_NODE_EXPR_IF_IF,
-	AST_NODE_EXPR_IF_DEF,
-	AST_NODE_EXPR_IF_ELSE,
-	AST_NODE_EXPR_IF_MAKE,
-	AST_NODE_EXPR_IF_NDEF,
-	AST_NODE_EXPR_IF_NMAKE,
+enum ASTIfType {
+	AST_IF_IF,
+	AST_IF_DEF,
+	AST_IF_ELSE,
+	AST_IF_MAKE,
+	AST_IF_NDEF,
+	AST_IF_NMAKE,
 };
 
-enum ASTNodeIncludeType {
-	AST_NODE_INCLUDE_BMAKE,
-	AST_NODE_INCLUDE_D,
-	AST_NODE_INCLUDE_POSIX,
-	AST_NODE_INCLUDE_S,
+enum ASTIncludeType {
+	AST_INCLUDE_BMAKE,
+	AST_INCLUDE_D,
+	AST_INCLUDE_POSIX,
+	AST_INCLUDE_S,
 };
 
-enum ASTNodeTargetType {
-	AST_NODE_TARGET_NAMED,
-	AST_NODE_TARGET_UNASSOCIATED,
+enum ASTTargetType {
+	AST_TARGET_NAMED,
+	AST_TARGET_UNASSOCIATED,
 };
 
-enum ASTNodeVariableModifier {
-	AST_NODE_VARIABLE_MODIFIER_APPEND,
-	AST_NODE_VARIABLE_MODIFIER_ASSIGN,
-	AST_NODE_VARIABLE_MODIFIER_EXPAND,
-	AST_NODE_VARIABLE_MODIFIER_OPTIONAL,
-	AST_NODE_VARIABLE_MODIFIER_SHELL,
+enum ASTVariableModifier {
+	AST_VARIABLE_MODIFIER_APPEND,
+	AST_VARIABLE_MODIFIER_ASSIGN,
+	AST_VARIABLE_MODIFIER_EXPAND,
+	AST_VARIABLE_MODIFIER_OPTIONAL,
+	AST_VARIABLE_MODIFIER_SHELL,
 };
 
-struct ASTNodeComment {
-	enum ASTNodeCommentType type;
+struct ASTComment {
+	enum ASTCommentType type;
 	struct Array *lines;
 };
 
-struct ASTNodeExprFor {
+struct ASTFor {
 	// .for $bindings in $words
 	// $body
 	// .endfor
@@ -103,7 +102,7 @@ struct ASTNodeExprFor {
 	size_t indent;
 };
 
-struct ASTNodeExprIf {
+struct ASTIf {
 	// .if $test
 	// $body
 	// .else
@@ -131,25 +130,25 @@ struct ASTNodeExprIf {
 	// $orelse
 	// .endif
 	// .endif
-	enum ASTNodeExprIfType type;
+	enum ASTIfType type;
 	struct Array *test;
 	struct Array *body;
 	struct Array *orelse;
 	const char *comment;
 	const char *end_comment;
 	size_t indent;
-	struct ASTNode *ifparent;
+	struct AST *ifparent;
 };
 
-struct ASTNodeExprFlat {
-	enum ASTNodeExprFlatType type;
+struct ASTExpr {
+	enum ASTExprType type;
 	struct Array *words;
 	const char *comment;
 	size_t indent;
 };
 
-struct ASTNodeInclude {
-	enum ASTNodeIncludeType type;
+struct ASTInclude {
+	enum ASTIncludeType type;
 	struct Array *body;
 	const char *comment;
 	size_t indent;
@@ -158,56 +157,56 @@ struct ASTNodeInclude {
 	int loaded;
 };
 
-struct ASTNodeTarget {
-	enum ASTNodeTargetType type;
+struct ASTTarget {
+	enum ASTTargetType type;
 	struct Array *sources;
 	struct Array *dependencies;
 	struct Array *body;
 	const char *comment;
 };
 
-struct ASTNodeTargetCommand {
-	struct ASTNodeTarget *target;
+struct ASTTargetCommand {
+	struct ASTTarget *target;
 	struct Array *words;
 	const char *comment;
 };
 
-struct ASTNodeVariable {
+struct ASTVariable {
 	const char *name;
-	enum ASTNodeVariableModifier modifier;
+	enum ASTVariableModifier modifier;
 	struct Array *words;
 	const char *comment;
 };
 
-struct ASTNodeRoot {
+struct ASTRoot {
 	struct Array *body;
 };
 
-struct ASTNodeLineRange { // [a,b)
+struct ASTLineRange { // [a,b)
 	size_t a;
 	size_t b;
 };
 
-struct ASTNode {
-	enum ASTNodeType type;
-	struct ASTNode *parent;
+struct AST {
+	enum ASTType type;
+	struct AST *parent;
 	struct Mempool *pool;
-	struct ASTNodeLineRange line_start;
-	struct ASTNodeLineRange line_end;
+	struct ASTLineRange line_start;
+	struct ASTLineRange line_end;
 	int edited;
 	struct {
 		size_t goalcol;
 	} meta;
 	union {
-		struct ASTNodeRoot root;
-		struct ASTNodeComment comment;
-		struct ASTNodeExprFlat flatexpr;
-		struct ASTNodeExprIf ifexpr;
-		struct ASTNodeInclude include;
-		struct ASTNodeExprFor forexpr;
-		struct ASTNodeTarget target;
-		struct ASTNodeTargetCommand targetcommand;
-		struct ASTNodeVariable variable;
+		struct ASTRoot root;
+		struct ASTComment comment;
+		struct ASTExpr expr;
+		struct ASTIf ifexpr;
+		struct ASTInclude include;
+		struct ASTFor forexpr;
+		struct ASTTarget target;
+		struct ASTTargetCommand targetcommand;
+		struct ASTVariable variable;
 	};
 };
 
@@ -216,19 +215,19 @@ enum ASTWalkState {
 	AST_WALK_STOP,
 };
 
-extern const char *ASTNodeType_tostring[];
-extern const char *ASTNodeExprFlatType_identifier[];
-extern const char *ASTNodeIncludeType_identifier[];
-extern const char *ASTNodeVariableModifier_humanize[];
-extern const char *NodeExprIfType_humanize[];
+extern const char *ASTType_tostring[];
+extern const char *ASTExprType_identifier[];
+extern const char *ASTIncludeType_identifier[];
+extern const char *ASTVariableModifier_humanize[];
+extern const char *ASTIfType_humanize[];
 
-void ast_free(struct ASTNode *);
-struct ASTNode *ast_node_new(struct Mempool *, enum ASTNodeType, struct ASTNodeLineRange *, void *);
-struct ASTNode *ast_node_clone(struct Mempool *, struct ASTNode *);
-struct Array *ast_node_siblings(struct ASTNode *);
-void ast_node_parent_append_sibling(struct ASTNode *, struct ASTNode *, int);
-void ast_node_parent_insert_before_sibling(struct ASTNode *, struct ASTNode *);
-void ast_node_print(struct ASTNode *, FILE *);
+void ast_free(struct AST *);
+struct AST *ast_new(struct Mempool *, enum ASTType, struct ASTLineRange *, void *);
+struct AST *ast_clone(struct Mempool *, struct AST *);
+struct Array *ast_siblings(struct AST *);
+void ast_parent_append_sibling(struct AST *, struct AST *, int);
+void ast_parent_insert_before_sibling(struct AST *, struct AST *);
+void ast_print(struct AST *, FILE *);
 
 #define AST_WALK_RECUR(x) \
 	if ((x) == AST_WALK_STOP) { \
@@ -237,38 +236,38 @@ void ast_node_print(struct ASTNode *, FILE *);
 
 #define AST_WALK_DEFAULT(f, node, ...) \
 switch (node->type) { \
-case AST_NODE_ROOT: \
-	ARRAY_FOREACH(node->root.body, struct ASTNode *, child) { \
+case AST_ROOT: \
+	ARRAY_FOREACH(node->root.body, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
 	break; \
-case AST_NODE_EXPR_FOR: \
-	ARRAY_FOREACH(node->forexpr.body, struct ASTNode *, child) { \
+case AST_FOR: \
+	ARRAY_FOREACH(node->forexpr.body, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
 	break; \
-case AST_NODE_EXPR_IF: \
-	ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) { \
+case AST_IF: \
+	ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
-	ARRAY_FOREACH(node->ifexpr.body, struct ASTNode *, child) { \
-		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
-	} \
-	break; \
-case AST_NODE_INCLUDE: \
-	ARRAY_FOREACH(node->include.body, struct ASTNode *, child) { \
+	ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
 	break; \
-case AST_NODE_TARGET: \
-	ARRAY_FOREACH(node->target.body, struct ASTNode *, child) { \
+case AST_INCLUDE: \
+	ARRAY_FOREACH(node->include.body, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
 	break; \
-case AST_NODE_DELETED: \
-case AST_NODE_COMMENT: \
-case AST_NODE_EXPR_FLAT: \
-case AST_NODE_TARGET_COMMAND: \
-case AST_NODE_VARIABLE: \
+case AST_TARGET: \
+	ARRAY_FOREACH(node->target.body, struct AST *, child) { \
+		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
+	} \
+	break; \
+case AST_DELETED: \
+case AST_COMMENT: \
+case AST_EXPR: \
+case AST_TARGET_COMMAND: \
+case AST_VARIABLE: \
 	break; \
 }

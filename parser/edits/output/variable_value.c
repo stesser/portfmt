@@ -45,10 +45,10 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-output_variable_value_walker(struct ASTNode *node, struct WalkerData *this)
+output_variable_value_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, node->variable.name, this->param->keyuserdata))) {
 			this->param->found = 1;
 			ARRAY_FOREACH(node->variable.words, const char *, word) {

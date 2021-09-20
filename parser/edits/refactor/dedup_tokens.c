@@ -54,12 +54,12 @@ struct WalkerData {
 };
 
 static enum ASTWalkState
-refactor_dedup_tokens_walker(struct ASTNode *node, struct WalkerData *this)
+refactor_dedup_tokens_walker(struct AST *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);
 
 	switch (node->type) {
-	case AST_NODE_VARIABLE:
+	case AST_VARIABLE:
 		if (skip_dedup(this->parser, node->variable.name, node->variable.modifier)) {
 			return AST_WALK_CONTINUE;
 		} else {

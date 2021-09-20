@@ -41,10 +41,10 @@
 #include "parser/edits.h"
 
 static enum ASTWalkState
-refactor_sanitize_comments_walker(struct ASTNode *node, int in_target)
+refactor_sanitize_comments_walker(struct AST *node, int in_target)
 {
 	switch (node->type) {
-	case AST_NODE_COMMENT:
+	case AST_COMMENT:
 		if (in_target) {
 			SCOPE_MEMPOOL(pool);
 			node->edited = 1;
@@ -56,7 +56,7 @@ refactor_sanitize_comments_walker(struct ASTNode *node, int in_target)
 			ARRAY_JOIN(node->comment.lines, lines);
 		}
 		break;
-	case AST_NODE_TARGET:
+	case AST_TARGET:
 		in_target = 1;
 		break;
 	default:
