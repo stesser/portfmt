@@ -654,7 +654,12 @@ print_newline_array(struct Parser *parser, struct ASTNode *node, struct Array *a
 	parser_enqueue_output(parser, ASTNodeVariableModifier_humanize[node->variable.modifier]);
 	startlen += strlen(ASTNodeVariableModifier_humanize[node->variable.modifier]);
 
-	size_t ntabs = ceil((MAX(16, node->meta.goalcol) - startlen) / 8.0);
+	size_t ntabs;
+	if (startlen > MAX(16, node->meta.goalcol)) {
+		ntabs = ceil((startlen - MAX(16, node->meta.goalcol)) / 8.0);
+	} else {
+		ntabs = ceil((MAX(16, node->meta.goalcol) - startlen) / 8.0);
+	}
 	char *sep = str_repeat(pool, "\t", ntabs);
 
 	if (array_len(arr) == 0) {

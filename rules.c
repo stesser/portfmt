@@ -1497,6 +1497,9 @@ int
 indent_goalcol(const char *var, enum ASTNodeVariableModifier modifier)
 {
 	size_t varlength = strlen(var) + 1;
+	if (str_endswith(var, "+")) {
+		varlength += 1; // " " before modifier
+	}
 	switch (modifier) {
 	case AST_NODE_VARIABLE_MODIFIER_ASSIGN:
 		varlength += 1;

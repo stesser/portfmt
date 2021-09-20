@@ -196,7 +196,7 @@ struct ASTNode {
 	struct ASTNodeLineRange line_end;
 	int edited;
 	struct {
-		int goalcol;
+		size_t goalcol;
 	} meta;
 	union {
 		struct ASTNodeRoot root;
