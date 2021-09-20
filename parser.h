@@ -120,6 +120,7 @@ void parser_init_settings(struct ParserSettings *);
 enum ParserError parser_read_from_buffer(struct Parser *, const char *, size_t);
 enum ParserError parser_read_from_file(struct Parser *, FILE *);
 enum ParserError parser_read_finish(struct Parser *);
+struct ASTNode *parser_ast(struct Parser *);
 char *parser_error_tostring(struct Parser *, struct Mempool *);
 void parser_set_error(struct Parser *, enum ParserError, const char *);
 void parser_free(struct Parser *);

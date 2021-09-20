@@ -1726,6 +1726,17 @@ parser_read_finish(struct Parser *parser)
 	return parser->error;
 }
 
+struct ASTNode *
+parser_ast(struct Parser *parser)
+{
+	panic_unless(parser->read_finished, "parser_ast() called before parser_read_finish()");
+	if (parser->error == PARSER_ERROR_OK) {
+		return parser->ast;
+	} else {
+		return NULL;
+	}
+}
+
 enum ParserError
 parser_output_write_to_file(struct Parser *parser, FILE *fp)
 {
