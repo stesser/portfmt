@@ -87,7 +87,7 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 	${CC} ${LDFLAGS} -o bin/portscan portscan.o libportfmt.a libias/libias.a ${LDADD} -lpthread
 
 #
-ast.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/stack.h libias/str.h ast.h
+ast.o: config.h libias/array.h libias/flow.h libias/map.h libias/mempool.h libias/stack.h libias/str.h ast.h
 constants.o: config.h constants.h
 mainutils.o: config.h libias/array.h libias/mempool.h libias/mempool/file.h libias/str.h capsicum_helpers.h mainutils.h parser.h
 parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h parser.h parser/astbuilder.h parser/astbuilder/enum.h parser/edits.h regexp.h rules.h

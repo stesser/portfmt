@@ -222,6 +222,7 @@ extern const char *NodeExprIfType_humanize[];
 
 void ast_free(struct ASTNode *);
 struct ASTNode *ast_node_new(struct Mempool *, enum ASTNodeType, struct ASTNodeLineRange *, void *);
+struct ASTNode *ast_node_clone(struct Mempool *, struct ASTNode *);
 struct Array *ast_node_siblings(struct ASTNode *);
 void ast_node_parent_append_sibling(struct ASTNode *, struct ASTNode *, int);
 void ast_node_parent_insert_before_sibling(struct ASTNode *, struct ASTNode *);

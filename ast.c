@@ -34,6 +34,7 @@
 
 #include <libias/array.h>
 #include <libias/flow.h>
+#include <libias/map.h>
 #include <libias/mempool.h>
 #include <libias/stack.h>
 #include <libias/str.h>
@@ -224,6 +225,155 @@ ast_node_new(struct Mempool *pool, enum ASTNodeType type, struct ASTNodeLineRang
 	}
 
 	return node;
+}
+
+static struct ASTNode *
+ast_node_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct ASTNode *template, struct ASTNode *parent)
+{
+	struct ASTNode *node = mempool_alloc(pool, sizeof(struct ASTNode));
+	map_add(ptrmap, template, node);
+	node->pool = pool;
+	node->parent = parent;
+
+	node->type = template->type;
+	node->line_start = template->line_start;
+	node->line_end = template->line_end;
+	node->edited = template->edited;
+	node->meta = template->meta;
+
+	switch (template->type) {
+	case AST_NODE_ROOT:
+		node->root.body = mempool_array(pool);
+		ARRAY_FOREACH(template->root.body, struct ASTNode *, child) {
+			array_append(node->root.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		}
+		break;
+	case AST_NODE_EXPR_FOR:
+		if (template->forexpr.comment) {
+			node->forexpr.comment = str_dup(pool, template->forexpr.comment);
+		}
+		if (template->forexpr.end_comment) {
+			node->forexpr.end_comment = str_dup(pool, template->forexpr.end_comment);
+		}
+		node->forexpr.indent = template->forexpr.indent;
+		node->forexpr.bindings = mempool_array(pool);
+		ARRAY_FOREACH(template->forexpr.bindings, const char *, binding) {
+			array_append(node->forexpr.bindings, str_dup(pool, binding));
+		}
+		node->forexpr.words = mempool_array(pool);
+		ARRAY_FOREACH(template->forexpr.words, const char *, word) {
+			array_append(node->forexpr.words, str_dup(pool, word));
+		}
+		node->forexpr.body = mempool_array(pool);
+		ARRAY_FOREACH(template->forexpr.body, struct ASTNode *, child) {
+			array_append(node->forexpr.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		}
+		break;
+	case AST_NODE_EXPR_IF:
+		if (template->ifexpr.comment) {
+			node->ifexpr.comment = str_dup(pool, template->ifexpr.comment);
+		}
+		if (template->ifexpr.end_comment) {
+			node->ifexpr.end_comment = str_dup(pool, template->ifexpr.end_comment);
+		}
+		node->ifexpr.indent = template->ifexpr.indent;
+		node->ifexpr.ifparent = ((struct ASTNode *)map_get(ptrmap, template))->ifexpr.ifparent;
+		node->ifexpr.test = mempool_array(pool);
+		ARRAY_FOREACH(template->ifexpr.test, const char *, word) {
+			array_append(node->ifexpr.test, str_dup(pool, word));
+		}
+		node->ifexpr.body = mempool_array(pool);
+		ARRAY_FOREACH(template->ifexpr.body, struct ASTNode *, child) {
+			array_append(node->ifexpr.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		}
+		node->ifexpr.orelse = mempool_array(pool);
+		ARRAY_FOREACH(template->ifexpr.orelse, struct ASTNode *, child) {
+			array_append(node->ifexpr.orelse, ast_node_clone_helper(pool, ptrmap, child, node));
+		}
+		break;
+	case AST_NODE_INCLUDE:
+		if (template->include.comment) {
+			node->include.comment = str_dup(pool, template->include.comment);
+		}
+		if (template->include.path) {
+			node->include.path = str_dup(pool, template->include.path);
+		}
+		node->include.indent = template->include.indent;
+		node->include.sys = template->include.sys;
+		node->include.loaded = template->include.loaded;
+		node->include.body = mempool_array(pool);
+		ARRAY_FOREACH(template->include.body, struct ASTNode *, child) {
+			array_append(node->include.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		}
+		break;
+	case AST_NODE_TARGET:
+		node->target.type = template->target.type;
+		if (template->target.comment) {
+			node->target.comment = str_dup(pool, template->target.comment);
+		}
+		node->target.sources = mempool_array(pool);
+		ARRAY_FOREACH(template->target.sources, const char *, source) {
+			array_append(node->target.sources, str_dup(pool, source));
+		}
+		node->target.dependencies = mempool_array(pool);
+		ARRAY_FOREACH(template->target.dependencies, const char *, dependency) {
+			array_append(node->target.dependencies, str_dup(pool, dependency));
+		}
+		node->target.body = mempool_array(pool);
+		ARRAY_FOREACH(template->target.body, struct ASTNode *, child) {
+			array_append(node->target.body, ast_node_clone_helper(pool, ptrmap, child, node));
+		}
+		break;
+	case AST_NODE_COMMENT:
+		node->comment.type = template->comment.type;
+		node->comment.lines = mempool_array(pool);
+		ARRAY_FOREACH(template->comment.lines, const char *, line) {
+			array_append(node->comment.lines, str_dup(pool, line));
+		}
+		break;
+	case AST_NODE_EXPR_FLAT:
+		node->flatexpr.type = template->flatexpr.type;
+		node->flatexpr.indent = template->flatexpr.indent;
+		if (template->flatexpr.comment) {
+			node->flatexpr.comment = str_dup(pool, template->flatexpr.comment);
+		}
+		node->flatexpr.words = mempool_array(pool);
+		ARRAY_FOREACH(template->flatexpr.words, const char *, word) {
+			array_append(node->flatexpr.words, str_dup(pool, word));
+		}
+		break;
+	case AST_NODE_TARGET_COMMAND:
+		node->targetcommand.target = &((struct ASTNode *)map_get(ptrmap, template))->target;
+		if (template->targetcommand.comment) {
+			node->targetcommand.comment = str_dup(pool, template->targetcommand.comment);
+		}
+		node->targetcommand.words = mempool_array(pool);
+		ARRAY_FOREACH(template->targetcommand.words, const char *, word) {
+			array_append(node->targetcommand.words, str_dup(pool, word));
+		}
+		break;
+	case AST_NODE_VARIABLE:
+		node->variable.name = str_dup(pool, template->variable.name);
+		node->variable.modifier = template->variable.modifier;
+		if (template->variable.comment) {
+			node->variable.comment = str_dup(pool, template->variable.comment);
+		}
+		node->variable.words = mempool_array(pool);
+		ARRAY_FOREACH(template->variable.words, const char *, word) {
+			array_append(node->variable.words, str_dup(pool, word));
+		}
+		break;
+	}
+
+	return node;
+}
+
+struct ASTNode *
+ast_node_clone(struct Mempool *extpool, struct ASTNode *template)
+{
+	SCOPE_MEMPOOL(pool);
+	struct Map *ptrmap = mempool_map(pool, NULL, NULL, NULL, NULL);
+	return ast_node_clone_helper(extpool, ptrmap, template, NULL);
 }
 
 void
