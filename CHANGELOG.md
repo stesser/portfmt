@@ -7,6 +7,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Changed
+
+- The underlying data structures have been changed to use an Abstract
+  Syntax Tree instead of operating directly on the tokens.  With
+  the AST a portscan only takes about ~150 s down from ~200 s.  This
+  is on FreeBSD 13.0-RELEASE on a i3-4130T in Hyper-V on Windows 10
+  with 1 core.
+- The last regular expression in the tokenizer has been replaced with
+  a manually written matcher.  This further improves performance of a
+  portscan and brings it down to ~35 s.
+
 ## [1.0.0] - 2021-09-01
 
 ### Added
