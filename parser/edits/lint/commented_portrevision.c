@@ -115,6 +115,4 @@ PARSER_EDIT(lint_commented_portrevision)
 	if (retval) {
 		*retval = mempool_move(pool, this.comments, extpool);
 	}
-
-	return 1;
 }

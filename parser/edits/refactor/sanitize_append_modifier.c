@@ -91,14 +91,11 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
+		return;
 	}
 
 	/* Sanitize += before bsd.options.mk */
 	refactor_sanitize_append_modifier_walker(root, &(struct WalkerData){
 		.seen = mempool_set(pool, str_compare, NULL, NULL),
 	});
-
-	return 1;
 }
-

@@ -124,13 +124,10 @@ PARSER_EDIT(refactor_dedup_tokens)
 {
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
+		return;
 	}
 
 	refactor_dedup_tokens_walker(root, &(struct WalkerData){
 		.parser = parser,
 	});
-
-	return 1;
 }
-

@@ -1775,14 +1775,7 @@ parser_edit(struct Parser *parser, struct Mempool *extpool, ParserEditFn f, void
 		return parser->error;
 	}
 
-	struct Array *tokens = NULL;
-	if (f(parser, parser->ast, extpool, userdata, &tokens)) {
-		// do nothing
-	} else if (tokens) {
-		ast_free(parser->ast);
-		parser->ast = ast_from_token_stream(tokens);
-	}
-
+	f(parser, parser->ast, extpool, userdata);
 	if (parser->error != PARSER_ERROR_OK) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, parser_error_tostring(parser, pool));
 	}

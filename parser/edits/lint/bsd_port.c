@@ -66,7 +66,7 @@ lint_bsd_port_walker(struct AST *node, struct WalkerData *this)
 PARSER_EDIT(lint_bsd_port)
 {
 	if (parser_metadata(parser, PARSER_METADATA_MASTERDIR)) {
-		return 0;
+		return;
 	}
 
 	struct WalkerData this = {
@@ -77,6 +77,4 @@ PARSER_EDIT(lint_bsd_port)
 	unless (this.found) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "not a FreeBSD Ports Makefile");
 	}
-
-	return 0;
 }

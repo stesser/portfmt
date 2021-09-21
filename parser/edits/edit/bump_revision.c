@@ -96,7 +96,7 @@ PARSER_EDIT(edit_bump_revision)
 	    params->subparser != NULL ||
 	    params->merge_behavior != PARSER_MERGE_DEFAULT) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
+		return;
 	}
 	const char *variable = params->arg1;
 
@@ -109,17 +109,11 @@ PARSER_EDIT(edit_bump_revision)
 	struct Parser *subparser = parser_new(pool, &settings);
 	enum ParserError error = parser_read_from_buffer(subparser, script, strlen(script));
 	if (error != PARSER_ERROR_OK) {
-		return 0;
+		return;
 	}
 	error = parser_read_finish(subparser);
 	if (error != PARSER_ERROR_OK) {
-		return 0;
+		return;
 	}
-	error = parser_merge(parser, subparser, params->merge_behavior | PARSER_MERGE_SHELL_IS_DELETE | PARSER_MERGE_OPTIONAL_LIKE_ASSIGN);
-	if (error != PARSER_ERROR_OK) {
-		return 0;
-	}
-
-	return 0;
+	parser_merge(parser, subparser, params->merge_behavior | PARSER_MERGE_SHELL_IS_DELETE | PARSER_MERGE_OPTIONAL_LIKE_ASSIGN);
 }
-

@@ -109,10 +109,10 @@ struct Parser;
 struct Set;
 struct Token;
 
-typedef int (*ParserEditFn)(struct Parser *, struct AST *, struct Mempool *, void *, struct Array **);
+typedef void (*ParserEditFn)(struct Parser *, struct AST *, struct Mempool *, void *);
 
 #define PARSER_EDIT(name) \
-	int name(struct Parser *parser, struct AST *root, struct Mempool *extpool, void *userdata, struct Array **new_tokens)
+	void name(struct Parser *parser, struct AST *root, struct Mempool *extpool, void *userdata)
 
 struct Parser *parser_new(struct Mempool *, struct ParserSettings *);
 void parser_init_settings(struct ParserSettings *);

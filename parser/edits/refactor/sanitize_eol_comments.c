@@ -99,10 +99,8 @@ PARSER_EDIT(refactor_sanitize_eol_comments)
 {
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
+		return;
 	}
 
 	refactor_sanitize_eol_comments_walker(root);
-
-	return 1;
 }

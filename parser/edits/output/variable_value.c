@@ -73,7 +73,7 @@ PARSER_EDIT(output_variable_value)
 	struct ParserEditOutput *param = userdata;
 	if (param == NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, "missing parameter");
-		return 0;
+		return;
 	}
 
 	param->found = 0;
@@ -82,7 +82,4 @@ PARSER_EDIT(output_variable_value)
 		.pool = extpool,
 		.param = param,
 	});
-
-	return 0;
 }
-

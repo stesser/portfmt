@@ -383,15 +383,14 @@ PARSER_EDIT(edit_merge)
 	    params->arg1 != NULL ||
 	    params->subparser == NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 1;
+		return;
 	}
 
 	struct AST *mergetree = parser_ast(params->subparser);
 	unless (mergetree) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, parser_error_tostring(params->subparser, pool));
-		return 1;
+		return;
 	}
-
 
 	edit_merge_walker(mergetree, &(struct WalkerData){
 		.parser = parser,
@@ -403,6 +402,4 @@ PARSER_EDIT(edit_merge)
 	// fputs("--------------------\n", stderr);
 	// ast_print(root, stderr);
 	// fputs("--------------------\n", stderr);
-
-	return 1;
 }

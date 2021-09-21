@@ -754,7 +754,6 @@ PARSER_EDIT(get_default_option_descriptions)
 	get_default_option_descriptions_walker(root, default_option_descriptions);
 	struct Map **retval = (struct Map **)userdata;
 	*retval = default_option_descriptions;
-	return 1;
 }
 
 void

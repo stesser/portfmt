@@ -186,14 +186,11 @@ PARSER_EDIT(refactor_collapse_adjacent_variables)
 
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
+		return;
 	}
 
 	refactor_collapse_adjacent_variables_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = pool,
 	}, mempool_array(pool));
-
-	return 1;
 }
-

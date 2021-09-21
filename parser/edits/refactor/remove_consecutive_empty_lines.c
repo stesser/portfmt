@@ -95,12 +95,10 @@ PARSER_EDIT(refactor_remove_consecutive_empty_lines)
 {
 	if (userdata != NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, NULL);
-		return 0;
+		return;
 	}
 
 	refactor_remove_consecutive_empty_lines_walker(root, &(struct WalkerData){
 		.counter = 0,
 	});
-
-	return 1;
 }

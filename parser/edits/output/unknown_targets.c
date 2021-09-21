@@ -106,7 +106,7 @@ PARSER_EDIT(output_unknown_targets)
 	struct ParserEditOutput *param = userdata;
 	if (param == NULL) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, "missing parameter");
-		return 0;
+		return;
 	}
 
 	param->found = 0;
@@ -117,7 +117,4 @@ PARSER_EDIT(output_unknown_targets)
 		.targets = mempool_set(pool, str_compare, NULL, NULL),
 		.post_plist_targets = parser_metadata(parser, PARSER_METADATA_POST_PLIST_TARGETS),
 	});
-
-	return 0;
 }
-
