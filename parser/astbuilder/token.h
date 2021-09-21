@@ -31,7 +31,7 @@ enum ParserASTBuilderTokenType;
 struct Target;
 struct ASTLineRange;
 
-struct Token {
+struct ParserASTBuilderToken {
 	enum ParserASTBuilderTokenType type;
 	char *data;
 	enum ParserASTBuilderConditionalType conditional;
@@ -44,6 +44,6 @@ struct Token {
 	struct ASTLineRange lines;
 };
 
-struct Token *token_new(enum ParserASTBuilderTokenType, struct ASTLineRange *, const char *, const char *, const char *, const char *);
-struct Token *token_new_comment(struct ASTLineRange *, const char *, enum ParserASTBuilderConditionalType);
-void token_free(struct Token *);
+struct ParserASTBuilderToken *parser_astbuilder_token_new(enum ParserASTBuilderTokenType, struct ASTLineRange *, const char *, const char *, const char *, const char *);
+struct ParserASTBuilderToken *parser_astbuilder_token_new_comment(struct ASTLineRange *, const char *, enum ParserASTBuilderConditionalType);
+void parser_astbuilder_token_free(struct ParserASTBuilderToken *);

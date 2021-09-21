@@ -115,7 +115,7 @@ split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssiz
 
 	struct Array *commentwords = mempool_array(pool);
 	int comments = 0;
-	ARRAY_FOREACH_SLICE(tokens, a, b, struct Token *, t) {
+	ARRAY_FOREACH_SLICE(tokens, a, b, struct ParserASTBuilderToken *, t) {
 		if (comments || is_comment(t->data)) {
 			comments = 1;
 			array_append(commentwords, t->data);
@@ -134,13 +134,13 @@ split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssiz
 static void
 token_to_stream(struct Mempool *pool, struct Array *tokens, enum ParserASTBuilderTokenType type, int edited, struct ASTLineRange *lines, const char *data, const char *varname, const char *condname, const char *targetname)
 {
-	struct Token *t = token_new(type, lines, data, varname, condname, targetname);
+	struct ParserASTBuilderToken *t = parser_astbuilder_token_new(type, lines, data, varname, condname, targetname);
 	panic_unless(t, "null token?");
 	if (t) {
 		if (edited) {
 			t->edited = 1;
 		}
-		array_append(tokens, mempool_add(pool, t, token_free));
+		array_append(tokens, mempool_add(pool, t, parser_astbuilder_token_free));
 	}
 }
 
@@ -195,14 +195,14 @@ void
 parser_astbuilder_append_token(struct ParserASTBuilder *builder, enum ParserASTBuilderTokenType type, const char *data)
 {
 	panic_unless(builder->tokens, "AST was already built");
-	struct Token *t = token_new(type, &builder->lines, data, builder->varname, builder->condname, builder->targetname);
+	struct ParserASTBuilderToken *t = parser_astbuilder_token_new(type, &builder->lines, data, builder->varname, builder->condname, builder->targetname);
 	if (t == NULL) {
 		if (builder->parser) {
 			parser_set_error(builder->parser, PARSER_ERROR_EXPECTED_TOKEN, ParserASTBuilderTokenType_humanize[type]);
 		}
 		return;
 	}
-	mempool_add(builder->pool, t, token_free);
+	mempool_add(builder->pool, t, parser_astbuilder_token_free);
 	array_append(builder->tokens, t);
 }
 
@@ -223,12 +223,12 @@ ast_from_token_stream_flush_comments(struct AST *parent, struct Array *comments)
 		return;
 	}
 
-	struct AST *node = ast_new(parent->pool, AST_COMMENT, &((struct Token *)array_get(comments, 0))->lines, &(struct ASTComment){
+	struct AST *node = ast_new(parent->pool, AST_COMMENT, &((struct ParserASTBuilderToken *)array_get(comments, 0))->lines, &(struct ASTComment){
 		.type = AST_COMMENT_LINE,
 	});
 	ast_parent_append_sibling(parent, node, 0);
 
-	ARRAY_FOREACH(comments, struct Token *, t) {
+	ARRAY_FOREACH(comments, struct ParserASTBuilderToken *, t) {
 		node->edited = node->edited || t->edited;
 		array_append(node->comment.lines, str_dup(node->pool, t->data));
 		node->line_start.b = t->lines.b;
@@ -251,7 +251,7 @@ ast_from_token_stream(struct Array *tokens)
 	struct Stack *nodestack = mempool_stack(pool);
 	stack_push(nodestack, root);
 
-	ARRAY_FOREACH(tokens, struct Token *, t) {
+	ARRAY_FOREACH(tokens, struct ParserASTBuilderToken *, t) {
 		if (stack_len(nodestack) == 0) {
 			panic("node stack exhausted at token on input line %zu-%zu", t->lines.a, t->lines.b);
 		}
@@ -276,7 +276,7 @@ ast_from_token_stream(struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_SINCLUDE: {
 				struct AST *node = ast_new(root->pool, AST_INCLUDE, &t->lines, &(struct ASTInclude){
 					.type = conditional_to_include[condtype],
-					.indent = cond_indent(((struct Token *)array_get(current_cond, 0))->data),
+					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = t->edited;
@@ -310,7 +310,7 @@ ast_from_token_stream(struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_WARNING: {
 				struct AST *node = ast_new(root->pool, AST_EXPR, &t->lines, &(struct ASTExpr){
 					.type = conditional_to_expr[condtype],
-					.indent = cond_indent(((struct Token *)array_get(current_cond, 0))->data),
+					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = t->edited;
@@ -318,12 +318,12 @@ ast_from_token_stream(struct Array *tokens)
 				break;
 			} case PARSER_AST_BUILDER_CONDITIONAL_FOR: {
 				struct AST *node = ast_new(root->pool, AST_FOR, &t->lines, &(struct ASTFor){
-					.indent = cond_indent(((struct Token *)array_get(current_cond, 0))->data),
+					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = t->edited;
 				size_t word_start = 1;
-				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct Token *, t) {
+				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct ParserASTBuilderToken *, t) {
 					if (t->edited) {
 						node->edited = 1;
 					}
@@ -371,12 +371,12 @@ ast_from_token_stream(struct Array *tokens)
 				}
 				struct AST *node = ast_new(root->pool, AST_IF, &t->lines, &(struct ASTIf){
 					.type = ConditionalType_to_ASTIfType[condtype],
-					.indent = cond_indent(((struct Token *)array_get(current_cond, 0))->data),
+					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
 					.ifparent = ifparent,
 				});
 				ast_parent_append_sibling(parent, node, ifparent != NULL);
 				node->edited = t->edited;
-				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct Token *, t) {
+				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct ParserASTBuilderToken *, t) {
 					if (t->edited) {
 						node->edited = 1;
 					}
@@ -476,7 +476,7 @@ ast_from_token_stream(struct Array *tokens)
 			node->line_end = node->line_start;
 			node->targetcommand.comment = split_off_comment(node->pool, current_target_cmds, 0, -1, node->targetcommand.words);
 			if (array_len(current_target_cmds) > 1) {
-				node->line_start = ((struct Token *)array_get(current_target_cmds, 1))->lines;
+				node->line_start = ((struct ParserASTBuilderToken *)array_get(current_target_cmds, 1))->lines;
 			}
 			break;
 		}
@@ -491,14 +491,14 @@ ast_from_token_stream(struct Array *tokens)
 		case PARSER_AST_BUILDER_TOKEN_VARIABLE_END: {
 			struct AST *node = ast_new(root->pool, AST_VARIABLE, &t->lines, &(struct ASTVariable){
 				.name = t->variable.name,
-				.modifier = ((struct Token *)array_get(current_var, 0))->variable.modifier,
+				.modifier = ((struct ParserASTBuilderToken *)array_get(current_var, 0))->variable.modifier,
 			});
 			ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = t->edited;
 			node->line_end = node->line_start;
 			node->variable.comment = split_off_comment(node->pool, current_var, 1, -1, node->variable.words);
 			if (array_len(current_var) > 1) {
-				node->line_start = ((struct Token *)array_get(current_var, 1))->lines;
+				node->line_start = ((struct ParserASTBuilderToken *)array_get(current_var, 1))->lines;
 			}
 			break;
 		} case PARSER_AST_BUILDER_TOKEN_COMMENT:
@@ -527,9 +527,9 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		break;
 	case AST_COMMENT: {
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
-			struct Token *t = token_new_comment(&node->line_start, line, PARSER_AST_BUILDER_CONDITIONAL_INVALID);
+			struct ParserASTBuilderToken *t = parser_astbuilder_token_new_comment(&node->line_start, line, PARSER_AST_BUILDER_CONDITIONAL_INVALID);
 			t->edited = node->edited;
-			array_append(tokens, mempool_add(extpool, t, token_free));
+			array_append(tokens, mempool_add(extpool, t, parser_astbuilder_token_free));
 		}
 		break;
 	} case AST_EXPR: {
@@ -677,7 +677,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 
 	struct Array *tokens = builder->tokens;
 	size_t maxvarlen = 0;
-	ARRAY_FOREACH(tokens, struct Token *, o) {
+	ARRAY_FOREACH(tokens, struct ParserASTBuilderToken *, o) {
 		if (o->type == PARSER_AST_BUILDER_TOKEN_VARIABLE_START && o->variable.name) {
 			maxvarlen = MAX(maxvarlen, strlen(o->variable.name) + strlen(ASTVariableModifier_humanize[o->variable.modifier]));
 			if (str_endswith(o->variable.name, "+")) {
@@ -686,7 +686,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 		}
 	}
 	struct Array *vars = mempool_array(pool);
-	ARRAY_FOREACH(tokens, struct Token *, t) {
+	ARRAY_FOREACH(tokens, struct ParserASTBuilderToken *, t) {
 		const char *type = ParserASTBuilderTokenType_humanize[t->type];
 		if (t->variable.name &&
 		    (t->type == PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN ||

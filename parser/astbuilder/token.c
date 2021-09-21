@@ -44,8 +44,8 @@
 #include "token.h"
 #include "variable.h"
 
-struct Token *
-token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const char *data,
+struct ParserASTBuilderToken *
+parser_astbuilder_token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const char *data,
 	  const char *varname, const char *condname, const char *targetname)
 {
 	SCOPE_MEMPOOL(pool);
@@ -60,7 +60,7 @@ token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const
 		return NULL;
 	}
 
-	struct Token *t = mempool_alloc(pool, sizeof(struct Token));
+	struct ParserASTBuilderToken *t = mempool_alloc(pool, sizeof(struct ParserASTBuilderToken));
 	t->type = type;
 	t->lines = *lines;
 
@@ -89,14 +89,14 @@ token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const
 	return t;
 }
 
-struct Token *
-token_new_comment(struct ASTLineRange *lines, const char *data, enum ParserASTBuilderConditionalType cond)
+struct ParserASTBuilderToken *
+parser_astbuilder_token_new_comment(struct ASTLineRange *lines, const char *data, enum ParserASTBuilderConditionalType cond)
 {
 	if (lines == NULL || data == NULL) {
 		return NULL;
 	}
 
-	struct Token *t = xmalloc(sizeof(struct Token));
+	struct ParserASTBuilderToken *t = xmalloc(sizeof(struct ParserASTBuilderToken));
 	t->type = PARSER_AST_BUILDER_TOKEN_COMMENT;
 	t->lines = *lines;
 	t->conditional = cond;
@@ -105,7 +105,7 @@ token_new_comment(struct ASTLineRange *lines, const char *data, enum ParserASTBu
 }
 
 void
-token_free(struct Token *token)
+parser_astbuilder_token_free(struct ParserASTBuilderToken *token)
 {
 	if (token == NULL) {
 		return;
