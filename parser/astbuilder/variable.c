@@ -28,151 +28,50 @@
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <regex.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include <libias/flow.h>
-#include <libias/mem.h>
-#include <libias/mempool.h>
 #include <libias/str.h>
 
 #include "ast.h"
-#include "regexp.h"
-#include "rules.h"
 #include "variable.h"
 
-struct Variable {
-	char *name;
-	enum ASTVariableModifier modifier;
-};
-
-struct Variable *
-variable_new(const char *buf)
+int
+parse_variable(struct Mempool *pool, const char *buf, char **name, enum ASTVariableModifier *mod)
 {
-	SCOPE_MEMPOOL(pool);
-
 	size_t len = strlen(buf);
 
 	if (len < 2) {
-		return NULL;
+		return 0;
 	}
 	if (buf[len - 1] != '=') {
-		return NULL;
+		return 0;
 	}
 
-	enum ASTVariableModifier mod = AST_VARIABLE_MODIFIER_ASSIGN;
+	*mod = AST_VARIABLE_MODIFIER_ASSIGN;
 	size_t i = 2;
 	switch (buf[len - 2]) {
 	case ':':
-		mod = AST_VARIABLE_MODIFIER_EXPAND;
+		*mod = AST_VARIABLE_MODIFIER_EXPAND;
 		break;
 	case '!':
-		mod = AST_VARIABLE_MODIFIER_SHELL;
+		*mod = AST_VARIABLE_MODIFIER_SHELL;
 		break;
 	case '?':
-		mod = AST_VARIABLE_MODIFIER_OPTIONAL;
+		*mod = AST_VARIABLE_MODIFIER_OPTIONAL;
 		break;
 	case '+':
-		mod = AST_VARIABLE_MODIFIER_APPEND;
+		*mod = AST_VARIABLE_MODIFIER_APPEND;
 		break;
 	default:
 		i = 1;
 		break;
 	}
 
-	char *name = str_trimr(pool, str_ndup(pool, buf, strlen(buf) - i));
-	if (strcmp(name, "") == 0) {
-		return NULL;
+	*name = str_trimr(pool, str_ndup(pool, buf, strlen(buf) - i));
+	if (strcmp(*name, "") == 0) {
+		return 0;
 	}
 
-	struct Variable *var = xmalloc(sizeof(struct Variable));
-	var->modifier = mod;
-	var->name = mempool_forget(pool, name);
-
-	return var;
-}
-
-struct Variable *
-variable_clone(struct Variable *var)
-{
-	struct Variable *newvar = xmalloc(sizeof(struct Variable));
-	newvar->name = str_dup(NULL, var->name);
-	newvar->modifier = var->modifier;
-	return newvar;
-}
-
-void
-variable_free(struct Variable *var)
-{
-	if (var == NULL) {
-		return;
-	}
-	free(var->name);
-	free(var);
-}
-
-int
-variable_cmp(struct Variable *a, struct Variable *b)
-{
-	panic_unless(a && b, "variable_cmp is not NULL-safe");
-	return strcmp(a->name, b->name);
-}
-
-int
-variable_compare(const void *ap, const void *bp, void *userdata)
-{
-	struct Variable *a = *(struct Variable **)ap;
-	struct Variable *b = *(struct Variable **)bp;
-	return variable_cmp(a, b);
-}
-
-enum ASTVariableModifier
-variable_modifier(struct Variable *var)
-{
-	return var->modifier;
-}
-
-void
-variable_set_modifier(struct Variable *var, enum ASTVariableModifier modifier)
-{
-	var->modifier = modifier;
-}
-
-char *
-variable_name(struct Variable *var)
-{
-	return var->name;
-}
-
-char *
-variable_tostring(struct Variable *var, struct Mempool *pool)
-{
-	const char *mod = NULL;
-	switch (var->modifier) {
-	case AST_VARIABLE_MODIFIER_APPEND:
-		mod = "+=";
-		break;
-	case AST_VARIABLE_MODIFIER_ASSIGN:
-		mod = "=";
-		break;
-	case AST_VARIABLE_MODIFIER_EXPAND:
-		mod = ":=";
-		break;
-	case AST_VARIABLE_MODIFIER_OPTIONAL:
-		mod = "?=";
-		break;
-	case AST_VARIABLE_MODIFIER_SHELL:
-		mod = "!=";
-		break;
-	}
-	panic_unless(mod, "missing string for %d", var->modifier);
-
-	const char *sep = "";
-	if (str_endswith(var->name, "+")) {
-		sep = " ";
-	}
-	return str_printf(pool, "%s%s%s", var->name, sep, mod);
+	return 1;
 }

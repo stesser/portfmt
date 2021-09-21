@@ -27,15 +27,7 @@
  */
 #pragma once
 
-struct Variable;
+enum ASTVariableModifier;
 struct Mempool;
 
-struct Variable *variable_new(const char *);
-struct Variable *variable_clone(struct Variable *);
-int variable_cmp(struct Variable *, struct Variable *);
-int variable_compare(const void *, const void *, void *);
-void variable_free(struct Variable *);
-enum ASTVariableModifier variable_modifier(struct Variable *);
-void variable_set_modifier(struct Variable *, enum ASTVariableModifier);
-char *variable_name(struct Variable *);
-char *variable_tostring(struct Variable *, struct Mempool *);
+int parse_variable(struct Mempool *, const char *, char **, enum ASTVariableModifier *);

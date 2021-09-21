@@ -48,7 +48,10 @@ struct Token {
 	enum ParserASTBuilderTokenType type;
 	char *data;
 	enum ParserASTBuilderConditionalType cond;
-	struct Variable *var;
+	struct {
+		char *name;
+		enum ASTVariableModifier modifier;
+	} variable;
 	struct Target *target;
 	int goalcol;
 	int edited;
@@ -85,21 +88,18 @@ token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const
 		return NULL;
 	}
 
-	struct Variable *var = NULL;
-	if (varname && (var = variable_new(varname)) == NULL) {
+	if (varname && !parse_variable(pool, varname, &t->variable.name, &t->variable.modifier)) {
 		return NULL;
 	}
-	mempool_add(pool, var, variable_free);
 
 	if (data) {
 		t->data = str_dup(NULL, data);
 	}
 	t->target = target;
-	t->var = var;
 
 	mempool_forget(pool, t);
 	mempool_forget(pool, target);
-	mempool_forget(pool, var);
+	mempool_forget(pool, t->variable.name);
 	return t;
 }
 
@@ -118,52 +118,6 @@ token_new_comment(struct ASTLineRange *lines, const char *data, enum ParserASTBu
 	return t;
 }
 
-struct Token *
-token_new_variable_end(struct ASTLineRange *lines, struct Variable *var)
-{
-	if (lines == NULL || var == NULL) {
-		return NULL;
-	}
-
-	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = PARSER_AST_BUILDER_TOKEN_VARIABLE_END;
-	t->lines = *lines;
-	t->var = variable_clone(var);
-
-	return t;
-}
-
-struct Token *
-token_new_variable_start(struct ASTLineRange *lines, struct Variable *var)
-{
-	if (lines == NULL || var == NULL) {
-		return NULL;
-	}
-
-	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = PARSER_AST_BUILDER_TOKEN_VARIABLE_START;
-	t->lines = *lines;
-	t->var = variable_clone(var);
-
-	return t;
-}
-
-struct Token *
-token_new_variable_token(struct ASTLineRange *lines, struct Variable *var, const char *data)
-{
-	if (lines == NULL || var == NULL || data == NULL) {
-		return NULL;
-	}
-
-	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN;
-	t->lines = *lines;
-	t->var = variable_clone(var);
-	t->data = str_dup(NULL, data);
-
-	return t;
-}
-
 void
 token_free(struct Token *token)
 {
@@ -171,7 +125,7 @@ token_free(struct Token *token)
 		return;
 	}
 	free(token->data);
-	variable_free(token->var);
+	free(token->variable.name);
 	target_free(token->target);
 	free(token);
 }
@@ -224,8 +178,14 @@ token_type(struct Token *token)
 	return token->type;
 }
 
-struct Variable *
+const char *
 token_variable(struct Token *token)
 {
-	return token->var;
+	return token->variable.name;
+}
+
+enum ASTVariableModifier
+token_variable_modifier(struct Token *token)
+{
+	return token->variable.modifier;
 }
