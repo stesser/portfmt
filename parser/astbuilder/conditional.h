@@ -29,4 +29,4 @@
 
 enum ParserASTBuilderConditionalType;
 
-enum ParserASTBuilderConditionalType parse_conditional(const char *);
+enum ParserASTBuilderConditionalType parse_conditional(const char *, size_t *);

@@ -34,7 +34,10 @@ struct ASTLineRange;
 struct ParserASTBuilderToken {
 	enum ParserASTBuilderTokenType type;
 	char *data;
-	enum ParserASTBuilderConditionalType conditional;
+	struct {
+		enum ParserASTBuilderConditionalType type;
+		size_t indent;
+	} conditional;
 	struct {
 		char *name;
 		enum ASTVariableModifier modifier;

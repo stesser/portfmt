@@ -39,8 +39,10 @@
 #include "regexp.h"
 #include "rules.h"
 
+#include <stdio.h>
+
 enum ParserASTBuilderConditionalType
-parse_conditional(const char *s)
+parse_conditional(const char *s, size_t *indent)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -58,7 +60,9 @@ parse_conditional(const char *s)
 	if (tmp[0] == '.') {
 		char *tmp2 = str_trim(pool, tmp + 1);
 		type = str_printf(pool, ".%s", tmp2);
+		*indent = strlen(tmp) - strlen(type);
 	} else {
+		*indent = 0;
 		type = str_trim(pool, tmp);
 	}
 

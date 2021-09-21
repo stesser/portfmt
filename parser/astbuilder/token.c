@@ -70,7 +70,7 @@ parser_astbuilder_token_new(enum ParserASTBuilderTokenType type, struct ASTLineR
 	}
 	mempool_add(pool, target, target_free);
 
-	if (condname && (t->conditional = parse_conditional(condname)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
+	if (condname && (t->conditional.type = parse_conditional(condname, &t->conditional.indent)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
 		return NULL;
 	}
 
@@ -99,7 +99,7 @@ parser_astbuilder_token_new_comment(struct ASTLineRange *lines, const char *data
 	struct ParserASTBuilderToken *t = xmalloc(sizeof(struct ParserASTBuilderToken));
 	t->type = PARSER_AST_BUILDER_TOKEN_COMMENT;
 	t->lines = *lines;
-	t->conditional = cond;
+	t->conditional.type = cond;
 	t->data = str_dup(NULL, data);
 	return t;
 }

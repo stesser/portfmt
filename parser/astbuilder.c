@@ -86,15 +86,6 @@ static enum ASTIfType ConditionalType_to_ASTIfType[] = {
 
 static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
 
-static size_t
-cond_indent(const char *word)
-{
-	word++; // Skip .
-	size_t indent = 0;
-	for (; isspace(*word); word++, indent++);
-	return indent;
-}
-
 static char *
 range_tostring(struct Mempool *pool, struct ASTLineRange *range)
 {
@@ -266,7 +257,7 @@ ast_from_token_stream(struct Array *tokens)
 			array_append(current_cond, t);
 			break;
 		case PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END: {
-			enum ParserASTBuilderConditionalType condtype = t->conditional;
+			enum ParserASTBuilderConditionalType condtype = t->conditional.type;
 			switch (condtype) {
 			case PARSER_AST_BUILDER_CONDITIONAL_INVALID:
 				panic("got invalid conditional");
@@ -276,7 +267,7 @@ ast_from_token_stream(struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_SINCLUDE: {
 				struct AST *node = ast_new(root->pool, AST_INCLUDE, &t->lines, &(struct ASTInclude){
 					.type = conditional_to_include[condtype],
-					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
+					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = t->edited;
@@ -310,7 +301,7 @@ ast_from_token_stream(struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_WARNING: {
 				struct AST *node = ast_new(root->pool, AST_EXPR, &t->lines, &(struct ASTExpr){
 					.type = conditional_to_expr[condtype],
-					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
+					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = t->edited;
@@ -318,7 +309,7 @@ ast_from_token_stream(struct Array *tokens)
 				break;
 			} case PARSER_AST_BUILDER_CONDITIONAL_FOR: {
 				struct AST *node = ast_new(root->pool, AST_FOR, &t->lines, &(struct ASTFor){
-					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
+					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 				node->edited = t->edited;
@@ -371,7 +362,7 @@ ast_from_token_stream(struct Array *tokens)
 				}
 				struct AST *node = ast_new(root->pool, AST_IF, &t->lines, &(struct ASTIf){
 					.type = ConditionalType_to_ASTIfType[condtype],
-					.indent = cond_indent(((struct ParserASTBuilderToken *)array_get(current_cond, 0))->data),
+					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 					.ifparent = ifparent,
 				});
 				ast_parent_append_sibling(parent, node, ifparent != NULL);
@@ -697,11 +688,11 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 				sep = " ";
 			}
 			array_append(vars, str_printf(pool, "%s%s%s", t->variable.name, sep, ASTVariableModifier_humanize[t->variable.modifier]));
-		} else if (t->conditional != PARSER_AST_BUILDER_CONDITIONAL_INVALID &&
+		} else if (t->conditional.type != PARSER_AST_BUILDER_CONDITIONAL_INVALID &&
 			   (t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN)) {
-			array_append(vars, ParserASTBuilderConditionalType_humanize[t->conditional]);
+			array_append(vars, ParserASTBuilderConditionalType_humanize[t->conditional.type]);
 		} else if (t->target && t->type == PARSER_AST_BUILDER_TOKEN_TARGET_START) {
 			ARRAY_FOREACH(target_names(t->target), char *, name) {
 				array_append(vars, str_dup(pool, name));
