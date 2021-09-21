@@ -190,6 +190,8 @@ static struct option longopts[SCAN_LONGOPT__N + 1] = {
 	[SCAN_LONGOPT_VARIABLE_VALUES] = { "variable-values", optional_argument, NULL, 1 },
 };
 
+static unsigned int DEFAULT_PROGRESSINTERVAL = 1;
+
 static void
 add_error(struct Set *errors, char *msg)
 {
@@ -937,7 +939,7 @@ main(int argc, char *argv[])
 			flags |= SCAN_OPTIONS;
 			break;
 		case SCAN_LONGOPT_PROGRESS:
-			progressinterval = 5;
+			progressinterval = DEFAULT_PROGRESSINTERVAL;
 			break;
 		case SCAN_LONGOPT_STRICT:
 			strict_variables = 1;
@@ -968,6 +970,10 @@ main(int argc, char *argv[])
 
 	if (portsdir_path == NULL) {
 		portsdir_path = "/usr/ports";
+	}
+
+	if (isatty(STDERR_FILENO)) {
+		progressinterval = DEFAULT_PROGRESSINTERVAL;
 	}
 
 #if HAVE_CAPSICUM
@@ -1007,7 +1013,7 @@ main(int argc, char *argv[])
 
 	if (opts[SCAN_LONGOPT_PROGRESS].optarg) {
 		const char *error;
-		progressinterval = strtonum(opts[SCAN_LONGOPT_PROGRESS].optarg, 1, 100000000, &error);
+		progressinterval = strtonum(opts[SCAN_LONGOPT_PROGRESS].optarg, 0, 100000000, &error);
 		if (error) {
 			errx(1, "--progress=%s is %s (must be >=1)", opts[SCAN_LONGOPT_PROGRESS].optarg, error);
 		}
@@ -1067,13 +1073,15 @@ main(int argc, char *argv[])
 				err(1, "portscan_log_serialize_to_dir");
 			}
 		} else {
+			if (progressinterval) {
+				portscan_status_reset(PORTSCAN_STATUS_FINISHED, 0);
+				portscan_status_print();
+			}
 			if (!portscan_log_serialize_to_file(result, out)) {
 				err(1, "portscan_log_serialize");
 			}
 		}
-	}
-
-	if (progressinterval) {
+	} else if (progressinterval) {
 		portscan_status_reset(PORTSCAN_STATUS_FINISHED, 0);
 		portscan_status_print();
 	}

@@ -51,11 +51,19 @@ static atomic_int siginfo_requested = ATOMIC_VAR_INIT(0);
 static atomic_size_t scanned = ATOMIC_VAR_INIT(0);
 static size_t max_scanned;
 
+static const char *endline = "\n";
+static const char *startline = "";
+
 void
 portscan_status_init(unsigned int progress_interval)
 {
 	interval = progress_interval;
 	clock_gettime(CLOCK_MONOTONIC, &tic);
+
+	if (isatty(STDERR_FILENO)) {
+		endline = "";
+		startline = "\r                                                                                                \r";
+	}
 
 #ifdef SIGINFO
 	if (signal(SIGINFO, portscan_status_signal_handler)) {
@@ -104,27 +112,24 @@ portscan_status_print()
 		int seconds = (toc.tv_nsec - tic.tv_nsec) / 1000000000.0 + (toc.tv_sec  - tic.tv_sec);
 		switch (state) {
 		case PORTSCAN_STATUS_START:
-			fprintf(stderr, "[  0%%] starting (%ds)\n", seconds);
+			fprintf(stderr, "%s[  0%%] starting (%ds)%s", startline, seconds, endline);
 			break;
 		case PORTSCAN_STATUS_CATEGORIES:
-			fprintf(stderr, "[%3d%%] scanning categories %zu/%zu (%ds)\n", percent, scanned, max_scanned, seconds);
+			fprintf(stderr, "%s[%3d%%] scanning categories %zu/%zu (%ds)%s", startline, percent, scanned, max_scanned, seconds, endline);
 			break;
 		case PORTSCAN_STATUS_PORTS:
-			fprintf(stderr, "[%3d%%] scanning ports %zu/%zu (%ds)\n", percent, scanned, max_scanned, seconds);
-			break;
-		case PORTSCAN_STATUS_RESULT:
-			fprintf(stderr, "[%3d%%] compiling result %zu/%zu (%ds)\n", percent, scanned, max_scanned, seconds);
+			fprintf(stderr, "%s[%3d%%] scanning ports %zu/%zu (%ds)%s", startline, percent, scanned, max_scanned, seconds, endline);
 			break;
 		case PORTSCAN_STATUS_FINISHED:
-			fprintf(stderr, "[100%%] finished in %ds\n", seconds);
+			// End output with newline
+			fprintf(stderr, "%s[100%%] finished in %ds\n", startline, seconds);
 			break;
-		default:
-			panic("unhandled portscan state: %d", state);
 		}
 		if (interval) {
 			alarm(interval);
 		}
 	}
+	fflush(stderr);
 }
 
 void
