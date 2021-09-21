@@ -469,6 +469,13 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 		} else {
 			return str_printf(extpool, "line %s: IO error", lines);
 		}
+	case PARSER_ERROR_AST_BUILD_FAILED:
+		if (parser->error_msg) {
+			return str_printf(extpool, "error building AST: %s", parser->error_msg);
+		} else {
+			return str_printf(extpool, "line %s: error building AST", lines);
+		}
+		break;
 	case PARSER_ERROR_UNSPECIFIED:
 		if (parser->error_msg) {
 			return str_printf(extpool, "line %s: parse error: %s", lines, parser->error_msg);
@@ -1653,6 +1660,9 @@ parser_read_finish(struct Parser *parser)
 	parser->read_finished = 1;
 	ast_free(parser->ast);
 	parser->ast = parser_astbuilder_finish(parser->builder);
+	if (parser->error != PARSER_ERROR_OK) {
+		return parser->error;
+	}
 
 	if (parser->settings.behavior & PARSER_SANITIZE_COMMENTS &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_comments, NULL)) {

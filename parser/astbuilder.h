@@ -49,5 +49,3 @@ void parser_astbuilder_free(struct ParserASTBuilder *);
 void parser_astbuilder_append_token(struct ParserASTBuilder *, enum ParserASTBuilderTokenType, const char *);
 void parser_astbuilder_print_token_stream(struct ParserASTBuilder *, FILE *);
 struct AST *parser_astbuilder_finish(struct ParserASTBuilder *);
-
-struct AST *ast_from_token_stream(struct Array *);

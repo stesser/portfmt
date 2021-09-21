@@ -83,6 +83,7 @@ static enum ASTIfType ConditionalType_to_ASTIfType[] = {
 	[PARSER_AST_BUILDER_CONDITIONAL_ELSE] = AST_IF_ELSE,
 };
 
+static struct AST *ast_from_token_stream(struct Parser *, struct Array *);
 static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
 
 static char *
@@ -201,7 +202,7 @@ struct AST *
 parser_astbuilder_finish(struct ParserASTBuilder *builder)
 {
 	panic_unless(builder->tokens, "AST was already built");
-	struct AST *root = ast_from_token_stream(builder->tokens);
+	struct AST *root = ast_from_token_stream(builder->parser, builder->tokens);
 	mempool_release_all(builder->pool);
 	builder->tokens = NULL;
 	return root;
@@ -229,7 +230,7 @@ ast_from_token_stream_flush_comments(struct AST *parent, struct Array *comments)
 }
 
 struct AST *
-ast_from_token_stream(struct Array *tokens)
+ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -244,7 +245,9 @@ ast_from_token_stream(struct Array *tokens)
 
 	ARRAY_FOREACH(tokens, struct ParserASTBuilderToken *, t) {
 		if (stack_len(nodestack) == 0) {
-			panic("node stack exhausted at token on input line %zu-%zu", t->lines.a, t->lines.b);
+			parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+					 str_printf(pool, "node exhausted on line %zu-%zu", t->lines.a, t->lines.b));
+			return NULL;
 		}
 		if (t->type != PARSER_AST_BUILDER_TOKEN_COMMENT) {
 			ast_from_token_stream_flush_comments(stack_peek(nodestack), current_comments);
@@ -330,6 +333,14 @@ ast_from_token_stream(struct Array *tokens)
 				break;
 			} case PARSER_AST_BUILDER_CONDITIONAL_ENDFOR: {
 				struct AST *node = stack_pop(nodestack);
+				if (node->type == AST_TARGET) {
+					node = stack_pop(nodestack);
+				}
+				unless (node->type == AST_FOR) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+						str_printf(pool, "could not find matching .for for .endfor on line %zu-%zu", t->lines.a, t->lines.b));
+					return NULL;
+				}
 				node->line_end = t->lines;
 				node->forexpr.end_comment = split_off_comment(node->pool, current_cond, 1, -1, NULL);
 				break;
@@ -377,6 +388,11 @@ ast_from_token_stream(struct Array *tokens)
 				stack_push(nodestack, node);
 				break;
 			} case PARSER_AST_BUILDER_CONDITIONAL_ENDIF: {
+				if (stack_len(ifstack) == 0) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+						str_printf(pool, "could not find matching .if for .endif on line %zu-%zu", t->lines.a, t->lines.b));
+					return NULL;
+				}
 				struct AST *ifnode = stack_pop(ifstack);
 				while (ifnode && ifnode->ifexpr.ifparent && (ifnode = stack_pop(ifstack)));
 				if (ifnode) {
@@ -500,7 +516,12 @@ ast_from_token_stream(struct Array *tokens)
 
 	ast_from_token_stream_flush_comments(stack_peek(nodestack), current_comments);
 
-	return root;
+	if (stack_pop(nodestack) != root) {
+		parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED, str_printf(pool, "node stack not exhausted"));
+		return NULL;
+	} else {
+		return root;
+	}
 }
 
 static void
