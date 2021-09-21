@@ -90,9 +90,9 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 ast.o: config.h libias/array.h libias/flow.h libias/map.h libias/mempool.h libias/stack.h libias/str.h ast.h
 constants.o: config.h constants.h
 mainutils.o: config.h libias/array.h libias/mempool.h libias/mempool/file.h libias/str.h capsicum_helpers.h mainutils.h parser.h
-parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h parser.h parser/astbuilder.h parser/astbuilder/enum.h parser/edits.h regexp.h rules.h
+parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/map.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h parser.h parser/astbuilder.h parser/astbuilder/enum.h parser/edits.h rules.h
 parser/astbuilder.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/stack.h libias/str.h ast.h parser.h parser/astbuilder.h parser/astbuilder/conditional.h parser/astbuilder/enum.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h rules.h
-parser/astbuilder/conditional.o: config.h libias/mempool.h libias/str.h parser/astbuilder/enum.h parser/astbuilder/conditional.h regexp.h rules.h
+parser/astbuilder/conditional.o: config.h libias/mempool.h libias/str.h parser/astbuilder/enum.h parser/astbuilder/conditional.h
 parser/astbuilder/enum.o: config.h parser/astbuilder/enum.h
 parser/astbuilder/target.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser/astbuilder/target.h
 parser/astbuilder/token.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h parser/astbuilder/conditional.h parser/astbuilder/enum.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h
@@ -125,7 +125,7 @@ portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libi
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
 portscan/status.o: config.h libias/flow.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
-rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h regexp.h rules.h parser.h parser/edits.h
+rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h rules.h parser.h parser/edits.h
 
 deps:
 	@for f in $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \

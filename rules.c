@@ -31,7 +31,6 @@
 #include <sys/param.h>
 #include <ctype.h>
 #include <math.h>
-#include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,7 +44,6 @@
 
 #include "ast.h"
 #include "constants.h"
-#include "regexp.h"
 #include "rules.h"
 #include "parser.h"
 #include "parser/edits.h"
@@ -68,20 +66,6 @@ static int matches_options_group(struct Mempool *, struct Parser *, const char *
 static char *remove_plist_keyword(const char *, struct Mempool *);
 static void target_extract_opt(struct Mempool *, struct Parser *, const char *, char **, char **, int *);
 static int variable_has_flag(struct Parser *, const char *, int);
-
-static struct {
-	const char *pattern;
-	int flags;
-	regex_t re;
-} regular_expressions[] = {
-	[RE_CONDITIONAL]      = { "^(include|\\.[[:space:]]*(error|export|export-env|"
-				  "export\\.env|export-literal|info|undef|unexport|for|endfor|"
-				  "unexport-env|warning|if|ifdef|ifndef|include|"
-				  "ifmake|ifnmake|else|elif|elifdef|elifndef|"
-				  "elifmake|endif|sinclude))([[:space:]]*|$|\\(|!)",
-				  REG_EXTENDED, {} },
-};
-
 
 static const char *license_perms_rel[] = {
 	"dist-mirror",
@@ -1209,8 +1193,6 @@ static struct VariableOrderEntry special_variables_[] = {
 #undef VAR_FOR_EACH_FREEBSD_VERSION
 #undef VAR_FOR_EACH_FREEBSD_VERSION_AND_ARCH
 #undef VAR_FOR_EACH_SSL
-
-static volatile int rules_initialized = 0;
 
 int
 variable_has_flag(struct Parser *parser, const char *var, int flag)
@@ -2852,40 +2834,4 @@ target_command_should_wrap(const char *word)
 	}
 
 	return 0;
-}
-
-regex_t *
-regex(enum RegularExpression re)
-{
-	return &regular_expressions[re].re;
-}
-
-int
-matches(enum RegularExpression re, const char *s)
-{
-	return regexec(&regular_expressions[re].re, s, 0, NULL, 0) == 0;
-}
-
-void
-rules_init()
-{
-	if (rules_initialized) {
-		return;
-	}
-
-	for (size_t i = 0; i < nitems(regular_expressions); i++) {
-		const char *pattern;
-		pattern = regular_expressions[i].pattern;
-
-		int error = regcomp(&regular_expressions[i].re, pattern,
-				    regular_expressions[i].flags);
-		if (error != 0) {
-			size_t errbuflen = regerror(error, &regular_expressions[i].re, NULL, 0);
-			char *errbuf = xmalloc(errbuflen);
-			regerror(error, &regular_expressions[i].re, errbuf, errbuflen);
-			panic("regcomp: %zu: %s", i, errbuf);
-		}
-	}
-
-	rules_initialized = 1;
 }

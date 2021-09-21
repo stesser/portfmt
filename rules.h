@@ -72,10 +72,6 @@ enum BlockType {
 	BLOCK_UNKNOWN,
 };
 
-enum RegularExpression {
-	RE_CONDITIONAL = 0,
-};
-
 struct CompareTokensData {
 	struct Parser *parser;
 	const char *var;
@@ -101,8 +97,6 @@ int is_special_source(const char *);
 int is_special_target(const char *);
 int is_options_helper(struct Mempool *, struct Parser *, const char *, char **, char **, char **);
 int leave_unformatted(struct Parser *, const char *);
-regex_t *regex(enum RegularExpression);
-int matches(enum RegularExpression, const char *);
 int print_as_newlines(struct Parser *, const char *);
 void rules_init(void);
 int should_sort(struct Parser *, const char *, enum ASTVariableModifier);

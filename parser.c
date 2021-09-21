@@ -34,7 +34,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
-#include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,7 +58,6 @@
 #include "parser/astbuilder.h"
 #include "parser/astbuilder/enum.h"
 #include "parser/edits.h"
-#include "regexp.h"
 #include "rules.h"
 
 struct Parser {
@@ -136,19 +134,40 @@ consume_comment(const char *buf)
 size_t
 consume_conditional(const char *buf)
 {
-	SCOPE_MEMPOOL(pool);
+	static const char *conditionals[] = {
+		"error", "export-env", "export.env", "export-literal", "export",
+		"unexport-env", "unexport", "undef", "info", "for", "endfor",
+		"warning", "ifdef", "ifndef", "include", "ifmake", "ifnmake",
+		"if", "else", "elifndef", "elifmake", "elifdef", "elif", "endif",
+		"sinclude",
+	};
 
 	size_t pos = 0;
-	struct Regexp *re = regexp_new(pool, regex(RE_CONDITIONAL));
-	if (regexp_exec(re, buf) == 0) {
-		pos = regexp_length(re, 0);
+	if (*buf == '.') {
+		pos++;
+		for (; isspace(buf[pos]); pos++);
+		for (size_t i = 0; i < nitems(conditionals); i++) {
+			if (str_startswith(buf + pos, conditionals[i])) {
+				pos += strlen(conditionals[i]);
+				size_t origpos = pos;
+				for (; isspace(buf[pos]); pos++);
+				if (buf[pos] == 0 || pos > origpos) {
+					return pos;
+				} else if (buf[pos] == '(' || buf[pos] == '<' || buf[pos] == '!') {
+					return pos;
+				}
+			}
+		}
+	} else if (str_startswith(buf, "include")) {
+		pos += strlen("include");
+		int space = 0;
+		for (; isspace(buf[pos]); pos++, space = 1);
+		if (space) {
+			return pos;
+		}
 	}
 
-	if(pos > 0 && (buf[pos - 1] == '(' || buf[pos - 1] == '!')) {
-		pos--;
-	}
-
-	return pos;
+	return 0;
 }
 
 size_t
@@ -330,8 +349,6 @@ parser_init_settings(struct ParserSettings *settings)
 struct Parser *
 parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 {
-	rules_init();
-
 	struct Parser *parser = xmalloc(sizeof(struct Parser));
 
 	parser->pool = mempool_new();
@@ -445,12 +462,6 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 			return str_printf(extpool, "invalid argument: %s", parser->error_msg);
 		} else {
 			return str_printf(extpool, "invalid argument");
-		}
-	case PARSER_ERROR_INVALID_REGEXP:
-		if (parser->error_msg) {
-			return str_printf(extpool, "invalid regexp: %s", parser->error_msg);
-		} else {
-			return str_printf(extpool, "invalid regexp");
 		}
 	case PARSER_ERROR_IO:
 		if (parser->error_msg) {

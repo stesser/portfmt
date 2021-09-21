@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#include <regex.h>
 #include <string.h>
 
 #include <libias/mempool.h>
@@ -36,34 +35,19 @@
 
 #include "enum.h"
 #include "conditional.h"
-#include "regexp.h"
-#include "rules.h"
-
-#include <stdio.h>
 
 enum ParserASTBuilderConditionalType
 parse_conditional(const char *s, size_t *indent)
 {
 	SCOPE_MEMPOOL(pool);
 
-	struct Regexp *re = regexp_new(pool, regex(RE_CONDITIONAL));
-	if (regexp_exec(re, s) != 0) {
-		return PARSER_AST_BUILDER_CONDITIONAL_INVALID;
-	}
-
-	char *tmp = regexp_substr(re, pool, 0);
-	if (strlen(tmp) < 2) {
-		return PARSER_AST_BUILDER_CONDITIONAL_INVALID;
-	}
-
 	char *type;
-	if (tmp[0] == '.') {
-		char *tmp2 = str_trim(pool, tmp + 1);
-		type = str_printf(pool, ".%s", tmp2);
-		*indent = strlen(tmp) - strlen(type);
+	if (s[0] == '.') {
+		type = str_printf(pool, ".%s", str_trim(pool, s + 1));
+		*indent = strlen(s) - strlen(type);
 	} else {
 		*indent = 0;
-		type = str_trim(pool, tmp);
+		type = str_trim(pool, s);
 	}
 
 	if (strcmp(type, "include") == 0) {

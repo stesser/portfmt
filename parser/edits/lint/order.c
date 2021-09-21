@@ -30,7 +30,6 @@
 
 #include <sys/param.h>
 #include <ctype.h>
-#include <regex.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
