@@ -113,7 +113,7 @@ PARSER_EDIT(lint_commented_portrevision)
 	}
 
 	if (retval) {
-		*retval = mempool_forget(pool, this.comments);
+		*retval = mempool_move(pool, this.comments, extpool);
 	}
 
 	return 1;

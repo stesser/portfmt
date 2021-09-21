@@ -123,7 +123,7 @@ PARSER_EDIT(lint_clones)
 	}
 
 	if (clones_ret != NULL) {
-		*clones_ret = mempool_forget(pool, this.clones);
+		*clones_ret = mempool_move(pool, this.clones, extpool);
 	}
 
 	return 1;

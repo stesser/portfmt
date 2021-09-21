@@ -520,7 +520,7 @@ scan_port(struct ScanPortArgs *args)
 
 	if (retval->flags & SCAN_CLONES) {
 		// XXX: Limit by query?
-		error = parser_edit(parser, pool, lint_clones, &retval->clones);
+		error = parser_edit(parser, retval->pool, lint_clones, &retval->clones);
 		if (error != PARSER_ERROR_OK) {
 			add_error(retval->errors, str_printf(pool, "lint.clones: %s", parser_error_tostring(parser, pool)));
 			return;
@@ -582,7 +582,6 @@ scan_port(struct ScanPortArgs *args)
 				set_add(retval->comments, str_dup(NULL, msg));
 			}
 		}
-		set_free(commented_portrevision);
 	}
 }
 

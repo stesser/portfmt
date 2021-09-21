@@ -157,10 +157,10 @@ get_targetname(struct Mempool *pool, struct ASTTarget *target)
 struct ParserASTBuilder *
 parser_astbuilder_new(struct Parser *parser)
 {
-	struct Mempool *pool = mempool_new();
-	struct ParserASTBuilder *builder = mempool_alloc(pool, sizeof(struct ParserASTBuilder));
+	struct ParserASTBuilder *builder = xmalloc(sizeof(struct ParserASTBuilder));
+	builder->pool = mempool_new();
 	builder->parser = parser;
-	builder->tokens = mempool_array(pool);
+	builder->tokens = mempool_array(builder->pool);
 	builder->lines.a = 1;
 	builder->lines.b = 1;
 	return builder;
@@ -179,6 +179,7 @@ parser_astbuilder_free(struct ParserASTBuilder *builder)
 {
 	if (builder) {
 		mempool_free(builder->pool);
+		free(builder);
 	}
 }
 

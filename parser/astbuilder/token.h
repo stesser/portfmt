@@ -30,9 +30,11 @@
 enum ParserASTBuilderTokenType;
 struct Target;
 struct ASTLineRange;
+struct Mempool;
 
 struct ParserASTBuilderToken {
 	enum ParserASTBuilderTokenType type;
+	struct Mempool *pool;
 	char *data;
 	struct {
 		enum ParserASTBuilderConditionalType type;

@@ -60,15 +60,15 @@ parser_astbuilder_token_new(enum ParserASTBuilderTokenType type, struct ASTLineR
 		return NULL;
 	}
 
-	struct ParserASTBuilderToken *t = mempool_alloc(pool, sizeof(struct ParserASTBuilderToken));
+	struct ParserASTBuilderToken *t = xmalloc(sizeof(struct ParserASTBuilderToken));
+	t->pool = mempool_new();
 	t->type = type;
 	t->lines = *lines;
 
-	struct Target *target = NULL;
-	if (targetname && (target = target_new(targetname)) == NULL) {
+	if (targetname && (t->target = target_new(targetname)) == NULL) {
 		return NULL;
 	}
-	mempool_add(pool, target, target_free);
+	mempool_add(pool, t->target, target_free);
 
 	if (condname && (t->conditional.type = parse_conditional(condname, &t->conditional.indent)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
 		return NULL;
@@ -79,13 +79,10 @@ parser_astbuilder_token_new(enum ParserASTBuilderTokenType type, struct ASTLineR
 	}
 
 	if (data) {
-		t->data = str_dup(NULL, data);
+		t->data = str_dup(pool, data);
 	}
-	t->target = target;
 
-	mempool_forget(pool, t);
-	mempool_forget(pool, target);
-	mempool_forget(pool, t->variable.name);
+	mempool_inherit(t->pool, pool);
 	return t;
 }
 
@@ -97,10 +94,11 @@ parser_astbuilder_token_new_comment(struct ASTLineRange *lines, const char *data
 	}
 
 	struct ParserASTBuilderToken *t = xmalloc(sizeof(struct ParserASTBuilderToken));
+	t->pool = mempool_new();
 	t->type = PARSER_AST_BUILDER_TOKEN_COMMENT;
 	t->lines = *lines;
 	t->conditional.type = cond;
-	t->data = str_dup(NULL, data);
+	t->data = str_dup(t->pool, data);
 	return t;
 }
 
@@ -110,8 +108,6 @@ parser_astbuilder_token_free(struct ParserASTBuilderToken *token)
 	if (token == NULL) {
 		return;
 	}
-	free(token->data);
-	free(token->variable.name);
-	target_free(token->target);
+	mempool_free(token->pool);
 	free(token);
 }

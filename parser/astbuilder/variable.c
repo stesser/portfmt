@@ -31,14 +31,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <libias/mempool.h>
 #include <libias/str.h>
 
 #include "ast.h"
 #include "variable.h"
 
 int
-parse_variable(struct Mempool *pool, const char *buf, char **name, enum ASTVariableModifier *mod)
+parse_variable(struct Mempool *extpool, const char *buf, char **name, enum ASTVariableModifier *mod)
 {
+	SCOPE_MEMPOOL(pool);
+
 	size_t len = strlen(buf);
 
 	if (len < 2) {
@@ -70,8 +73,10 @@ parse_variable(struct Mempool *pool, const char *buf, char **name, enum ASTVaria
 
 	*name = str_trimr(pool, str_ndup(pool, buf, strlen(buf) - i));
 	if (strcmp(*name, "") == 0) {
+		*name = NULL;
 		return 0;
+	} else {
+		mempool_move(pool, *name, extpool);
+		return 1;
 	}
-
-	return 1;
 }

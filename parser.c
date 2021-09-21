@@ -389,6 +389,7 @@ parser_free(struct Parser *parser)
 	free(parser->inbuf.buf);
 
 	parser_astbuilder_free(parser->builder);
+	ast_free(parser->ast);
 	free(parser);
 }
 
