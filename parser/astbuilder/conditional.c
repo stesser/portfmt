@@ -29,36 +29,29 @@
 #include "config.h"
 
 #include <regex.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include <libias/flow.h>
-#include <libias/mem.h>
 #include <libias/mempool.h>
 #include <libias/str.h>
 
+#include "enum.h"
 #include "conditional.h"
 #include "regexp.h"
 #include "rules.h"
 
-struct Conditional {
-	enum ConditionalType type;
-};
-
-struct Conditional *
-conditional_new(const char *s)
+enum ParserASTBuilderConditionalType
+parse_conditional(const char *s)
 {
 	SCOPE_MEMPOOL(pool);
 
 	struct Regexp *re = regexp_new(pool, regex(RE_CONDITIONAL));
 	if (regexp_exec(re, s) != 0) {
-		return NULL;
+		return PARSER_AST_BUILDER_CONDITIONAL_INVALID;
 	}
 
 	char *tmp = regexp_substr(re, pool, 0);
 	if (strlen(tmp) < 2) {
-		return NULL;
+		return PARSER_AST_BUILDER_CONDITIONAL_INVALID;
 	}
 
 	char *type;
@@ -69,177 +62,61 @@ conditional_new(const char *s)
 		type = str_trim(pool, tmp);
 	}
 
-	enum ConditionalType cond_type;
 	if (strcmp(type, "include") == 0) {
-		cond_type = COND_INCLUDE_POSIX;
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX;
 	} else if (strcmp(type, ".include") == 0) {
-		cond_type = COND_INCLUDE;
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE;
 	} else if (strcmp(type, ".error") == 0) {
-		cond_type = COND_ERROR;
+		return PARSER_AST_BUILDER_CONDITIONAL_ERROR;
 	} else if (strcmp(type, ".export") == 0) {
-		cond_type = COND_EXPORT;
+		return PARSER_AST_BUILDER_CONDITIONAL_EXPORT;
 	} else if (strcmp(type, ".export-env") == 0) {
-		cond_type = COND_EXPORT_ENV;
+		return PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV;
 	} else if (strcmp(type, ".export.env") == 0) {
-		cond_type = COND_EXPORT_ENV;
+		return PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV;
 	} else if (strcmp(type, ".export-literal") == 0) {
-		cond_type = COND_EXPORT_LITERAL;
+		return PARSER_AST_BUILDER_CONDITIONAL_EXPORT_LITERAL;
 	} else if (strcmp(type, ".info") == 0) {
-		cond_type = COND_INFO;
+		return PARSER_AST_BUILDER_CONDITIONAL_INFO;
 	} else if (strcmp(type, ".undef") == 0) {
-		cond_type = COND_UNDEF;
+		return PARSER_AST_BUILDER_CONDITIONAL_UNDEF;
 	} else if (strcmp(type, ".unexport") == 0) {
-		cond_type = COND_UNEXPORT;
+		return PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT;
 	} else if (strcmp(type, ".for") == 0) {
-		cond_type = COND_FOR;
+		return PARSER_AST_BUILDER_CONDITIONAL_FOR;
 	} else if (strcmp(type, ".endfor") == 0) {
-		cond_type = COND_ENDFOR;
+		return PARSER_AST_BUILDER_CONDITIONAL_ENDFOR;
 	} else if (strcmp(type, ".unexport-env") == 0) {
-		cond_type = COND_UNEXPORT_ENV;
+		return PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV;
 	} else if (strcmp(type, ".warning") == 0) {
-		cond_type = COND_WARNING;
+		return PARSER_AST_BUILDER_CONDITIONAL_WARNING;
 	} else if (strcmp(type, ".if") == 0) {
-		cond_type = COND_IF;
+		return PARSER_AST_BUILDER_CONDITIONAL_IF;
 	} else if (strcmp(type, ".ifdef") == 0) {
-		cond_type = COND_IFDEF;
+		return PARSER_AST_BUILDER_CONDITIONAL_IFDEF;
 	} else if (strcmp(type, ".ifndef") == 0) {
-		cond_type = COND_IFNDEF;
+		return PARSER_AST_BUILDER_CONDITIONAL_IFNDEF;
 	} else if (strcmp(type, ".ifmake") == 0) {
-		cond_type = COND_IFMAKE;
+		return PARSER_AST_BUILDER_CONDITIONAL_IFMAKE;
 	} else if (strcmp(type, ".ifnmake") == 0) {
-		cond_type = COND_IFNMAKE;
+		return PARSER_AST_BUILDER_CONDITIONAL_IFNMAKE;
 	} else if (strcmp(type, ".else") == 0) {
-		cond_type = COND_ELSE;
+		return PARSER_AST_BUILDER_CONDITIONAL_ELSE;
 	} else if (strcmp(type, ".elif") == 0) {
-		cond_type = COND_ELIF;
+		return PARSER_AST_BUILDER_CONDITIONAL_ELIF;
 	} else if (strcmp(type, ".elifdef") == 0) {
-		cond_type = COND_ELIFDEF;
+		return PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF;
 	} else if (strcmp(type, ".elifndef") == 0) {
-		cond_type = COND_ELIFNDEF;
+		return PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF;
 	} else if (strcmp(type, ".elifmake") == 0) {
-		cond_type = COND_ELIFMAKE;
+		return PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE;
 	} else if (strcmp(type, ".endif") == 0) {
-		cond_type = COND_ENDIF;
+		return PARSER_AST_BUILDER_CONDITIONAL_ENDIF;
 	} else if (strcmp(type, ".dinclude") == 0) {
-		cond_type = COND_DINCLUDE;
+		return PARSER_AST_BUILDER_CONDITIONAL_DINCLUDE;
 	} else if (strcmp(type, ".sinclude") == 0 || strcmp(type, ".-include") == 0) {
-		cond_type = COND_SINCLUDE;
+		return PARSER_AST_BUILDER_CONDITIONAL_SINCLUDE;
 	} else {
-		return NULL;
+		return PARSER_AST_BUILDER_CONDITIONAL_INVALID;
 	}
-
-	struct Conditional *cond = xmalloc(sizeof(struct Conditional));
-	cond->type = cond_type;
-
-	return cond;
-}
-
-struct Conditional *
-conditional_clone(struct Conditional *cond)
-{
-	struct Conditional *newcond = xmalloc(sizeof(struct Conditional));
-	newcond->type = cond->type;
-	return newcond;
-}
-
-void
-conditional_free(struct Conditional *cond)
-{
-	free(cond);
-}
-
-char *
-conditional_tostring(struct Conditional *cond, struct Mempool *pool)
-{
-	const char *type = NULL;
-
-	switch(cond->type) {
-	case COND_DINCLUDE:
-		type = ".dinclude";
-		break;
-	case COND_ELIF:
-		type = ".elif";
-		break;
-	case COND_ELIFDEF:
-		type = ".elifdef";
-		break;
-	case COND_ELIFMAKE:
-		type = ".elifmake";
-		break;
-	case COND_ELIFNDEF:
-		type = ".elifndef";
-		break;
-	case COND_ELSE:
-		type = ".else";
-		break;
-	case COND_ENDFOR:
-		type = ".endfor";
-		break;
-	case COND_ENDIF:
-		type = ".endif";
-		break;
-	case COND_ERROR:
-		type = ".error";
-		break;
-	case COND_EXPORT_ENV:
-		type = ".export-env";
-		break;
-	case COND_EXPORT_LITERAL:
-		type = ".export-literal";
-		break;
-	case COND_EXPORT:
-		type = ".export";
-		break;
-	case COND_FOR:
-		type = ".for";
-		break;
-	case COND_IF:
-		type = ".if";
-		break;
-	case COND_IFDEF:
-		type = ".ifdef";
-		break;
-	case COND_IFMAKE:
-		type = ".ifmake";
-		break;
-	case COND_IFNDEF:
-		type = ".ifndef";
-		break;
-	case COND_IFNMAKE:
-		type = ".ifnmake";
-		break;
-	case COND_INCLUDE_POSIX:
-		type = "include";
-		break;
-	case COND_INCLUDE:
-		type = ".include";
-		break;
-	case COND_INFO:
-		type = ".info";
-		break;
-	case COND_SINCLUDE:
-		type = ".sinclude";
-		break;
-	case COND_UNDEF:
-		type = ".undef";
-		break;
-	case COND_UNEXPORT_ENV:
-		type = ".unexport-env";
-		break;
-	case COND_UNEXPORT:
-		type = ".unexport";
-		break;
-	case COND_WARNING:
-		type = ".warning";
-		break;
-	}
-	panic_unless(type, "missing string for %d", cond->type);
-
-	return str_dup(pool, type);
-}
-
-enum ConditionalType
-conditional_type(struct Conditional *cond)
-{
-	return cond->type;
 }

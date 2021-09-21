@@ -53,35 +53,35 @@
 #include "rules.h"
 
 static enum ASTExprType conditional_to_expr[] = {
-	[COND_ERROR] = AST_EXPR_ERROR,
-	[COND_EXPORT_ENV] = AST_EXPR_EXPORT_ENV,
-	[COND_EXPORT_LITERAL] = AST_EXPR_EXPORT_LITERAL,
-	[COND_EXPORT] = AST_EXPR_EXPORT,
-	[COND_INFO] = AST_EXPR_INFO,
-	[COND_UNDEF] = AST_EXPR_UNDEF,
-	[COND_UNEXPORT_ENV] = AST_EXPR_UNEXPORT_ENV,
-	[COND_UNEXPORT] = AST_EXPR_UNEXPORT,
-	[COND_WARNING] = AST_EXPR_WARNING,
+	[PARSER_AST_BUILDER_CONDITIONAL_ERROR] = AST_EXPR_ERROR,
+	[PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV] = AST_EXPR_EXPORT_ENV,
+	[PARSER_AST_BUILDER_CONDITIONAL_EXPORT_LITERAL] = AST_EXPR_EXPORT_LITERAL,
+	[PARSER_AST_BUILDER_CONDITIONAL_EXPORT] = AST_EXPR_EXPORT,
+	[PARSER_AST_BUILDER_CONDITIONAL_INFO] = AST_EXPR_INFO,
+	[PARSER_AST_BUILDER_CONDITIONAL_UNDEF] = AST_EXPR_UNDEF,
+	[PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV] = AST_EXPR_UNEXPORT_ENV,
+	[PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT] = AST_EXPR_UNEXPORT,
+	[PARSER_AST_BUILDER_CONDITIONAL_WARNING] = AST_EXPR_WARNING,
 };
 
 static enum ASTIncludeType conditional_to_include[] = {
-	[COND_DINCLUDE] = AST_INCLUDE_D,
-	[COND_INCLUDE_POSIX] = AST_INCLUDE_POSIX,
-	[COND_INCLUDE] = AST_INCLUDE_BMAKE,
-	[COND_SINCLUDE] = AST_INCLUDE_S,
+	[PARSER_AST_BUILDER_CONDITIONAL_DINCLUDE] = AST_INCLUDE_D,
+	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX] = AST_INCLUDE_POSIX,
+	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE] = AST_INCLUDE_BMAKE,
+	[PARSER_AST_BUILDER_CONDITIONAL_SINCLUDE] = AST_INCLUDE_S,
 };
 
 static enum ASTIfType ConditionalType_to_ASTIfType[] = {
-	[COND_IF] = AST_IF_IF,
-	[COND_IFDEF] = AST_IF_DEF,
-	[COND_IFMAKE] = AST_IF_MAKE,
-	[COND_IFNDEF] = AST_IF_NDEF,
-	[COND_IFNMAKE] = AST_IF_NMAKE,
-	[COND_ELIF] = AST_IF_IF,
-	[COND_ELIFDEF] = AST_IF_DEF,
-	[COND_ELIFMAKE] = AST_IF_MAKE,
-	[COND_ELIFNDEF] = AST_IF_NDEF,
-	[COND_ELSE] = AST_IF_ELSE,
+	[PARSER_AST_BUILDER_CONDITIONAL_IF] = AST_IF_IF,
+	[PARSER_AST_BUILDER_CONDITIONAL_IFDEF] = AST_IF_DEF,
+	[PARSER_AST_BUILDER_CONDITIONAL_IFMAKE] = AST_IF_MAKE,
+	[PARSER_AST_BUILDER_CONDITIONAL_IFNDEF] = AST_IF_NDEF,
+	[PARSER_AST_BUILDER_CONDITIONAL_IFNMAKE] = AST_IF_NMAKE,
+	[PARSER_AST_BUILDER_CONDITIONAL_ELIF] = AST_IF_IF,
+	[PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF] = AST_IF_DEF,
+	[PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE] = AST_IF_MAKE,
+	[PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF] = AST_IF_NDEF,
+	[PARSER_AST_BUILDER_CONDITIONAL_ELSE] = AST_IF_ELSE,
 };
 
 static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
@@ -267,12 +267,14 @@ ast_from_token_stream(struct Array *tokens)
 			array_append(current_cond, t);
 			break;
 		case PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END: {
-			enum ConditionalType condtype = conditional_type(token_conditional(t));
+			enum ParserASTBuilderConditionalType condtype = token_conditional(t);
 			switch (condtype) {
-			case COND_DINCLUDE:
-			case COND_INCLUDE_POSIX:
-			case COND_INCLUDE:
-			case COND_SINCLUDE: {
+			case PARSER_AST_BUILDER_CONDITIONAL_INVALID:
+				panic("got invalid conditional");
+			case PARSER_AST_BUILDER_CONDITIONAL_DINCLUDE:
+			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX:
+			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE:
+			case PARSER_AST_BUILDER_CONDITIONAL_SINCLUDE: {
 				struct AST *node = ast_new(root->pool, AST_INCLUDE, token_lines(t), &(struct ASTInclude){
 					.type = conditional_to_include[condtype],
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
@@ -298,15 +300,15 @@ ast_from_token_stream(struct Array *tokens)
 					node->include.path = path;
 				}
 				break;
-			} case COND_ERROR:
-			case COND_EXPORT_ENV:
-			case COND_EXPORT_LITERAL:
-			case COND_EXPORT:
-			case COND_INFO:
-			case COND_UNDEF:
-			case COND_UNEXPORT_ENV:
-			case COND_UNEXPORT:
-			case COND_WARNING: {
+			} case PARSER_AST_BUILDER_CONDITIONAL_ERROR:
+			case PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV:
+			case PARSER_AST_BUILDER_CONDITIONAL_EXPORT_LITERAL:
+			case PARSER_AST_BUILDER_CONDITIONAL_EXPORT:
+			case PARSER_AST_BUILDER_CONDITIONAL_INFO:
+			case PARSER_AST_BUILDER_CONDITIONAL_UNDEF:
+			case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV:
+			case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT:
+			case PARSER_AST_BUILDER_CONDITIONAL_WARNING: {
 				struct AST *node = ast_new(root->pool, AST_EXPR, token_lines(t), &(struct ASTExpr){
 					.type = conditional_to_expr[condtype],
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
@@ -315,7 +317,7 @@ ast_from_token_stream(struct Array *tokens)
 				node->edited = token_edited(t);
 				node->expr.comment = split_off_comment(node->pool, current_cond, 1, -1, node->expr.words);
 				break;
-			} case COND_FOR: {
+			} case PARSER_AST_BUILDER_CONDITIONAL_FOR: {
 				struct AST *node = ast_new(root->pool, AST_FOR, token_lines(t), &(struct ASTFor){
 					.indent = cond_indent(token_data(array_get(current_cond, 0))),
 				});
@@ -336,29 +338,29 @@ ast_from_token_stream(struct Array *tokens)
 				node->forexpr.comment = split_off_comment(node->pool, current_cond, word_start, -1, node->forexpr.words);
 				stack_push(nodestack, node);
 				break;
-			} case COND_ENDFOR: {
+			} case PARSER_AST_BUILDER_CONDITIONAL_ENDFOR: {
 				struct AST *node = stack_pop(nodestack);
 				node->line_end = *token_lines(t);
 				node->forexpr.end_comment = split_off_comment(node->pool, current_cond, 1, -1, NULL);
 				break;
-			} case COND_IF:
-			case COND_IFDEF:
-			case COND_IFMAKE:
-			case COND_IFNDEF:
-			case COND_IFNMAKE:
-			case COND_ELIF:
-			case COND_ELIFDEF:
-			case COND_ELIFMAKE:
-			case COND_ELIFNDEF:
-			case COND_ELSE: {
+			} case PARSER_AST_BUILDER_CONDITIONAL_IF:
+			case PARSER_AST_BUILDER_CONDITIONAL_IFDEF:
+			case PARSER_AST_BUILDER_CONDITIONAL_IFMAKE:
+			case PARSER_AST_BUILDER_CONDITIONAL_IFNDEF:
+			case PARSER_AST_BUILDER_CONDITIONAL_IFNMAKE:
+			case PARSER_AST_BUILDER_CONDITIONAL_ELIF:
+			case PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF:
+			case PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE:
+			case PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF:
+			case PARSER_AST_BUILDER_CONDITIONAL_ELSE: {
 				struct AST *parent = stack_peek(nodestack);
 				struct AST *ifparent = NULL;
 				switch (condtype) {
-				case COND_ELIF:
-				case COND_ELIFDEF:
-				case COND_ELIFMAKE:
-				case COND_ELIFNDEF:
-				case COND_ELSE:
+				case PARSER_AST_BUILDER_CONDITIONAL_ELIF:
+				case PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF:
+				case PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE:
+				case PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF:
+				case PARSER_AST_BUILDER_CONDITIONAL_ELSE:
 					ifparent = stack_peek(ifstack);
 					break;
 				default:
@@ -384,7 +386,7 @@ ast_from_token_stream(struct Array *tokens)
 				stack_push(ifstack, node);
 				stack_push(nodestack, node);
 				break;
-			} case COND_ENDIF: {
+			} case PARSER_AST_BUILDER_CONDITIONAL_ENDIF: {
 				struct AST *ifnode = stack_pop(ifstack);
 				while (ifnode && ifnode->ifexpr.ifparent && (ifnode = stack_pop(ifstack)));
 				if (ifnode) {
@@ -530,7 +532,7 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		break;
 	case AST_COMMENT: {
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
-			struct Token *t = token_new_comment(&node->line_start, line, NULL);
+			struct Token *t = token_new_comment(&node->line_start, line, PARSER_AST_BUILDER_CONDITIONAL_INVALID);
 			if (node->edited) {
 				token_mark_edited(t);
 			}
@@ -699,7 +701,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 			   (token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END ||
 			    token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
 			    token_type(t) == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN)) {
-			array_append(vars, conditional_tostring(token_conditional(t), pool));
+			array_append(vars, ParserASTBuilderConditionalType_humanize[token_conditional(t)]);
 		} else if (token_target(t) && token_type(t) == PARSER_AST_BUILDER_TOKEN_TARGET_START) {
 			ARRAY_FOREACH(target_names(token_target(t)), char *, name) {
 				array_append(vars, str_dup(pool, name));

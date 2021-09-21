@@ -34,6 +34,7 @@
 
 #include <libias/flow.h>
 #include <libias/mem.h>
+#include <libias/mempool.h>
 #include <libias/str.h>
 
 #include "ast.h"
@@ -46,7 +47,7 @@
 struct Token {
 	enum ParserASTBuilderTokenType type;
 	char *data;
-	struct Conditional *cond;
+	enum ParserASTBuilderConditionalType cond;
 	struct Variable *var;
 	struct Target *target;
 	int goalcol;
@@ -58,6 +59,8 @@ struct Token *
 token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const char *data,
 	  const char *varname, const char *condname, const char *targetname)
 {
+	SCOPE_MEMPOOL(pool);
+
 	if (((type == PARSER_AST_BUILDER_TOKEN_VARIABLE_END || type == PARSER_AST_BUILDER_TOKEN_VARIABLE_START ||
 	      type == PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN) && varname == NULL) ||
 	    ((type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END || type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
@@ -68,40 +71,40 @@ token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const
 		return NULL;
 	}
 
+	struct Token *t = mempool_alloc(pool, sizeof(struct Token));
+	t->type = type;
+	t->lines = *lines;
+
 	struct Target *target = NULL;
 	if (targetname && (target = target_new(targetname)) == NULL) {
 		return NULL;
 	}
+	mempool_add(pool, target, target_free);
 
-	struct Conditional *cond = NULL;
-	if (condname && (cond = conditional_new(condname)) == NULL) {
-		target_free(target);
+	if (condname && (t->cond = parse_conditional(condname)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
 		return NULL;
 	}
 
 	struct Variable *var = NULL;
 	if (varname && (var = variable_new(varname)) == NULL) {
-		target_free(target);
-		conditional_free(cond);
 		return NULL;
 	}
-
-	struct Token *t = xmalloc(sizeof(struct Token));
-	t->type = type;
-	t->lines = *lines;
+	mempool_add(pool, var, variable_free);
 
 	if (data) {
 		t->data = str_dup(NULL, data);
 	}
-	t->cond = cond;
 	t->target = target;
 	t->var = var;
 
+	mempool_forget(pool, t);
+	mempool_forget(pool, target);
+	mempool_forget(pool, var);
 	return t;
 }
 
 struct Token *
-token_new_comment(struct ASTLineRange *lines, const char *data, struct Conditional *cond)
+token_new_comment(struct ASTLineRange *lines, const char *data, enum ParserASTBuilderConditionalType cond)
 {
 	if (lines == NULL || data == NULL) {
 		return NULL;
@@ -110,9 +113,7 @@ token_new_comment(struct ASTLineRange *lines, const char *data, struct Condition
 	struct Token *t = xmalloc(sizeof(struct Token));
 	t->type = PARSER_AST_BUILDER_TOKEN_COMMENT;
 	t->lines = *lines;
-	if (cond) {
-		t->cond = conditional_clone(cond);
-	}
+	t->cond = cond;
 	t->data = str_dup(NULL, data);
 	return t;
 }
@@ -170,7 +171,6 @@ token_free(struct Token *token)
 		return;
 	}
 	free(token->data);
-	conditional_free(token->cond);
 	variable_free(token->var);
 	target_free(token->target);
 	free(token);
@@ -182,33 +182,7 @@ token_as_comment(struct Token *token)
 	return token_new_comment(token_lines(token), token_data(token), token_conditional(token));
 }
 
-struct Token *
-token_clone(struct Token *token, const char *newdata)
-{
-	struct Token *t = xmalloc(sizeof(struct Token));
-
-	t->type = token->type;
-	if (newdata) {
-		t->data = str_dup(NULL, newdata);
-	} else if (token->data) {
-		t->data = str_dup(NULL, token->data);
-	}
-	if (token->cond) {
-		t->cond = conditional_clone(token->cond);
-	}
-	if (token->var) {
-		t->var = variable_clone(token->var);
-	}
-	if (token->target) {
-		t->target = target_clone(token->target);
-	}
-	t->goalcol = token->goalcol;
-	t->lines = token->lines;
-
-	return t;
-}
-
-struct Conditional *
+enum ParserASTBuilderConditionalType
 token_conditional(struct Token *token)
 {
 	return token->cond;
@@ -230,12 +204,6 @@ void
 token_mark_edited(struct Token *token)
 {
 	token->edited = 1;
-}
-
-int
-token_goalcol(struct Token *token)
-{
-	return token->goalcol;
 }
 
 struct ASTLineRange *
@@ -260,10 +228,4 @@ struct Variable *
 token_variable(struct Token *token)
 {
 	return token->var;
-}
-
-void
-token_set_goalcol(struct Token *token, int goalcol)
-{
-	token->goalcol = goalcol;
 }
