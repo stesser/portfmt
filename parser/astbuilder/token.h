@@ -28,23 +28,22 @@
 #pragma once
 
 enum ParserASTBuilderTokenType;
-struct Conditional;
-struct Token;
-struct Variable;
 struct Target;
 struct ASTLineRange;
+
+struct Token {
+	enum ParserASTBuilderTokenType type;
+	char *data;
+	enum ParserASTBuilderConditionalType conditional;
+	struct {
+		char *name;
+		enum ASTVariableModifier modifier;
+	} variable;
+	struct Target *target;
+	int edited;
+	struct ASTLineRange lines;
+};
 
 struct Token *token_new(enum ParserASTBuilderTokenType, struct ASTLineRange *, const char *, const char *, const char *, const char *);
 struct Token *token_new_comment(struct ASTLineRange *, const char *, enum ParserASTBuilderConditionalType);
 void token_free(struct Token *);
-struct Token *token_as_comment(struct Token *);
-enum ParserASTBuilderConditionalType token_conditional(struct Token *);
-char *token_data(struct Token *);
-int token_edited(struct Token *);
-void token_mark_edited(struct Token *);
-struct ASTLineRange *token_lines(struct Token *);
-struct Target *token_target(struct Token *);
-enum ParserASTBuilderTokenType token_type(struct Token *);
-const char *token_type_tostring(enum ParserASTBuilderTokenType);
-const char *token_variable(struct Token *);
-enum ASTVariableModifier token_variable_modifier(struct Token *);

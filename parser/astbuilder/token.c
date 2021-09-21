@@ -44,20 +44,6 @@
 #include "token.h"
 #include "variable.h"
 
-struct Token {
-	enum ParserASTBuilderTokenType type;
-	char *data;
-	enum ParserASTBuilderConditionalType cond;
-	struct {
-		char *name;
-		enum ASTVariableModifier modifier;
-	} variable;
-	struct Target *target;
-	int goalcol;
-	int edited;
-	struct ASTLineRange lines;
-};
-
 struct Token *
 token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const char *data,
 	  const char *varname, const char *condname, const char *targetname)
@@ -84,7 +70,7 @@ token_new(enum ParserASTBuilderTokenType type, struct ASTLineRange *lines, const
 	}
 	mempool_add(pool, target, target_free);
 
-	if (condname && (t->cond = parse_conditional(condname)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
+	if (condname && (t->conditional = parse_conditional(condname)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
 		return NULL;
 	}
 
@@ -113,7 +99,7 @@ token_new_comment(struct ASTLineRange *lines, const char *data, enum ParserASTBu
 	struct Token *t = xmalloc(sizeof(struct Token));
 	t->type = PARSER_AST_BUILDER_TOKEN_COMMENT;
 	t->lines = *lines;
-	t->cond = cond;
+	t->conditional = cond;
 	t->data = str_dup(NULL, data);
 	return t;
 }
@@ -128,64 +114,4 @@ token_free(struct Token *token)
 	free(token->variable.name);
 	target_free(token->target);
 	free(token);
-}
-
-struct Token *
-token_as_comment(struct Token *token)
-{
-	return token_new_comment(token_lines(token), token_data(token), token_conditional(token));
-}
-
-enum ParserASTBuilderConditionalType
-token_conditional(struct Token *token)
-{
-	return token->cond;
-}
-
-char *
-token_data(struct Token *token)
-{
-	return token->data;
-}
-
-int
-token_edited(struct Token *token)
-{
-	return token->edited;
-}
-
-void
-token_mark_edited(struct Token *token)
-{
-	token->edited = 1;
-}
-
-struct ASTLineRange *
-token_lines(struct Token *token)
-{
-	return &token->lines;
-}
-
-struct Target *
-token_target(struct Token *token)
-{
-	return token->target;
-}
-
-enum ParserASTBuilderTokenType
-token_type(struct Token *token)
-{
-	return token->type;
-}
-
-const char *
-token_variable(struct Token *token)
-{
-	return token->variable.name;
-}
-
-enum ASTVariableModifier
-token_variable_modifier(struct Token *token)
-{
-	return token->variable.modifier;
 }
