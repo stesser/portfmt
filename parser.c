@@ -457,12 +457,6 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 		} else {
 			return str_printf(extpool, "line %s: IO error", lines);
 		}
-	case PARSER_ERROR_UNHANDLED_TOKEN_TYPE:
-		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: unhandled token type: %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "line %s: unhandled token type", lines);
-		}
 	case PARSER_ERROR_UNSPECIFIED:
 		if (parser->error_msg) {
 			return str_printf(extpool, "line %s: parse error: %s", lines, parser->error_msg);
