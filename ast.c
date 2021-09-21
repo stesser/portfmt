@@ -190,6 +190,7 @@ ast_new(struct Mempool *pool, enum ASTType type, struct ASTLineRange *lines, voi
 		node->include.body = mempool_array(pool);
 		node->include.sys = include->sys;
 		node->include.loaded = include->loaded;
+		node->include.indent = include->indent;
 		if (include->path) {
 			node->include.path = str_dup(pool, include->path);
 		}
