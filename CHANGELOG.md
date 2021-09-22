@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   interval shortened to 1 s when `stderr` is a TTY.  The output
   is also kept on only one line in that case.  `--progress=0`
   disables this.
+- portscan: The `--all` option has been removed
 
 ## [1.0.0] - 2021-09-01
 

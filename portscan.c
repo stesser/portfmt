@@ -86,7 +86,6 @@ enum ScanFlags {
 };
 
 enum ScanLongopts {
-	SCAN_LONGOPT_ALL,
 	SCAN_LONGOPT_CATEGORIES,
 	SCAN_LONGOPT_CLONES,
 	SCAN_LONGOPT_COMMENTS,
@@ -177,7 +176,6 @@ static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, str
 static void usage(void);
 
 static struct option longopts[SCAN_LONGOPT__N + 1] = {
-	[SCAN_LONGOPT_ALL] = { "all", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_CATEGORIES] = { "categories", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_CLONES] = { "clones", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_COMMENTS] = { "comments", no_argument, NULL, 1 },
@@ -920,9 +918,6 @@ main(int argc, char *argv[])
 			continue;
 		}
 		switch (i) {
-		case SCAN_LONGOPT_ALL:
-			flags = ~SCAN_NOTHING;
-			break;
 		case SCAN_LONGOPT_CATEGORIES:
 			flags |= SCAN_CATEGORIES;
 			break;
