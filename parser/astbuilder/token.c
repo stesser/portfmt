@@ -65,10 +65,9 @@ parser_astbuilder_token_new(enum ParserASTBuilderTokenType type, struct ASTLineR
 	t->type = type;
 	t->lines = *lines;
 
-	if (targetname && (t->target = target_new(targetname)) == NULL) {
+	if (targetname && !parse_target(t->pool, targetname, &t->target.sources, &t->target.dependencies, &t->target.comment)) {
 		return NULL;
 	}
-	mempool_add(pool, t->target, target_free);
 
 	if (condname && (t->conditional.type = parse_conditional(condname, &t->conditional.indent)) == PARSER_AST_BUILDER_CONDITIONAL_INVALID) {
 		return NULL;

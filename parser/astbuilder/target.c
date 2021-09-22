@@ -41,7 +41,7 @@
 
 struct Target {
 	struct Mempool *pool;
-	struct Array *names;
+	struct Array *sources;
 	struct Array *deps;
 	char *comment;
 };
@@ -84,16 +84,16 @@ consume_token(const char *line, size_t pos, char startchar, char endchar)
 }
 
 static void
-add_name(struct Mempool *pool, struct Array *names, const char *buf, size_t start, size_t i)
+add_name(struct Mempool *pool, struct Array *sources, const char *buf, size_t start, size_t i)
 {
 	char *name = str_trim(pool, str_slice(pool, buf, start, i));
 	if (*name) {
-		array_append(names, name);
+		array_append(sources, name);
 	}
 }
 
 static const char *
-consume_names(struct Mempool *pool, const char *buf, struct Array *names, int deps)
+consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, int deps)
 {
 	const char *after_target = NULL;
 	size_t start = 0;
@@ -115,13 +115,13 @@ consume_names(struct Mempool *pool, const char *buf, struct Array *names, int de
 				i++;
 			}
 			if (i > start) {
-				add_name(pool, names, buf, start, i);
+				add_name(pool, sources, buf, start, i);
 			}
 			after_target = buf + i + 1;
 			break;
 		} else if (c == ' ') {
 			if (i > start) {
-				add_name(pool, names, buf, start, i);
+				add_name(pool, sources, buf, start, i);
 			}
 			start = i + 1;
 		} else if (c == '#') {
@@ -134,7 +134,7 @@ consume_names(struct Mempool *pool, const char *buf, struct Array *names, int de
 		if (buf[start] && buf[start] != '#') {
 			char *name = str_trim(pool, buf + start);
 			if (*name) {
-				array_append(names, name);
+				array_append(sources, name);
 			}
 		}
 	}
@@ -147,73 +147,29 @@ consume_names(struct Mempool *pool, const char *buf, struct Array *names, int de
 	}
 }
 
-struct Target *
-target_new(const char *buf)
+int
+parse_target(struct Mempool *extpool, const char *buf, struct Array **ret_sources, struct Array **ret_deps, const char **ret_comment)
 {
-	struct Mempool *pool = mempool_new();
-	struct Array *names = mempool_array(pool);
+	SCOPE_MEMPOOL(pool);
+
+	struct Array *sources = mempool_array(pool);
 	struct Array *deps = mempool_array(pool);
-	const char *after_target = consume_names(pool, buf, names, 0);
+
+	const char *after_target = consume_sources(pool, buf, sources, 0);
 	if (after_target == NULL) {
-		mempool_free(pool);
-		return NULL;
+		return 0;
 	}
-	const char *comment = consume_names(pool, after_target, deps, 1);
 
-	struct Target *target = mempool_alloc(pool, sizeof(struct Target));
-	target->pool = pool;
-	target->deps = deps;
-	target->names = names;
+	const char *comment = consume_sources(pool, after_target, deps, 1);
 	if (comment) {
-		target->comment = str_dup(pool, comment);
+		*ret_comment = str_dup(pool, comment);
+	} else {
+		*ret_comment = NULL;
 	}
-	return target;
-}
 
-struct Target *
-target_clone(struct Target *target)
-{
-	struct Mempool *pool = mempool_new();
-	struct Target *newtarget = mempool_alloc(pool, sizeof(struct Target));
-	newtarget->pool = pool;
-	newtarget->deps = mempool_array(pool);
-	ARRAY_FOREACH(target->deps, char *, dep) {
-		array_append(newtarget->deps, str_dup(pool, dep));
-	}
-	newtarget->names = mempool_array(pool);
-	ARRAY_FOREACH(target->names, char *, name) {
-		array_append(newtarget->names, str_dup(pool, name));
-	}
-	if (target->comment) {
-		newtarget->comment = str_dup(pool, target->comment);
-	}
-	return newtarget;
-}
+	*ret_sources = sources;
+	*ret_deps = deps;
 
-void
-target_free(struct Target *target)
-{
-	if (target == NULL) {
-		return;
-	}
-	mempool_free(target->pool);
+	mempool_inherit(extpool, pool);
+	return 1;
 }
-
-const char *
-target_comment(struct Target *target)
-{
-	return target->comment;
-}
-
-struct Array *
-target_dependencies(struct Target *target)
-{
-	return target->deps;
-}
-
-struct Array *
-target_names(struct Target *target)
-{
-	return target->names;
-}
-

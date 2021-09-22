@@ -28,7 +28,6 @@
 #pragma once
 
 enum ParserASTBuilderTokenType;
-struct Target;
 struct ASTLineRange;
 struct Mempool;
 
@@ -44,7 +43,11 @@ struct ParserASTBuilderToken {
 		char *name;
 		enum ASTVariableModifier modifier;
 	} variable;
-	struct Target *target;
+	struct {
+		struct Array *sources;
+		struct Array *dependencies;
+		const char *comment;
+	} target;
 	int edited;
 	struct ASTLineRange lines;
 };

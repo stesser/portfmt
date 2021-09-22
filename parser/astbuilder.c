@@ -421,14 +421,13 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			});
 			ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = t->edited;
-			struct Target *target = t->target;
-			if (target_comment(target)) {
-				node->target.comment = str_dup(node->pool, target_comment(target));
+			if (t->target.comment) {
+				node->target.comment = str_dup(node->pool, t->target.comment);
 			}
-			ARRAY_FOREACH(target_names(target), const char *, source) {
+			ARRAY_FOREACH(t->target.sources, const char *, source) {
 				array_append(node->target.sources, str_dup(node->pool, source));
 			}
-			ARRAY_FOREACH(target_dependencies(target), const char *, dependency) {
+			ARRAY_FOREACH(t->target.dependencies, const char *, dependency) {
 				array_append(node->target.dependencies, str_dup(node->pool, dependency));
 			}
 			stack_push(nodestack, node);
@@ -714,14 +713,14 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 			    t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN)) {
 			array_append(vars, ParserASTBuilderConditionalType_humanize[t->conditional.type]);
-		} else if (t->target && t->type == PARSER_AST_BUILDER_TOKEN_TARGET_START) {
-			ARRAY_FOREACH(target_names(t->target), char *, name) {
+		} else if (t->target.sources && t->type == PARSER_AST_BUILDER_TOKEN_TARGET_START) {
+			ARRAY_FOREACH(t->target.sources, const char *, name) {
 				array_append(vars, str_dup(pool, name));
 			}
-			ARRAY_FOREACH(target_dependencies(t->target), char *, dep) {
+			ARRAY_FOREACH(t->target.dependencies, const char *, dep) {
 				array_append(vars, str_printf(pool, "->%s", dep));
 			}
-		} else if (t->target &&
+		} else if (t->target.sources &&
 			   (t->type == PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN ||

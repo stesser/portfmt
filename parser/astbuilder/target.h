@@ -28,11 +28,6 @@
 #pragma once
 
 struct Array;
-struct Target;
+struct Mempool;
 
-struct Target *target_new(const char *);
-struct Target *target_clone(struct Target *);
-void target_free(struct Target *);
-const char *target_comment(struct Target *);
-struct Array *target_dependencies(struct Target *);
-struct Array *target_names(struct Target *);
+int parse_target(struct Mempool *, const char *, struct Array **, struct Array **, const char **);
