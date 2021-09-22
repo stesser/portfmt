@@ -56,29 +56,22 @@
 #include "constants.h"
 #include "parser.h"
 #include "parser/astbuilder.h"
-#include "parser/astbuilder/enum.h"
 #include "parser/edits.h"
+#include "parser/tokenizer.h"
 #include "rules.h"
 
 struct Parser {
 	struct ParserSettings settings;
-	int continued;
-	int in_target;
-	int skip;
 	enum ParserError error;
 	char *error_msg;
-	struct {
-		char *buf;
-		size_t len;
-		FILE *stream;
-	} inbuf;
 
+	struct Array *rawlines;
+	struct ParserTokenizer *tokenizer;
 	struct ParserASTBuilder *builder;
 
 	struct Mempool *pool;
 	struct AST *ast;
 	struct Array *result;
-	struct Array *rawlines;
 	void *metadata[PARSER_METADATA_USES + 1];
 	int metadata_valid[PARSER_METADATA_USES + 1];
 
@@ -91,12 +84,6 @@ struct ParserFindGoalcolsState {
 	struct Array *nodes;
 };
 
-static size_t consume_comment(const char *);
-static size_t consume_conditional(const char *);
-static size_t consume_target(const char *);
-static size_t consume_token(struct Parser *, const char *, size_t, char, char, int);
-static size_t consume_var(const char *);
-static int is_empty_line(const char *);
 static void parser_find_goalcols(struct Parser *);
 static void parser_meta_values(struct Parser *, const char *, struct Set *);
 static void parser_metadata_alloc(struct Parser *);
@@ -111,191 +98,9 @@ static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool 
 static void parser_output_reformatted(struct Parser *);
 static void parser_output_diff(struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
-static void parser_read_internal(struct Parser *);
-static void parser_read_line(struct Parser *, char *, size_t);
-static void parser_tokenize(struct Parser *, const char *, enum ParserASTBuilderTokenType, size_t);
 static void print_newline_array(struct Parser *, struct AST *, struct Array *);
 static void print_token_array(struct Parser *, struct AST *, struct Array *);
 static char *range_tostring(struct Mempool *, struct ASTLineRange *);
-
-size_t
-consume_comment(const char *buf)
-{
-	for (const char *bufp = buf; *bufp != 0; bufp++) {
-		if (*bufp == '#') {
-			return strlen(buf);
-		} else if (!isspace(*bufp)) {
-			break;
-		}
-	}
-	return 0;
-}
-
-size_t
-consume_conditional(const char *buf)
-{
-	static const char *conditionals[] = {
-		"error", "export-env", "export.env", "export-literal", "export",
-		"unexport-env", "unexport", "undef", "info", "for", "endfor",
-		"warning", "ifdef", "ifndef", "include", "ifmake", "ifnmake",
-		"if", "else", "elifndef", "elifmake", "elifdef", "elif", "endif",
-		"sinclude",
-	};
-
-	size_t pos = 0;
-	if (*buf == '.') {
-		pos++;
-		for (; isspace(buf[pos]); pos++);
-		for (size_t i = 0; i < nitems(conditionals); i++) {
-			if (str_startswith(buf + pos, conditionals[i])) {
-				pos += strlen(conditionals[i]);
-				size_t origpos = pos;
-				for (; isspace(buf[pos]); pos++);
-				if (buf[pos] == 0 || pos > origpos) {
-					return pos;
-				} else if (buf[pos] == '(' || buf[pos] == '<' || buf[pos] == '!') {
-					return pos;
-				}
-			}
-		}
-	} else if (str_startswith(buf, "include")) {
-		pos += strlen("include");
-		int space = 0;
-		for (; isspace(buf[pos]); pos++, space = 1);
-		if (space) {
-			return pos;
-		}
-	}
-
-	return 0;
-}
-
-size_t
-consume_target(const char *buf)
-{
-	// Variable assignments are prioritized and can be ambigious
-	// due to :=, so check for it first.  Targets can also not
-	// start with a tab which implies a conditional.
-	if (consume_var(buf) > 0 || *buf == '\t') {
-		return 0;
-	}
-
-	// ^[^:]+(::?|!)
-	// We are more strict than make(1) and do not accept something
-	// like just ":".
-	size_t len = strlen(buf);
-	for (size_t i = 0; i < len; i++) {
-		if (buf[i] == ':' || buf[i] == '!') {
-			if (i == 0) {
-				return 0;
-			}
-			// Consume the next ':' too if any
-			if (buf[i] == ':' && i < len - 1 && buf[i + 1] == ':') {
-				i++;
-			}
-			return i;
-		}
-	}
-
-	return 0;
-}
-
-size_t
-consume_token(struct Parser *parser, const char *line, size_t pos,
-	      char startchar, char endchar, int eol_ok)
-{
-	int counter = 0;
-	int escape = 0;
-	size_t i = pos;
-	for (; i < strlen(line); i++) {
-		char c = line[i];
-		if (escape) {
-			escape = 0;
-			continue;
-		}
-		if (startchar == endchar) {
-			if (c == startchar) {
-				if (counter == 1) {
-					return i;
-				} else {
-					counter++;
-				}
-			} else if (c == '\\') {
-				escape = 1;
-			}
-		} else {
-			if (c == startchar) {
-				counter++;
-			} else if (c == endchar && counter == 1) {
-				return i;
-			} else if (c == endchar) {
-				counter--;
-			} else if (c == '\\') {
-				escape = 1;
-			}
-		}
-	}
-	if (!eol_ok) {
-		SCOPE_MEMPOOL(pool);
-		parser_set_error(parser, PARSER_ERROR_EXPECTED_CHAR, str_printf(pool, "%c", endchar));
-		return 0;
-	} else {
-		return i;
-	}
-}
-
-size_t
-consume_var(const char *buf)
-{
-	size_t len = strlen(buf);
-
-	// ^ *
-	size_t pos;
-	for (pos = 0; pos < len && buf[pos] == ' '; pos++);
-
-	// [^[:space:]=]+
-	size_t i;
-	for (i = pos; i < len && !(isspace(buf[i]) || buf[i] == '='); i++);
-	if (pos == i) {
-		return 0;
-	}
-	pos = i;
-
-	// [[:space:]]*
-	for (; pos < len && isspace(buf[pos]); pos++);
-
-	// [+!?:]?
-	switch (buf[pos]) {
-	case '+':
-	case '!':
-	case '?':
-	case ':':
-		pos++;
-		break;
-	case '=':
-		return pos + 1;
-	default:
-		return 0;
-	}
-
-	// =
-	if (buf[pos] != '=') {
-		return 0;
-	}
-	return pos + 1;
-}
-
-int
-is_empty_line(const char *buf)
-{
-	for (const char *p = buf; *p != 0; p++) {
-		if (!isspace(*p)) {
-			return 0;
-		}
-	}
-
-	return 1;
-}
 
 char *
 range_tostring(struct Mempool *pool, struct ASTLineRange *range)
@@ -357,8 +162,6 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	parser_metadata_alloc(parser);
 	parser->error = PARSER_ERROR_OK;
 	parser->error_msg = NULL;
-	parser->inbuf.stream = open_memstream(&parser->inbuf.buf, &parser->inbuf.len);
-	panic_unless(parser->inbuf.stream, "open_memstream failed");
 	parser->settings = *settings;
 	if (settings->filename) {
 		parser->settings.filename = str_dup(NULL, settings->filename);
@@ -377,6 +180,7 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	}
 
 	parser->builder = parser_astbuilder_new(parser);
+	parser->tokenizer = parser_tokenizer_new(parser, &parser->error, parser->builder);
 
 	return mempool_add(extpool, parser, parser_free);
 }
@@ -402,9 +206,8 @@ parser_free(struct Parser *parser)
 	parser_metadata_free(parser);
 	free(parser->settings.filename);
 	free(parser->error_msg);
-	fclose(parser->inbuf.stream);
-	free(parser->inbuf.buf);
 
+	parser_tokenizer_free(parser->tokenizer);
 	parser_astbuilder_free(parser->builder);
 	ast_free(parser->ast);
 	free(parser);
@@ -492,103 +295,6 @@ parser_enqueue_output(struct Parser *parser, const char *s)
 	panic_unless(s, "parser_enqueue_output() is not NULL-safe");
 	array_append(parser->result, str_dup(NULL, s));
 }
-
-void
-parser_tokenize(struct Parser *parser, const char *line, enum ParserASTBuilderTokenType type, size_t start)
-{
-	SCOPE_MEMPOOL(pool);
-
-	int dollar = 0;
-	int escape = 0;
-	char *token = NULL;
-	size_t i = start;
-	for (; i < strlen(line); i++) {
-		panic_if(i < start, "index went before start");
-		char c = line[i];
-		if (escape) {
-			escape = 0;
-			if (c == '#' || c == '\\' || c == '$' || isspace(c)) {
-				continue;
-			}
-		}
-		if (dollar) {
-			if (dollar > 1) {
-				if (c == '(') {
-					i = consume_token(parser, line, i - 2, '(', ')', 0);
-					if (parser->error != PARSER_ERROR_OK) {
-						return;
-					}
-					dollar = 0;
-					continue;
-				} else if (c == '$') {
-					dollar++;
-				} else {
-					dollar = 0;
-				}
-			} else if (c == '{') {
-				i = consume_token(parser, line, i, '{', '}', 0);
-				dollar = 0;
-			} else if (c == '(') {
-				i = consume_token(parser, line, i, '(', ')', 0);
-				dollar = 0;
-			} else if (isalnum(c) || c == '@' || c == '<' || c == '>' || c == '/' ||
-				   c == '?' || c == '*' || c == '^' || c == '-' || c == '_' ||
-				   c == ')') {
-				dollar = 0;
-			} else if (c == ' ' || c == '\\') {
-				/* '$ ' or '$\' are ignored by make for some reason instead of making
-				 * it an error, so we do the same...
-				 */
-				dollar = 0;
-				i--;
-			} else if (c == 1) {
-				dollar = 0;
-			} else if (c == '$') {
-				dollar++;
-			} else {
-				parser_set_error(parser, PARSER_ERROR_EXPECTED_CHAR, "$");
-			}
-			if (parser->error != PARSER_ERROR_OK) {
-				return;
-			}
-		} else {
-			if (c == ' ' || c == '\t') {
-				token = str_trim(pool, str_slice(pool, line, start, i));
-				if (strcmp(token, "") != 0 && strcmp(token, "\\") != 0) {
-					parser_astbuilder_append_token(parser->builder, type, token);
-				}
-				token = NULL;
-				start = i;
-			} else if (c == '"') {
-				i = consume_token(parser, line, i, '"', '"', 1);
-			} else if (c == '\'') {
-				i = consume_token(parser, line, i, '\'', '\'', 1);
-			} else if (c == '`') {
-				i = consume_token(parser, line, i, '`', '`', 1);
-			} else if (c == '$') {
-				dollar++;
-			} else if (c == '\\') {
-				escape = 1;
-			} else if (c == '#') {
-				token = str_trim(pool, str_slice(pool, line, i, -1));
-				parser_astbuilder_append_token(parser->builder, type, token);
-				token = NULL;
-				parser_set_error(parser, PARSER_ERROR_OK, NULL);
-				return;
-			}
-			if (parser->error != PARSER_ERROR_OK) {
-				return;
-			}
-		}
-	}
-
-	token = str_trim(pool, str_slice(pool, line, start, i));
-	if (strcmp(token, "") != 0) {
-		parser_astbuilder_append_token(parser->builder, type, token);
-	}
-	parser_set_error(parser, PARSER_ERROR_OK, NULL);
-}
-
 
 static void
 parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
@@ -1452,69 +1158,6 @@ parser_output_dump_tokens(struct Parser *parser)
 	}
 }
 
-void
-parser_read_line(struct Parser *parser, char *line, size_t linelen)
-{
-	SCOPE_MEMPOOL(pool);
-
-	if (parser->error != PARSER_ERROR_OK) {
-		return;
-	}
-
-	array_append(parser->rawlines, str_ndup(NULL, line, linelen));
-
-	parser->builder->lines.b++;
-
-	int will_continue = linelen > 0 && line[linelen - 1] == '\\' && (linelen == 1 || line[linelen - 2] != '\\');
-	if (will_continue) {
- 		if (linelen > 2 && line[linelen - 2] == '$' && line[linelen - 3] != '$') {
-			/* Hack to "handle" things like $\ in variable values */
-			line[linelen - 1] = 1;
-		} else if (linelen > 1 && !isspace(line[linelen - 2])) {
-			/* "Handle" lines that end without a preceding space before '\'. */
-			line[linelen - 1] = ' ';
-		} else {
-			line[linelen - 1] = 0;
-		}
-	}
-
-	if (parser->continued) {
-		/* Replace all whitespace at the beginning with a single
-		 * space which is what make seems to do.
-		 */
-		for (;isblank(*line); line++);
-		if (strlen(line) < 1) {
-			if (fputc(' ', parser->inbuf.stream) != ' ') {
-				parser_set_error(parser, PARSER_ERROR_IO,
-					 str_printf(pool, "fputc: %s", strerror(errno)));
-				return;
-			}
-		}
-	}
-
-	fwrite(line, 1, strlen(line), parser->inbuf.stream);
-	if (ferror(parser->inbuf.stream)) {
-		parser_set_error(parser, PARSER_ERROR_IO,
-				 str_printf(pool, "fwrite: %s", strerror(errno)));
-		return;
-	}
-
-	if (!will_continue) {
-		parser_read_internal(parser);
-		if (parser->error != PARSER_ERROR_OK) {
-			return;
-		}
-		parser->builder->lines.a = parser->builder->lines.b;
-		fclose(parser->inbuf.stream);
-		free(parser->inbuf.buf);
-		parser->inbuf.buf = NULL;
-		parser->inbuf.stream = open_memstream(&parser->inbuf.buf, &parser->inbuf.len);
-		panic_unless(parser->inbuf.stream, "open_memstream failed");
-	}
-
-	parser->continued = will_continue;
-}
-
 enum ParserError
 parser_read_from_file(struct Parser *parser, FILE *fp)
 {
@@ -1523,7 +1166,8 @@ parser_read_from_file(struct Parser *parser, FILE *fp)
 	}
 
 	LINE_FOREACH(fp, line) {
-		parser_read_line(parser, line, line_len);
+		array_append(parser->rawlines, str_ndup(NULL, line, line_len));
+		parser_tokenizer_feed_line(parser->tokenizer, line, line_len);
 		if (parser->error != PARSER_ERROR_OK) {
 			return parser->error;
 		}
@@ -1532,129 +1176,21 @@ parser_read_from_file(struct Parser *parser, FILE *fp)
 	return PARSER_ERROR_OK;
 }
 
-void
-parser_read_internal(struct Parser *parser)
-{
-	SCOPE_MEMPOOL(pool);
-
-	if (parser->error != PARSER_ERROR_OK) {
-		return;
-	}
-
-	if (fflush(parser->inbuf.stream) != 0) {
-		parser_set_error(parser, PARSER_ERROR_IO,
-				 str_printf(pool, "fflush: %s", strerror(errno)));
-		return;
-	}
-
-	char *buf = str_trimr(pool, parser->inbuf.buf);
-	size_t pos;
-
-	pos = consume_comment(buf);
-	if (pos > 0) {
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
-		goto next;
-	} else if (is_empty_line(buf)) {
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
-		goto next;
-	}
-
-	if (parser->in_target) {
-		pos = consume_conditional(buf);
-		if (pos > 0) {
-			parser->builder->condname = str_trimr(parser->builder->pool, str_ndup(parser->builder->pool, buf, pos));
-			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, parser->builder->condname);
-			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, parser->builder->condname);
-			parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, pos);
-			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, parser->builder->condname);
-			goto next;
-		}
-		if (consume_var(buf) == 0 && consume_target(buf) == 0 &&
-		    *buf != 0 && *buf == '\t') {
-			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START, NULL);
-			parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN, 0);
-			parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END, NULL);
-			goto next;
-		}
-		if (consume_var(buf) > 0) {
-			goto var;
-		}
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
-		parser->in_target = 0;
-	}
-
-	pos = consume_conditional(buf);
-	if (pos > 0) {
-		parser->builder->condname = str_trimr(parser->builder->pool, str_ndup(parser->builder->pool, buf, pos));
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, parser->builder->condname);
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, parser->builder->condname);
-		parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, pos);
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, parser->builder->condname);
-		goto next;
-	}
-
-	pos = consume_target(buf);
-	if (pos > 0) {
-		parser->in_target = 1;
-		parser->builder->targetname = str_dup(parser->builder->pool, buf);
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_START, buf);
-		goto next;
-	}
-
-var:
-	pos = consume_var(buf);
-	if (pos != 0) {
-		if (pos > strlen(buf)) {
-			parser_set_error(parser, PARSER_ERROR_UNSPECIFIED, "inbuf overflow");
-			goto next;
-		}
-		parser->builder->varname = str_trim(parser->builder->pool, str_ndup(parser->builder->pool, buf, pos));
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_VARIABLE_START, NULL);
-	}
-	parser_tokenize(parser, buf, PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN, pos);
-	if (parser->builder->varname == NULL) {
-		parser_set_error(parser, PARSER_ERROR_UNSPECIFIED, NULL);
-	}
-next:
-	if (parser->builder->varname) {
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_VARIABLE_END, NULL);
-		parser->builder->varname = NULL;
-	}
-}
-
 enum ParserError
 parser_read_finish(struct Parser *parser)
 {
-	SCOPE_MEMPOOL(pool);
 	panic_if(parser->read_finished, "parser_read_finish() called multiple times");
 
 	if (parser->error != PARSER_ERROR_OK) {
 		return parser->error;
 	}
 
-	for (size_t i = 0; i <= PARSER_METADATA_USES; i++) {
-		parser->metadata_valid[i] = 0;
-	}
-
-	if (!parser->continued) {
-		parser->builder->lines.b++;
-	}
-
-	if (fflush(parser->inbuf.stream) != 0) {
-		parser_set_error(parser, PARSER_ERROR_IO,
-				 str_printf(pool, "fflush: %s", strerror(errno)));
+	if (parser_tokenizer_finish(parser->tokenizer) != PARSER_ERROR_OK) {
 		return parser->error;
 	}
 
-	if (parser->inbuf.len > 0) {
-		parser_read_internal(parser);
-		if (parser->error != PARSER_ERROR_OK) {
-			return parser->error;
-		}
-	}
-
-	if (parser->in_target) {
-		parser_astbuilder_append_token(parser->builder, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
+	for (size_t i = 0; i <= PARSER_METADATA_USES; i++) {
+		parser->metadata_valid[i] = 0;
 	}
 
 	parser->read_finished = 1;
@@ -1776,7 +1312,8 @@ parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 	char *buf, *bufp, *line;
 	buf = bufp = str_ndup(NULL, input, len);
 	while ((line = strsep(&bufp, "\n")) != NULL) {
-		parser_read_line(parser, line, strlen(line));
+		array_append(parser->rawlines, str_ndup(NULL, line, strlen(line)));
+		parser_tokenizer_feed_line(parser->tokenizer, line, strlen(line));
 		if (parser->error != PARSER_ERROR_OK) {
 			break;
 		}
