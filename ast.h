@@ -229,6 +229,8 @@ void ast_parent_append_sibling(struct AST *, struct AST *, int);
 void ast_parent_insert_before_sibling(struct AST *, struct AST *);
 void ast_print(struct AST *, FILE *);
 
+char *ast_line_range_tostring(struct ASTLineRange *, int, struct Mempool *);
+
 #define AST_WALK_RECUR(x) \
 	if ((x) == AST_WALK_STOP) { \
 		return AST_WALK_STOP; \

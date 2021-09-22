@@ -100,20 +100,6 @@ static void parser_output_diff(struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
 static void print_newline_array(struct Parser *, struct AST *, struct Array *);
 static void print_token_array(struct Parser *, struct AST *, struct Array *);
-static char *range_tostring(struct Mempool *, struct ASTLineRange *);
-
-char *
-range_tostring(struct Mempool *pool, struct ASTLineRange *range)
-{
-	panic_unless(range, "range_tostring() is not NULL-safe");
-	panic_unless(range->a < range->b, "range is inverted");
-
-	if (range->a == range->b - 1) {
-		return str_printf(pool, "%zu", range->a);
-	} else {
-		return str_printf(pool, "%zu-%zu", range->a, range->b - 1);
-	}
-}
 
 static int
 parser_is_category_makefile(struct AST *node, struct Parser *parser)
@@ -230,35 +216,35 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 {
 	SCOPE_MEMPOOL(pool);
 
-	char *lines = range_tostring(pool, &parser->builder->lines);
+	char *lines = ast_line_range_tostring(&parser->builder->lines, 1, pool);
 	switch (parser->error) {
 	case PARSER_ERROR_OK:
-		return str_printf(extpool, "line %s: no error", lines);
+		return str_printf(extpool, "%s: no error", lines);
 	case PARSER_ERROR_DIFFERENCES_FOUND:
 		return str_printf(extpool, "differences found");
 	case PARSER_ERROR_EDIT_FAILED:
 		if (parser->error_msg) {
 			return str_printf(extpool, "%s", parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: edit failed", lines);
+			return str_printf(extpool, "%s: edit failed", lines);
 		}
 	case PARSER_ERROR_EXPECTED_CHAR:
 		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: expected char: %s", lines, parser->error_msg);
+			return str_printf(extpool, "%s: expected char: %s", lines, parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: expected char", lines);
+			return str_printf(extpool, "%s: expected char", lines);
 		}
 	case PARSER_ERROR_EXPECTED_INT:
 		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: expected integer: %s", lines, parser->error_msg);
+			return str_printf(extpool, "%s: expected integer: %s", lines, parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: expected integer", lines);
+			return str_printf(extpool, "%s: expected integer", lines);
 		}
 	case PARSER_ERROR_EXPECTED_TOKEN:
 		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: expected %s", lines, parser->error_msg);
+			return str_printf(extpool, "%s: expected %s", lines, parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: expected token", lines);
+			return str_printf(extpool, "%s: expected token", lines);
 		}
 	case PARSER_ERROR_INVALID_ARGUMENT:
 		if (parser->error_msg) {
@@ -268,22 +254,22 @@ parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 		}
 	case PARSER_ERROR_IO:
 		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: IO error: %s", lines, parser->error_msg);
+			return str_printf(extpool, "%s: IO error: %s", lines, parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: IO error", lines);
+			return str_printf(extpool, "%s: IO error", lines);
 		}
 	case PARSER_ERROR_AST_BUILD_FAILED:
 		if (parser->error_msg) {
 			return str_printf(extpool, "error building AST: %s", parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: error building AST", lines);
+			return str_printf(extpool, "%s: error building AST", lines);
 		}
 		break;
 	case PARSER_ERROR_UNSPECIFIED:
 		if (parser->error_msg) {
-			return str_printf(extpool, "line %s: parse error: %s", lines, parser->error_msg);
+			return str_printf(extpool, "%s: parse error: %s", lines, parser->error_msg);
 		} else {
-			return str_printf(extpool, "line %s: parse error", lines);
+			return str_printf(extpool, "%s: parse error", lines);
 		}
 	}
 	panic("unhandled parser error: %d", parser->error);

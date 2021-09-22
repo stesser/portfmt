@@ -87,19 +87,6 @@ static struct AST *ast_from_token_stream(struct Parser *, struct Array *);
 static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
 
 static char *
-range_tostring(struct Mempool *pool, struct ASTLineRange *range)
-{
-	panic_unless(range, "range_tostring() is not NULL-safe");
-	panic_unless(range->a < range->b, "range is inverted");
-
-	if (range->a == range->b - 1) {
-		return str_printf(pool, "%zu", range->a);
-	} else {
-		return str_printf(pool, "%zu-%zu", range->a, range->b - 1);
-	}
-}
-
-static char *
 split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssize_t b, struct Array *words)
 {
 	SCOPE_MEMPOOL(pool);
@@ -516,7 +503,7 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 	ast_from_token_stream_flush_comments(stack_peek(nodestack), current_comments);
 
 	if (stack_pop(nodestack) != root) {
-		parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED, str_printf(pool, "node stack not exhausted"));
+		parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED, str_printf(pool, "node stack not exhausted: missing .endif/.endfor?"));
 		return NULL;
 	} else {
 		return root;
@@ -733,7 +720,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 
 		ARRAY_FOREACH(vars, char *, var) {
 			ssize_t len = maxvarlen - strlen(var);
-			const char *range = range_tostring(pool, &t->lines);
+			const char *range = ast_line_range_tostring(&t->lines, 0, pool);
 			char *tokentype;
 			if (array_len(vars) > 1) {
 				tokentype = str_printf(pool, "%s#%zu", type, var_index + 1);
