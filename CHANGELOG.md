@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   with 1 core.
 - The last regular expression in the tokenizer has been replaced with
   a manually written matcher.  This further improves performance of a
-  portscan and brings it down to ~35 s.
+  portscan and brings it down to ~50 s.
 - portscan: The progress report has been enabled by default with the
   interval shortened to 1 s when `stderr` is a TTY.  The output
   is also kept on only one line in that case.  `--progress=0`

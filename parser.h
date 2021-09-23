@@ -45,6 +45,7 @@ enum ParserBehavior {
 	PARSER_SANITIZE_COMMENTS = 1 << 14,
 	PARSER_ALWAYS_SORT_VARIABLES = 1 << 15,
 	PARSER_CHECK_VARIABLE_REFERENCES = 1 << 16,
+	PARSER_LOAD_LOCAL_INCLUDES = 1 << 17,
 };
 
 enum ParserMergeBehavior {
@@ -93,7 +94,8 @@ enum ParserMetadata {
 };
 
 struct ParserSettings {
-	char *filename;
+	const char *filename;
+	int portsdir;
 	enum ParserBehavior behavior;
 	int target_command_format_threshold;
 	size_t diff_context;

@@ -150,7 +150,7 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 }
 
 static FILE *
-open_file_helper(struct Mempool *extpool, const char *path, const char *mode, char **retval)
+open_file_helper(struct Mempool *extpool, const char *path, const char *mode, const char **retval)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -186,7 +186,7 @@ open_file_helper(struct Mempool *extpool, const char *path, const char *mode, ch
 }
 
 int
-open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, struct Mempool *pool, FILE **fp_in, FILE **fp_out, char **filename)
+open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, struct Mempool *pool, FILE **fp_in, FILE **fp_out, const char **filename)
 {
 #if HAVE_CAPSICUM
 	closefrom(STDERR_FILENO + 1);

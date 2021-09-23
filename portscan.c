@@ -166,7 +166,6 @@ struct PortReaderResult {
 static void lookup_subdirs(int, const char *, const char *, enum ScanFlags, struct Mempool *, struct Array *, struct Array *, struct Array *, struct Array *, struct Array *, struct Array *);
 static void scan_port(struct ScanPortArgs *);
 static void *lookup_origins_worker(void *);
-static enum ParserError process_include(struct Parser *, struct Set *, const char *, int, const char *);
 static PARSER_EDIT(get_default_option_descriptions);
 static DIR *diropenat(struct Mempool *, int, const char *);
 static FILE *fileopenat(struct Mempool *, int, const char *);
@@ -316,46 +315,6 @@ lookup_subdirs(int portsdir, const char *category, const char *path, enum ScanFl
 	}
 }
 
-enum ParserError __unused
-process_include(struct Parser *parser, struct Set *errors, const char *curdir, int portsdir, const char *filename)
-{
-	SCOPE_MEMPOOL(pool);
-
-	const char *path;
-	if (str_startswith(filename, "${MASTERDIR}/")) {
-		// Do not follow to the master port.  It would already
-		// have been processed once, so we do not need to do
-		// it again.
-		return PARSER_ERROR_OK;
-	} else if (str_startswith(filename, "${.PARSEDIR}/")) {
-		filename += strlen("${.PARSEDIR}/");
-		path = str_printf(pool, "%s/%s", curdir, filename);
-	} else if (str_startswith(filename, "${.CURDIR}/")) {
-		filename += strlen("${.CURDIR}/");
-		path = str_printf(pool, "%s/%s", curdir, filename);
-	} else if (str_startswith(filename, "${.CURDIR:H}/")) {
-		filename += strlen("${.CURDIR:H}/");
-		path = str_printf(pool, "%s/../%s", curdir, filename);
-	} else if (str_startswith(filename, "${.CURDIR:H:H}/")) {
-		filename += strlen("${.CURDIR:H:H}/");
-		path = str_printf(pool, "%s/../../%s", curdir, filename);
-	} else if (str_startswith(filename, "${PORTSDIR}/")) {
-		filename += strlen("${PORTSDIR}/");
-		path = filename;
-	} else if (str_startswith(filename, "${FILESDIR}/")) {
-		filename += strlen("${FILESDIR}/");
-		path = str_printf(pool, "%s/files/%s", curdir, filename);
-	} else {
-		path = str_printf(pool, "%s/%s", curdir, filename);
-	}
-	FILE *f = fileopenat(pool, portsdir, path);
-	if (f == NULL) {
-		add_error(errors, str_printf(pool, "cannot open include: %s: %s", path, strerror(errno)));
-		return PARSER_ERROR_OK;
-	}
-	return parser_read_from_file(parser, f);
-}
-
 static int
 variable_value_filter(struct Parser *parser, const char *value, void *userdata)
 {
@@ -445,7 +404,9 @@ scan_port(struct ScanPortArgs *args)
 
 	struct ParserSettings settings;
 	parser_init_settings(&settings);
-	settings.behavior = PARSER_OUTPUT_RAWLINES;
+	settings.behavior = PARSER_OUTPUT_RAWLINES | PARSER_LOAD_LOCAL_INCLUDES;
+	settings.filename = args->path;
+	settings.portsdir = args->portsdir;
 
 	if (!(args->flags & SCAN_STRICT_VARIABLES)) {
 		settings.behavior |= PARSER_CHECK_VARIABLE_REFERENCES;
@@ -469,28 +430,6 @@ scan_port(struct ScanPortArgs *args)
 		add_error(retval->errors, parser_error_tostring(parser, pool));
 		return;
 	}
-
-#if 0
-	struct Array *includes = NULL;
-	error = parser_edit(parser, retval->pool, extract_includes, &includes);
-	if (error != PARSER_ERROR_OK) {
-		add_error(retval->errors, parser_error_tostring(parser, pool));
-		return;
-	}
-	ARRAY_FOREACH(includes, char *, include) {
-		error = process_include(parser, retval->errors, retval->origin, args->portsdir, include);
-		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, parser_error_tostring(parser, pool));
-			return;
-		}
-	}
-
-	error = parser_read_finish(parser);
-	if (error != PARSER_ERROR_OK) {
-		add_error(retval->errors, parser_error_tostring(parser, pool));
-		return;
-	}
-#endif
 
 	if (args->flags & SCAN_PARTIAL) {
 		error = parser_edit(parser, pool, lint_bsd_port, NULL);

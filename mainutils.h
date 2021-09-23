@@ -39,5 +39,5 @@ enum MainutilsOpenFileBehavior {
 
 int can_use_colors(FILE *);
 void enter_sandbox(void);
-int open_file(enum MainutilsOpenFileBehavior, int *, char ***, struct Mempool *, FILE **, FILE **, char **filename);
+int open_file(enum MainutilsOpenFileBehavior, int *, char ***, struct Mempool *, FILE **, FILE **, const char **filename);
 int read_common_args(int *, char ***, struct ParserSettings *, const char *, struct Mempool *, struct Array *);

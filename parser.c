@@ -46,6 +46,7 @@
 #include <libias/diffutil.h>
 #include <libias/flow.h>
 #include <libias/io.h>
+#include <libias/mempool/file.h>
 #include <libias/map.h>
 #include <libias/mem.h>
 #include <libias/mempool.h>
@@ -85,6 +86,7 @@ struct ParserFindGoalcolsState {
 };
 
 static void parser_find_goalcols(struct Parser *);
+static enum ParserError parser_load_includes(struct Parser *);
 static void parser_meta_values(struct Parser *, const char *, struct Set *);
 static void parser_metadata_alloc(struct Parser *);
 static void parser_metadata_free(struct Parser *);
@@ -129,6 +131,7 @@ void
 parser_init_settings(struct ParserSettings *settings)
 {
 	settings->filename = NULL;
+	settings->portsdir = -1;
 	settings->behavior = PARSER_DEFAULT;
 	settings->diff_context = 3;
 	settings->target_command_format_threshold = 8;
@@ -150,9 +153,9 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	parser->error_msg = NULL;
 	parser->settings = *settings;
 	if (settings->filename) {
-		parser->settings.filename = str_dup(NULL, settings->filename);
+		parser->settings.filename = str_dup(parser->pool, settings->filename);
 	} else {
-		parser->settings.filename = str_dup(NULL, "/dev/stdin");
+		parser->settings.filename = str_dup(parser->pool, "/dev/stdin");
 	}
 
 	if (parser->settings.behavior & PARSER_OUTPUT_EDITED) {
@@ -190,7 +193,6 @@ parser_free(struct Parser *parser)
 
 	mempool_free(parser->pool);
 	parser_metadata_free(parser);
-	free(parser->settings.filename);
 	free(parser->error_msg);
 
 	parser_tokenizer_free(parser->tokenizer);
@@ -1185,6 +1187,13 @@ parser_read_finish(struct Parser *parser)
 	if (parser->error != PARSER_ERROR_OK) {
 		return parser->error;
 	}
+	parser_tokenizer_free(parser->tokenizer);
+	parser->tokenizer = NULL;
+
+	if (parser->settings.behavior & PARSER_LOAD_LOCAL_INCLUDES &&
+	    PARSER_ERROR_OK != parser_load_includes(parser)) {
+		return parser->error;
+	}
 
 	if (parser->settings.behavior & PARSER_SANITIZE_COMMENTS &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_comments, NULL)) {
@@ -1306,6 +1315,154 @@ parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 	}
 	free(buf);
 
+	return parser->error;
+}
+
+static const char *
+process_include(struct Parser *parser, struct Mempool *pool, const char *curdir, const char *filename)
+{
+	if (str_startswith(filename, "${MASTERDIR}/")) {
+		filename += strlen("${MASTERDIR}/");
+		const char *masterdir = parser_metadata(parser, PARSER_METADATA_MASTERDIR);
+		unless (masterdir) {
+			masterdir = ".";
+		}
+		filename = str_printf(pool, "%s/%s", masterdir, filename);
+	}
+
+	const char *path;
+	if (str_startswith(filename, "${.PARSEDIR}/")) {
+		filename += strlen("${.PARSEDIR}/");
+		path = str_printf(pool, "%s/%s", curdir, filename);
+	} else if (str_startswith(filename, "${.CURDIR}/")) {
+		filename += strlen("${.CURDIR}/");
+		path = str_printf(pool, "%s/%s", curdir, filename);
+	} else if (str_startswith(filename, "${.CURDIR:H}/")) {
+		filename += strlen("${.CURDIR:H}/");
+		path = str_printf(pool, "%s/../%s", curdir, filename);
+	} else if (str_startswith(filename, "${.CURDIR:H:H}/")) {
+		filename += strlen("${.CURDIR:H:H}/");
+		path = str_printf(pool, "%s/../../%s", curdir, filename);
+	} else if (str_startswith(filename, "${PORTSDIR}/")) {
+		filename += strlen("${PORTSDIR}/");
+		path = filename;
+	} else if (str_startswith(filename, "${FILESDIR}/")) {
+		filename += strlen("${FILESDIR}/");
+		path = str_printf(pool, "%s/files/%s", curdir, filename);
+	} else {
+		path = str_printf(pool, "%s/%s", curdir, filename);
+	}
+
+	return path;
+}
+
+static FILE *
+fileopenat(struct Mempool *pool, int root, const char *path) // TODO: Move to libias/io/file
+{
+	FILE *f = mempool_fopenat(pool, root, path, "r", 0);
+	if (f == NULL) {
+		return NULL;
+	}
+
+#if HAVE_CAPSICUM
+	if (caph_limit_stream(fileno(f), CAPH_READ) < 0) {
+		err(1, "caph_limit_stream: %s", path);
+	}
+#endif
+
+	return f;
+}
+
+static enum ASTWalkState
+parser_load_includes_walker(struct AST *node, struct Parser *parser, int portsdir)
+{
+	SCOPE_MEMPOOL(pool);
+
+	switch (node->type) {
+	case AST_INCLUDE:
+		if (node->include.type == AST_INCLUDE_BMAKE && !node->include.loaded && !node->include.sys) {
+			const char *curdir; { // TODO: Add path_split() and path_join() to libias/path
+				char *s, *token;
+				s = str_dup(pool, parser->settings.filename);
+				struct Array *components = mempool_array(pool);
+				while ((token = strsep(&s, "/")) != NULL) {
+					array_append(components, str_dup(pool, token));
+				}
+				if (array_len(components) > 0) {
+					array_truncate_at(components, array_len(components) - 1);
+				}
+				curdir = str_join(pool, components, "/");
+			}
+			const char *path = process_include(parser, pool, curdir, node->include.path);
+			unless (path) {
+				parser_set_error(parser, PARSER_ERROR_IO, str_printf(pool, "cannot open include: %s", node->include.path));
+				return AST_WALK_STOP;
+			}
+			FILE *f = fileopenat(pool, portsdir, path);
+			if (f == NULL) {
+				parser_set_error(parser, PARSER_ERROR_IO, str_printf(pool, "cannot open include: %s: %s", path, strerror(errno)));
+				return AST_WALK_STOP;
+			}
+			struct ParserSettings settings = parser->settings;
+			settings.behavior &= ~PARSER_LOAD_LOCAL_INCLUDES;
+			settings.filename = path;
+			struct Parser *incparser = parser_new(pool, &settings);
+			if (PARSER_ERROR_OK != parser_read_from_file(incparser, f)) {
+				parser_set_error(parser, PARSER_ERROR_IO, str_printf(pool, "cannot open include: %s: %s", path, strerror(errno)));
+				return AST_WALK_STOP;
+			}
+			if (PARSER_ERROR_OK != parser_read_finish(incparser)) {
+				parser_set_error(parser, PARSER_ERROR_IO, parser_error_tostring(incparser, pool));
+				return AST_WALK_STOP;
+			}
+
+			struct AST *incroot = incparser->ast;
+			// take ownership of incparser's AST
+			incparser->ast = NULL;
+			mempool_add(node->pool, incroot, ast_free);
+			panic_unless(incroot->type == AST_ROOT, "incroot != AST_ROOT");
+			ARRAY_FOREACH(incroot->root.body, struct AST *, child) {
+				child->parent = node;
+				array_append(node->include.body, child);
+			}
+			node->edited = 1;
+			node->include.loaded = 1;
+		}
+		return AST_WALK_CONTINUE;
+	case AST_FOR:
+	case AST_IF:
+	case AST_TARGET:
+		// Shorten the walk; we only care about top level includes for now
+		return AST_WALK_CONTINUE;
+	case AST_ROOT:
+	case AST_COMMENT:
+	case AST_DELETED:
+	case AST_EXPR:
+	case AST_TARGET_COMMAND:
+	case AST_VARIABLE:
+		break;
+	}
+
+	AST_WALK_DEFAULT(parser_load_includes_walker, node, parser, portsdir);
+	return AST_WALK_CONTINUE;
+}
+
+enum ParserError
+parser_load_includes(struct Parser *parser)
+{
+	SCOPE_MEMPOOL(pool);
+	panic_unless(parser->read_finished, "parser_load_includes() called before parser_read_finish()");
+
+	if (parser->error != PARSER_ERROR_OK) {
+		return parser->error;
+	}
+
+	if (parser->settings.portsdir < 0) {
+		parser_set_error(parser, PARSER_ERROR_IO, str_printf(pool, "invalid portsdir"));
+		return parser->error;
+	}
+
+	parser_load_includes_walker(parser->ast, parser, parser->settings.portsdir);
 	return parser->error;
 }
 
@@ -1588,7 +1745,7 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 			break;
 		case PARSER_METADATA_MASTERDIR: {
 			struct Array *tokens = NULL;
-			if (parser_lookup_variable(parser, "MASTERDIR", PARSER_LOOKUP_FIRST, pool, &tokens, NULL)) {
+			if (parser_lookup_variable(parser, "MASTERDIR", PARSER_LOOKUP_FIRST | PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS, pool, &tokens, NULL)) {
 				free(parser->metadata[meta]);
 				parser->metadata[meta] = str_join(NULL, tokens, " ");
 			}
