@@ -541,7 +541,7 @@ scan_ports_worker(void *userdata)
 
 	char *origin;
 	while ((origin = next_workitem(data->origins, data->origins_index))) {
-		portscan_status_print();
+		portscan_status_print(origin);
 		const char *path = str_printf(pool, "%s/Makefile", origin);
 		struct ScanResult *scan_result = mempool_alloc(pool, sizeof(struct ScanResult));
 		scan_result->pool = pool;
@@ -581,7 +581,7 @@ lookup_origins_worker(void *userdata)
 
 	char *category;
 	while ((category = next_workitem(data->categories, data->categories_index))) {
-		portscan_status_print();
+		portscan_status_print(category);
 		char *path = str_printf(pool, "%s/Makefile", category);
 		lookup_subdirs(data->portsdir, category, path, data->flags, result->pool, result->origins, result->nonexistent, result->unhooked, result->unsorted, result->error_origins, result->error_msgs);
 		portscan_status_inc();
@@ -762,7 +762,7 @@ scan_ports(int portsdir, struct Array *origins, enum ScanFlags flags, struct Reg
 
 	for (struct PortReaderResult *result = scan_ports_worker(&data); result; result = join_next_thread(&tid, &n_threads)) {
 		ARRAY_FOREACH(result->scan_results, struct ScanResult *, r) {
-			portscan_status_print();
+			portscan_status_print(NULL);
 			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_ERROR, r->origin, r->errors);
 			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_UNKNOWN_VAR, r->origin, r->unknown_variables);
 			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_UNKNOWN_TARGET, r->origin, r->unknown_targets);
@@ -998,7 +998,7 @@ main(int argc, char *argv[])
 			if (portscan_log_compare(prev_result, result)) {
 				if (progressinterval) {
 					portscan_status_reset(PORTSCAN_STATUS_FINISHED, 0);
-					portscan_status_print();
+					portscan_status_print(NULL);
 				}
 				warnx("no changes compared to previous result");
 				return 2;
@@ -1009,7 +1009,7 @@ main(int argc, char *argv[])
 		} else {
 			if (progressinterval) {
 				portscan_status_reset(PORTSCAN_STATUS_FINISHED, 0);
-				portscan_status_print();
+				portscan_status_print(NULL);
 			}
 			if (!portscan_log_serialize_to_file(result, out)) {
 				err(1, "portscan_log_serialize");
@@ -1017,7 +1017,7 @@ main(int argc, char *argv[])
 		}
 	} else if (progressinterval) {
 		portscan_status_reset(PORTSCAN_STATUS_FINISHED, 0);
-		portscan_status_print();
+		portscan_status_print(NULL);
 	}
 
 	return 0;

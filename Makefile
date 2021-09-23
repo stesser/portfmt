@@ -125,7 +125,7 @@ portedit.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h 
 portfmt.o: config.h libias/mempool.h mainutils.h parser.h
 portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/io/dir.h libias/map.h libias/mem.h libias/mempool.h libias/mempool/dir.h libias/mempool/file.h libias/set.h libias/str.h ast.h capsicum_helpers.h mainutils.h parser.h parser/edits.h portscan/log.h portscan/status.h regexp.h
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
-portscan/status.o: config.h libias/flow.h portscan/status.h
+portscan/status.o: config.h libias/array.h libias/mempool.h libias/str.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
 rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h rules.h parser.h parser/edits.h
 

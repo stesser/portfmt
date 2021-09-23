@@ -28,17 +28,22 @@
 
 #include "config.h"
 
+#include <sys/param.h>
 #if HAVE_ERR
 # include <err.h>
 #endif
+#include <limits.h>
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 
-#include <libias/flow.h>
+#include <libias/array.h>
+#include <libias/mempool.h>
+#include <libias/str.h>
 
 #include "portscan/status.h"
 
@@ -47,22 +52,34 @@ static void portscan_status_signal_handler(int);
 static enum PortscanState state = PORTSCAN_STATUS_START;
 static struct timespec tic;
 static unsigned int interval;
-static atomic_int siginfo_requested = ATOMIC_VAR_INIT(0);
+static atomic_int status_requested = ATOMIC_VAR_INIT(0);
 static atomic_size_t scanned = ATOMIC_VAR_INIT(0);
 static size_t max_scanned;
 
+static struct {
+	char buf[32][PATH_MAX];
+	size_t len;
+	atomic_size_t i;
+} current_paths;
 static const char *endline = "\n";
 static const char *startline = "";
 
 void
 portscan_status_init(unsigned int progress_interval)
 {
+	ssize_t n_threads = sysconf(_SC_NPROCESSORS_ONLN);
+	if (n_threads < 0) {
+		err(1, "sysconf");
+	}
+	current_paths.len = MIN(32, n_threads);
+	current_paths.i = 0;
+
 	interval = progress_interval;
 	clock_gettime(CLOCK_MONOTONIC, &tic);
 
 	if (isatty(STDERR_FILENO)) {
 		endline = "";
-		startline = "\r                                                                                                \r";
+		startline = "\x1b[2K\r";
 	}
 
 #ifdef SIGINFO
@@ -94,46 +111,91 @@ portscan_status_reset(enum PortscanState new_state, size_t max)
 	scanned = 0;
 	max_scanned = max;
 	if (interval) {
-		siginfo_requested = 1;
+		status_requested = SIGALRM;
+	}
+	for (size_t i = 0; i < current_paths.len; i++) {
+		current_paths.buf[i][0] = 0;
 	}
 }
 
-void
-portscan_status_print()
+static void
+portscan_status_print_progress(void)
 {
-	int expected = 1;
-	if (atomic_compare_exchange_strong(&siginfo_requested, &expected, 0)) {
-		int percent = 0;
-		if (max_scanned > 0) {
-			percent = scanned * 100 / max_scanned;
-		}
-		struct timespec toc;
-		clock_gettime(CLOCK_MONOTONIC, &toc);
-		int seconds = (toc.tv_nsec - tic.tv_nsec) / 1000000000.0 + (toc.tv_sec  - tic.tv_sec);
-		switch (state) {
-		case PORTSCAN_STATUS_START:
-			fprintf(stderr, "%s[  0%%] starting (%ds)%s", startline, seconds, endline);
-			break;
-		case PORTSCAN_STATUS_CATEGORIES:
-			fprintf(stderr, "%s[%3d%%] scanning categories %zu/%zu (%ds)%s", startline, percent, scanned, max_scanned, seconds, endline);
-			break;
-		case PORTSCAN_STATUS_PORTS:
-			fprintf(stderr, "%s[%3d%%] scanning ports %zu/%zu (%ds)%s", startline, percent, scanned, max_scanned, seconds, endline);
-			break;
-		case PORTSCAN_STATUS_FINISHED:
-			// End output with newline
-			fprintf(stderr, "%s[100%%] finished in %ds\n", startline, seconds);
-			break;
-		}
-		if (interval) {
-			alarm(interval);
-		}
+	int percent = 0;
+	if (max_scanned > 0) {
+		percent = scanned * 100 / max_scanned;
 	}
+	struct timespec toc;
+	clock_gettime(CLOCK_MONOTONIC, &toc);
+	int seconds = (toc.tv_nsec - tic.tv_nsec) / 1000000000.0 + (toc.tv_sec  - tic.tv_sec);
+	switch (state) {
+	case PORTSCAN_STATUS_START:
+		fprintf(stderr, "%s[  0%%] starting (%ds)%s", startline, seconds, endline);
+		break;
+	case PORTSCAN_STATUS_CATEGORIES:
+		fprintf(stderr, "%s[%3d%%] scanning categories %zu/%zu (%ds)%s", startline, percent, scanned, max_scanned, seconds, endline);
+		break;
+	case PORTSCAN_STATUS_PORTS:
+		fprintf(stderr, "%s[%3d%%] scanning ports %zu/%zu (%ds)%s", startline, percent, scanned, max_scanned, seconds, endline);
+		break;
+	case PORTSCAN_STATUS_FINISHED:
+		// End output with newline
+		fprintf(stderr, "%s[100%%] finished in %ds\n", startline, seconds);
+		break;
+	}
+	if (interval) {
+		alarm(interval);
+	}
+
 	fflush(stderr);
+}
+
+void
+portscan_status_print(const char *port)
+{
+	if (port) {
+		strlcpy(current_paths.buf[current_paths.i++ % current_paths.len], port, PATH_MAX);
+	}
+
+	int expected = SIGUSR2;
+	if (atomic_compare_exchange_strong(&status_requested, &expected, 0)) {
+		const char *name = NULL;
+		if (state == PORTSCAN_STATUS_CATEGORIES) {
+			name = "categories";
+		} else if (state == PORTSCAN_STATUS_PORTS) {
+			name = "ports";
+		}
+		if (name) {
+			SCOPE_MEMPOOL(pool);
+			struct Array *ports = mempool_array(pool);
+			for (size_t i = 0; i < current_paths.len; i++) {
+				if (*current_paths.buf[i] != 0) {
+					array_append(ports, current_paths.buf[i]);
+				}
+			}
+			fprintf(stderr, "Current %s: %s\n", name, str_join(pool, ports, ", "));
+		}
+
+		portscan_status_print_progress();
+		return;
+	}
+
+	expected = SIGALRM;
+	if (atomic_compare_exchange_strong(&status_requested, &expected, 0)) {
+		portscan_status_print_progress();
+	}
 }
 
 void
 portscan_status_signal_handler(int si)
 {
-	siginfo_requested = 1;
+	if (si == SIGALRM) {
+		status_requested = SIGALRM;
+#ifdef SIGINFO
+	} else if (si == SIGINFO) {
+		status_requested = SIGUSR2;
+#endif
+	} else if (si == SIGUSR2) {
+		status_requested = SIGUSR2;
+	}
 }
