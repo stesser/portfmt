@@ -137,8 +137,9 @@ get_targetname(struct Mempool *pool, struct ASTTarget *target)
 		break;
 	case AST_TARGET_UNASSOCIATED:
 		return "<unassociated>:";
-		break;
 	}
+
+	panic("never reached");
 }
 
 struct ParserASTBuilder *
