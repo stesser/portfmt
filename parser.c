@@ -50,6 +50,7 @@
 #include <libias/map.h>
 #include <libias/mem.h>
 #include <libias/mempool.h>
+#include <libias/path.h>
 #include <libias/set.h>
 #include <libias/str.h>
 
@@ -153,7 +154,7 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	parser->error_msg = NULL;
 	parser->settings = *settings;
 	if (settings->filename) {
-		parser->settings.filename = str_dup(parser->pool, settings->filename);
+		parser->settings.filename = path_normalize(parser->pool, settings->filename, NULL);
 	} else {
 		parser->settings.filename = str_dup(parser->pool, "/dev/stdin");
 	}
@@ -710,19 +711,14 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 		}
 		struct Array *buf = mempool_array(pool);
 		if (opt_use) {
-			struct Array *values = mempool_array(pool);
 			char *var = str_printf(pool, "USE_%s", prefix);
 			array_append(buf, prefix);
 			array_append(buf, ASTVariableModifier_humanize[mod]);
-			char *s, *token;
-			s = str_dup(pool, suffix);
-			while ((token = strsep(&s, ",")) != NULL) {
-				array_append(values, str_dup(pool, token));
-			}
 			struct CompareTokensData data = {
 				.parser = parser,
 				.var = var,
 			};
+			struct Array *values = str_split(pool, suffix, ",");
 			array_sort(values, compare_tokens, &data);
 			ARRAY_FOREACH(values, const char *, t2) {
 				array_append(buf, t2);
@@ -1076,12 +1072,7 @@ parser_output_diff(struct Parser *parser)
 	}
 
 	// Normalize result: one element = one line like parser->rawlines
-	struct Array *lines = mempool_array(pool);
-	char *lines_buf = str_join(pool, parser->result, "");
-	char *token;
-	while ((token = strsep(&lines_buf, "\n")) != NULL) {
-		array_append(lines, token);
-	}
+	struct Array *lines = str_split(pool, str_join(pool, parser->result, ""), "\n");
 	array_pop(lines);
 
 	struct diff *p = array_diff(parser->rawlines, lines, pool, str_compare, NULL);
@@ -1300,20 +1291,19 @@ parser_output_write_to_file(struct Parser *parser, FILE *fp)
 enum ParserError
 parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 {
+	SCOPE_MEMPOOL(pool);
+
 	if (parser->error != PARSER_ERROR_OK) {
 		return parser->error;
 	}
 
-	char *buf, *bufp, *line;
-	buf = bufp = str_ndup(NULL, input, len);
-	while ((line = strsep(&bufp, "\n")) != NULL) {
-		array_append(parser->rawlines, str_ndup(NULL, line, strlen(line)));
+	ARRAY_FOREACH(str_nsplit(pool, input, len, "\n"), const char *, line) {
+		array_append(parser->rawlines, str_dup(NULL, line));
 		parser_tokenizer_feed_line(parser->tokenizer, line, strlen(line));
 		if (parser->error != PARSER_ERROR_OK) {
 			break;
 		}
 	}
-	free(buf);
 
 	return parser->error;
 }
@@ -1381,18 +1371,11 @@ parser_load_includes_walker(struct AST *node, struct Parser *parser, int portsdi
 	switch (node->type) {
 	case AST_INCLUDE:
 		if (node->include.type == AST_INCLUDE_BMAKE && !node->include.loaded && !node->include.sys) {
-			const char *curdir; { // TODO: Add path_split() and path_join() to libias/path
-				char *s, *token;
-				s = str_dup(pool, parser->settings.filename);
-				struct Array *components = mempool_array(pool);
-				while ((token = strsep(&s, "/")) != NULL) {
-					array_append(components, str_dup(pool, token));
-				}
-				if (array_len(components) > 0) {
-					array_truncate_at(components, array_len(components) - 1);
-				}
-				curdir = str_join(pool, components, "/");
+			struct Array *components = path_split(pool, parser->settings.filename);
+			if (array_len(components) > 0) {
+				array_truncate_at(components, array_len(components) - 1);
 			}
+			const char *curdir = path_join(pool, components);
 			const char *path = process_include(parser, pool, curdir, node->include.path);
 			unless (path) {
 				parser_set_error(parser, PARSER_ERROR_IO, str_printf(pool, "cannot open include: %s", node->include.path));
