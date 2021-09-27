@@ -252,7 +252,7 @@ case AST_IF: \
 	ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
-	ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) { \
+	ARRAY_FOREACH(node->ifexpr.orelse, struct AST *, child) { \
 		AST_WALK_RECUR(f(child, ##__VA_ARGS__)); \
 	} \
 	break; \
