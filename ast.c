@@ -527,50 +527,55 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 			lines,
 			str_join(pool, node->comment.lines, "\\n"));
 		break;
-	case AST_EXPR:
-		fprintf(f, "%s{ EXPR, %s, .indent = %zu, .words = { %s } }\n",
+	case AST_EXPR: {
+		const char *comment = "";
+		if (node->expr.comment) {
+			comment = str_printf(pool, ".comment = %s, ", node->expr.comment);
+		}
+		fprintf(f, "%s{ EXPR, %s, .indent = %zu, %s.words = { %s } }\n",
 			indent,
 			lines,
 			node->expr.indent,
+			comment,
 			str_join(pool, node->expr.words, ", "));
 		break;
-	case AST_FOR: {
+	} case AST_FOR: {
 		const char *comment = "";
 		if (node->forexpr.comment) {
-			comment = node->forexpr.comment;
+			comment = str_printf(pool, ".comment = %s, ", node->forexpr.comment);
 		}
 		const char *end_comment = "";
 		if (node->forexpr.end_comment) {
-			end_comment = node->forexpr.end_comment;
+			end_comment = str_printf(pool, ".end_comment = %s, ", node->forexpr.end_comment);
 		}
-		fprintf(f, "%s{ FOR, %s, .indent = %zu, .bindings = { %s }, .words = { %s }, .comment = %s, .end_comment = %s }\n",
+		fprintf(f, "%s{ FOR, %s, .indent = %zu, .bindings = { %s }, %s%s.words = { %s } }\n",
 			indent,
 			lines,
 			node->forexpr.indent,
 			str_join(pool, node->forexpr.bindings, ", "),
-			str_join(pool, node->forexpr.words, ", "),
 			comment,
-			end_comment);
+			end_comment,
+			str_join(pool, node->forexpr.words, ", "));
 		level++;
 		break;
 	} case AST_IF: {
 		const char *comment = "";
 		if (node->ifexpr.comment) {
-			comment = node->ifexpr.comment;
+			comment = str_printf(pool, ".comment = %s, ", node->ifexpr.comment);
 		}
 		const char *end_comment = "";
 		if (node->ifexpr.end_comment) {
-			end_comment = node->ifexpr.end_comment;
+			end_comment = str_printf(pool, ".end_comment = %s, ", node->ifexpr.end_comment);
 		}
-		fprintf(f, "%s{ IF/%s, %s, .indent = %zu, .test = { %s }, .elseif = %d, .comment = %s, .end_comment = %s }\n",
+		fprintf(f, "%s{ IF/%s, %s, .indent = %zu, .test = { %s }, %s%s.elseif = %d }\n",
 			indent,
 			ASTIfType_tostring[node->ifexpr.type] + strlen("AST_IF_"),
 			lines,
 			node->ifexpr.indent,
 			str_join(pool, node->ifexpr.test, ", "),
-			node->ifexpr.ifparent != NULL,
 			comment,
-			end_comment);
+			end_comment,
+			node->ifexpr.ifparent != NULL);
 		if (array_len(node->ifexpr.body) > 0) {
 			fprintf(f, "%s=> if:\n", indent);
 			ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
@@ -589,45 +594,60 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		unless (path) {
 			path = "";
 		}
-		const char *comment = node->include.comment;
-		unless (comment) {
-			comment = "";
+		const char *comment = "";
+		if (node->include.comment) {
+			comment = str_printf(pool, ".comment = %s, ", node->include.comment);
 		}
-		fprintf(f, "%s{ INCLUDE/%s, %s, .indent = %zu, .path = %s, .sys = %d, .loaded = %d, .comment = %s }\n",
+		fprintf(f, "%s{ INCLUDE/%s, %s, .indent = %zu, %s.path = %s, .sys = %d, .loaded = %d }\n",
 			indent,
 			ASTIncludeType_tostring[node->include.type] + strlen("AST_INCLUDE_"),
 			lines,
 			node->include.indent,
+			comment,
 			path,
 			node->include.sys,
-			node->include.loaded,
-			comment);
+			node->include.loaded);
 		level++;
 		break;
-	} case AST_TARGET:
-		fprintf(f, "%s{ TARGET/%s, %s, .sources = { %s }, .dependencies = { %s } }\n",
+	} case AST_TARGET: {
+		const char *comment = "";
+		if (node->target.comment) {
+			comment = str_printf(pool, ".comment = %s, ", node->target.comment);
+		}
+		fprintf(f, "%s{ TARGET/%s, %s, %s.sources = { %s }, .dependencies = { %s } }\n",
 			indent,
 			ASTTargetType_tostring[node->target.type] + strlen("AST_TARGET_"),
 			lines,
+			comment,
 			str_join(pool, node->target.sources, ", "),
 			str_join(pool, node->target.dependencies, ", "));
 		level++;
 		break;
-	case AST_TARGET_COMMAND:
-		fprintf(f, "%s{ TARGET_COMMAND, %s, .words = { %s } }\n",
+	} case AST_TARGET_COMMAND: {
+		const char *comment = "";
+		if (node->targetcommand.comment) {
+			comment = str_printf(pool, ".comment = %s, ", node->targetcommand.comment);
+		}
+		fprintf(f, "%s{ TARGET_COMMAND, %s, %s.words = { %s } }\n",
 			indent,
 			lines,
+			comment,
 			str_join(pool, node->targetcommand.words, ", "));
 		break;
-	case AST_VARIABLE:
-		fprintf(f, "%s{ VARIABLE, %s, .name = %s, .modifier = %s, .words = { %s } }\n",
+	} case AST_VARIABLE: {
+		const char *comment = "";
+		if (node->variable.comment) {
+			comment = str_printf(pool, ".comment = %s, ", node->variable.comment);
+		}
+		fprintf(f, "%s{ VARIABLE, %s, .name = %s, .modifier = %s, %s.words = { %s } }\n",
 			indent,
 			lines,
 			node->variable.name,
 			ASTVariableModifier_humanize[node->variable.modifier],
+			comment,
 			str_join(pool, node->variable.words, ", "));
 		break;
-	default:
+	} default:
 		break;
 	}
 
