@@ -1039,7 +1039,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		parser_output_print_target_command(parser, node);
 		break;
 	case AST_VARIABLE:
-			parser_output_print_variable(parser, pool, node);
+		parser_output_print_variable(parser, pool, node);
 		break;
 	}
 
