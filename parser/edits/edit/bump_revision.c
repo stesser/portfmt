@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include <libias/array.h>
+#include <libias/flow.h>
 #include <libias/mempool.h>
 #include <libias/str.h>
 
@@ -65,7 +66,7 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 		if (errstr == NULL) {
 			rev++;
 		} else {
-			parser_set_error(parser, PARSER_ERROR_EXPECTED_INT, errstr);
+			parser_set_error(parser, PARSER_ERROR_EXPECTED_INT, str_printf(pool, "%s %s", errstr, variable));
 			return NULL;
 		}
 		if (parser_lookup_variable(parser, "MASTERDIR", PARSER_LOOKUP_FIRST, pool, NULL, NULL) == NULL) {
@@ -105,6 +106,9 @@ PARSER_EDIT(edit_bump_revision)
 	}
 
 	char *script = get_merge_script(pool, parser, variable);
+	unless (script) {
+		return;
+	}
 	struct ParserSettings settings = parser_settings(parser);
 	struct Parser *subparser = parser_new(pool, &settings);
 	enum ParserError error = parser_read_from_buffer(subparser, script, strlen(script));

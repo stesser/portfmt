@@ -98,7 +98,7 @@ parser/astbuilder/enum.o: config.h parser/astbuilder/enum.h
 parser/astbuilder/target.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser/astbuilder/target.h
 parser/astbuilder/token.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h parser/astbuilder/conditional.h parser/astbuilder/enum.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h
 parser/astbuilder/variable.o: config.h libias/mempool.h libias/str.h ast.h parser/astbuilder/variable.h
-parser/edits/edit/bump_revision.o: config.h libias/array.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
+parser/edits/edit/bump_revision.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/edit/merge.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/edit/set_version.o: config.h libias/array.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/kakoune/select_object_on_line.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
