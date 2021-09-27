@@ -1463,6 +1463,8 @@ parser_edit(struct Parser *parser, struct Mempool *extpool, ParserEditFn f, void
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, parser_error_tostring(parser, pool));
 	}
 
+	ast_balance(parser->ast);
+
 	return parser->error;
 }
 

@@ -228,6 +228,7 @@ struct Array *ast_siblings(struct AST *);
 void ast_parent_append_sibling(struct AST *, struct AST *, int);
 void ast_parent_insert_before_sibling(struct AST *, struct AST *);
 void ast_print(struct AST *, FILE *);
+void ast_balance(struct AST *);
 
 char *ast_line_range_tostring(struct ASTLineRange *, int, struct Mempool *);
 

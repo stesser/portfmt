@@ -661,6 +661,96 @@ ast_print(struct AST *node, FILE *f)
 	ast_print_helper(node, f, 0);
 }
 
+static void
+ast_balance_comments_join(struct Array *comments)
+{
+	if (array_len(comments) == 0) {
+		return;
+	}
+
+	struct AST *node = array_get(comments, 0);
+	ARRAY_FOREACH_SLICE(comments, 1, -1, struct AST *, sibling) {
+		ARRAY_FOREACH(sibling->comment.lines, const char *, line) {
+			array_append(node->comment.lines, line);
+			node->edited = 1;
+		}
+		sibling->type = AST_DELETED;
+	}
+
+	array_truncate(comments);
+}
+
+static enum ASTWalkState
+ast_balance_comments_walker(struct AST *node, struct Array *comments)
+{
+	switch (node->type) {
+	case AST_DELETED:
+		break;
+	case AST_ROOT:
+		ast_balance_comments_join(comments);
+		ARRAY_FOREACH(node->root.body, struct AST *, child) {
+			AST_WALK_RECUR(ast_balance_comments_walker(child, comments));
+		}
+		ast_balance_comments_join(comments);
+		break;
+	case AST_FOR:
+		ast_balance_comments_join(comments);
+		ARRAY_FOREACH(node->forexpr.body, struct AST *, child) {
+			AST_WALK_RECUR(ast_balance_comments_walker(child, comments));
+		}
+		ast_balance_comments_join(comments);
+		break;
+	case AST_IF:
+		ast_balance_comments_join(comments);
+		ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
+			AST_WALK_RECUR(ast_balance_comments_walker(child, comments));
+		}
+		ast_balance_comments_join(comments);
+		ARRAY_FOREACH(node->ifexpr.orelse, struct AST *, child) {
+			AST_WALK_RECUR(ast_balance_comments_walker(child, comments));
+		}
+		ast_balance_comments_join(comments);
+		break;
+	case AST_INCLUDE:
+		ast_balance_comments_join(comments);
+		ARRAY_FOREACH(node->include.body, struct AST *, child) {
+			AST_WALK_RECUR(ast_balance_comments_walker(child, comments));
+		}
+		ast_balance_comments_join(comments);
+		break;
+	case AST_TARGET:
+		ast_balance_comments_join(comments);
+		ARRAY_FOREACH(node->target.body, struct AST *, child) {
+			AST_WALK_RECUR(ast_balance_comments_walker(child, comments));
+		}
+		ast_balance_comments_join(comments);
+		break;
+	case AST_COMMENT:
+		array_append(comments, node);
+		break;
+	case AST_EXPR:
+	case AST_TARGET_COMMAND:
+	case AST_VARIABLE:
+		ast_balance_comments_join(comments);
+		break;
+	}
+
+	return AST_WALK_CONTINUE;
+}
+
+void
+ast_balance(struct AST *node)
+// Clean up the AST.  This function should be called after editing the AST.
+// We might have some artifacts like two consecutive AST_COMMENT
+// siblings that should be merge into one for easier editing down
+// the line.
+{
+	SCOPE_MEMPOOL(pool);
+	struct Array *comments = mempool_array(pool);
+	ast_balance_comments_walker(node, comments);
+	ast_balance_comments_join(comments);
+}
+
 void
 ast_free(struct AST *node)
 // This will free the entire tree not just this particular node
