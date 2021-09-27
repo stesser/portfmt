@@ -1880,6 +1880,7 @@ parser_lookup_variable_str(struct Parser *parser, const char *name, enum ParserL
 enum ParserError
 parser_merge(struct Parser *parser, struct Parser *subparser, enum ParserMergeBehavior settings)
 {
+	SCOPE_MEMPOOL(pool);
 	if (parser_is_category_makefile(parser->ast, parser)) {
 		settings &= ~PARSER_MERGE_AFTER_LAST_IN_GROUP;
 	}
@@ -1888,11 +1889,11 @@ parser_merge(struct Parser *parser, struct Parser *subparser, enum ParserMergeBe
 
 	if (error == PARSER_ERROR_OK &&
 	    parser->settings.behavior & PARSER_DEDUP_TOKENS) {
-		error = parser_edit(parser, NULL, refactor_dedup_tokens, NULL);
+		error = parser_edit(parser, pool, refactor_dedup_tokens, NULL);
 	}
 
 	if (error == PARSER_ERROR_OK) {
-		error = parser_edit(parser, NULL, refactor_remove_consecutive_empty_lines, NULL);
+		error = parser_edit(parser, pool, refactor_remove_consecutive_empty_lines, NULL);
 	}
 
 	return error;

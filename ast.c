@@ -398,9 +398,8 @@ ast_clone(struct Mempool *extpool, struct AST *template)
 void
 ast_parent_append_sibling(struct AST *parent, struct AST *node, int orelse)
 {
-	unless (parent) {
-		panic("null parent");
-	}
+	panic_unless(parent, "null parent");
+	panic_unless(node, "null node");
 
 	node->parent = parent;
 	switch (parent->type) {
@@ -440,8 +439,8 @@ ast_parent_append_sibling(struct AST *parent, struct AST *node, int orelse)
 	}
 }
 
-struct Array *
-ast_siblings(struct AST *node)
+static struct Array *
+ast_siblings_helper(struct AST *node)
 {
 	ssize_t index = -1;
 	struct AST *parent = node->parent;
@@ -477,11 +476,24 @@ ast_siblings(struct AST *node)
 	panic("no siblings found?");
 }
 
+struct Array *
+ast_siblings(struct Mempool *pool, struct AST *node)
+{
+	struct Array *siblings = mempool_array(pool);
+	ARRAY_FOREACH(ast_siblings_helper(node), struct AST *, sibling) {
+		array_append(siblings, sibling);
+	}
+	return siblings;
+}
+
 void
 ast_parent_insert_before_sibling(struct AST *node, struct AST *new_sibling)
 // Insert `new_sibling` in the `node`'s parent just before `node`
 {
-	struct Array *nodelist = ast_siblings(node);
+	panic_unless(node, "null node");
+	panic_unless(new_sibling, "null new_sibling");
+
+	struct Array *nodelist = ast_siblings_helper(node);
 	ssize_t index = -1;
 	index = array_find(nodelist, node, NULL, NULL);
 	if (index < 0) {
@@ -670,6 +682,7 @@ ast_balance_comments_join(struct Array *comments)
 
 	struct AST *node = array_get(comments, 0);
 	ARRAY_FOREACH_SLICE(comments, 1, -1, struct AST *, sibling) {
+		panic_if(sibling->type != AST_COMMENT, "unexpected node type");
 		ARRAY_FOREACH(sibling->comment.lines, const char *, line) {
 			array_append(node->comment.lines, line);
 			node->edited = 1;

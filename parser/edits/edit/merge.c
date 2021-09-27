@@ -72,12 +72,21 @@ empty_line(struct AST *parent)
 	return node;
 }
 
+static int
+insert_empty_line_before_block(enum BlockType before, enum BlockType block)
+{
+	return before < block && (before < BLOCK_USES || block > BLOCK_PLIST);
+}
+
 static void
 prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum BlockType block_var)
 {
+	SCOPE_MEMPOOL(pool);
+
 	// Append only after initial comments
 	size_t start_index = 0;
-	ARRAY_FOREACH(ast_siblings(root), struct AST *, sibling) {
+	struct Array *siblings = ast_siblings(pool, root);
+	ARRAY_FOREACH(siblings, struct AST *, sibling) {
 		if (sibling->type == AST_COMMENT) {
 			start_index = sibling_index + 1;
 		} else {
@@ -85,9 +94,11 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 		}
 	}
 
-	ARRAY_FOREACH_SLICE(ast_siblings(root), start_index, -1, struct AST *, sibling) {
+	int added = 0;
+	ARRAY_FOREACH_SLICE(siblings, start_index, -1, struct AST *, sibling) {
 		if (sibling_index == start_index) {
 			ast_parent_insert_before_sibling(sibling, node);
+			added = 1;
 		}
 		// Insert new empty line
 		switch (sibling->type) {
@@ -96,19 +107,29 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 		case AST_IF:
 		case AST_INCLUDE:
 		case AST_TARGET:
-			break;
-		case AST_VARIABLE:
-			if (variable_order_block(parser, sibling->variable.name, NULL, NULL) != block_var) {
+			if (added) {
 				ast_parent_insert_before_sibling(sibling, empty_line(sibling));
 				return;
 			}
 			break;
-		case AST_ROOT:
+		case AST_VARIABLE: {
+			enum BlockType block = variable_order_block(parser, sibling->variable.name, NULL, NULL);
+			if (block != block_var && insert_empty_line_before_block(block, block_var)) {
+				ast_parent_insert_before_sibling(sibling, empty_line(sibling));
+				return;
+			}
+			break;
+		} case AST_ROOT:
 		case AST_DELETED:
 		case AST_COMMENT:
 		case AST_TARGET_COMMAND:
 			break;
 		}
+	}
+
+	unless (added) {
+		// If all else fails just append it
+		ast_parent_append_sibling(root, node, 0);
 	}
 }
 
@@ -137,11 +158,13 @@ delete_variable(struct AST *node, struct Parser *parser, const char *var)
 static ssize_t
 find_insert_point_generic(struct Parser *parser, struct AST *root, const char *var, enum BlockType *block_before_var)
 {
+	SCOPE_MEMPOOL(pool);
+
 	ssize_t insert_after = INSERT_VARIABLE_NO_POINT_FOUND;
 	*block_before_var = BLOCK_UNKNOWN;
 	int always_greater = 1;
 
-	ARRAY_FOREACH(ast_siblings(root), struct AST *, sibling) {
+	ARRAY_FOREACH(ast_siblings(pool, root), struct AST *, sibling) {
 		switch (sibling->type) {
 		case AST_ROOT:
 		case AST_DELETED:
@@ -178,11 +201,13 @@ loop_end:
 static ssize_t
 find_insert_point_same_block(struct Parser *parser, struct AST *root, const char *var, enum BlockType *block_before_var)
 {
+	SCOPE_MEMPOOL(pool);
+
 	ssize_t insert_after = INSERT_VARIABLE_NO_POINT_FOUND;
 	enum BlockType block_var = variable_order_block(parser, var, NULL, NULL);
 	*block_before_var = BLOCK_UNKNOWN;
 
-	ARRAY_FOREACH(ast_siblings(root), struct AST *, sibling) {
+	ARRAY_FOREACH(ast_siblings(pool, root), struct AST *, sibling) {
 		switch (sibling->type) {
 		case AST_ROOT:
 		case AST_DELETED:
@@ -198,8 +223,11 @@ find_insert_point_same_block(struct Parser *parser, struct AST *root, const char
 			if (block != block_var) {
 				continue;
 			}
-			if (compare_order(&sibling->variable.name, &var, parser) < 0) {
+			int cmp = compare_order(&sibling->variable.name, &var, parser);
+			if (cmp < 0) {
 				*block_before_var = block;
+				insert_after = sibling_index;
+			} else if (cmp == 0) {
 				insert_after = sibling_index;
 			}
 			break;
@@ -217,6 +245,8 @@ find_insert_point_same_block(struct Parser *parser, struct AST *root, const char
 static void
 insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 {
+	SCOPE_MEMPOOL(pool);
+
 	struct AST *node = ast_clone(root->pool, template);
 	node->edited = 1;
 
@@ -235,7 +265,7 @@ insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 		// No variable found where we could insert our new
 		// var.  Insert it before any conditional or target
 		// if there are any.
-		ARRAY_FOREACH(ast_siblings(root), struct AST *, sibling) {
+		ARRAY_FOREACH(ast_siblings(pool, root), struct AST *, sibling) {
 			switch (sibling->type) {
 			case AST_ROOT:
 			case AST_DELETED:
@@ -261,14 +291,22 @@ insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 	}
 
 	size_t insert_point = insert_after;
-	ARRAY_FOREACH(ast_siblings(root), struct AST *, sibling) {
+	ARRAY_FOREACH(ast_siblings(pool, root), struct AST *, sibling) {
 		if (sibling_index > insert_point) {
 			ast_parent_insert_before_sibling(sibling, node);
+			if (block_before_var != BLOCK_UNKNOWN && block_before_var != block_var &&
+			    insert_empty_line_before_block(block_before_var, block_var)) {
+				ast_parent_insert_before_sibling(node, empty_line(node));
+			}
 			return;
 		}
 	}
 
 	// If all else fails just append it
+	if (block_before_var != BLOCK_UNKNOWN && block_before_var != block_var &&
+	    insert_empty_line_before_block(block_before_var, block_var)) {
+		ast_parent_append_sibling(root, empty_line(node), 0);
+	}
 	ast_parent_append_sibling(root, node, 0);
 }
 
@@ -391,14 +429,17 @@ PARSER_EDIT(edit_merge)
 		return;
 	}
 
+	// fputs("to merge:\n", stderr);
+	// ast_print(mergetree, stderr);
+	// fputs("\nbefore:\n", stderr);
+	// ast_print(root, stderr);
+
 	edit_merge_walker(mergetree, &(struct WalkerData){
 		.parser = parser,
 		.root = root,
 		.merge_behavior = params->merge_behavior,
 	}, 0);
 
-	// ast_print(mergetree, stderr);
-	// fputs("--------------------\n", stderr);
+	// fputs("\nafter:\n", stderr);
 	// ast_print(root, stderr);
-	// fputs("--------------------\n", stderr);
 }

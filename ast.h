@@ -224,7 +224,7 @@ extern const char *ASTIfType_humanize[];
 void ast_free(struct AST *);
 struct AST *ast_new(struct Mempool *, enum ASTType, struct ASTLineRange *, void *);
 struct AST *ast_clone(struct Mempool *, struct AST *);
-struct Array *ast_siblings(struct AST *);
+struct Array *ast_siblings(struct Mempool *, struct AST *);
 void ast_parent_append_sibling(struct AST *, struct AST *, int);
 void ast_parent_insert_before_sibling(struct AST *, struct AST *);
 void ast_print(struct AST *, FILE *);
