@@ -304,7 +304,6 @@ parser_find_goalcols_walker(struct AST *node, struct ParserFindGoalcolsState *th
 		return AST_WALK_STOP;
 	}
 
-	// do not recurse down into loaded includes
 	switch (node->type) {
 	case AST_COMMENT:
 		/* Ignore comments in between variables and
