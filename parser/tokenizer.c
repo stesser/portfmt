@@ -370,7 +370,7 @@ parser_tokenize(struct ParserTokenizer *tokenizer, const char *line, enum Parser
 }
 
 void
-parser_tokenizer_feed_line(struct ParserTokenizer *tokenizer, char *line, size_t linelen)
+parser_tokenizer_feed_line(struct ParserTokenizer *tokenizer, const char *inputline, const size_t linelen)
 {
 	SCOPE_MEMPOOL(pool);
 	panic_if(tokenizer->finished, "tokenizer is in finished state");
@@ -381,6 +381,7 @@ parser_tokenizer_feed_line(struct ParserTokenizer *tokenizer, char *line, size_t
 
 	tokenizer->builder->lines.b++;
 
+	char *line = str_dup(pool, inputline);
 	int will_continue = linelen > 0 && line[linelen - 1] == '\\' && (linelen == 1 || line[linelen - 2] != '\\');
 	if (will_continue) {
  		if (linelen > 2 && line[linelen - 2] == '$' && line[linelen - 3] != '$') {

@@ -36,5 +36,5 @@ struct ParserTokenizer;
 struct ParserTokenizer *parser_tokenizer_new(struct Parser *, const enum ParserError *, struct ParserASTBuilder *);
 void parser_tokenizer_free(struct ParserTokenizer *);
 
-void parser_tokenizer_feed_line(struct ParserTokenizer *, char *, size_t);
+void parser_tokenizer_feed_line(struct ParserTokenizer *, const char *, const size_t);
 enum ParserError parser_tokenizer_finish(struct ParserTokenizer *);
