@@ -1799,11 +1799,10 @@ parser_lookup_variable_walker(struct AST *node, struct Mempool *pool, const char
 		if (strcmp(node->variable.name, name) == 0) {
 			*retval = node;
 			ARRAY_FOREACH(node->variable.words, const char *, word) {
-				if (is_comment(word)) {
-					array_append(comments, str_dup(pool, word));
-				} else {
-					array_append(tokens, str_dup(pool, word));
-				}
+				array_append(tokens, str_dup(pool, word));
+			}
+			if (node->variable.comment && strlen(node->variable.comment) > 0) {
+				array_append(comments, str_dup(pool, node->variable.comment));
 			}
 			if (behavior & PARSER_LOOKUP_FIRST) {
 				return AST_WALK_STOP;
