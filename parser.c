@@ -850,7 +850,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 {
 	SCOPE_MEMPOOL(pool);
 
-	int edited = node->edited || (parser->settings.behavior & PARSER_OUTPUT_REFORMAT);
+	int edited = node->edited || (!(parser->settings.behavior & PARSER_OUTPUT_EDITED) && (parser->settings.behavior & PARSER_OUTPUT_REFORMAT));
 	switch (node->type) {
 	case AST_ROOT:
 		ARRAY_FOREACH(node->root.body, struct AST *, child) {
