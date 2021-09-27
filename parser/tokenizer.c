@@ -381,7 +381,11 @@ parser_tokenizer_feed_line(struct ParserTokenizer *tokenizer, const char *inputl
 
 	tokenizer->builder->lines.b++;
 
-	char *line = str_dup(pool, inputline);
+	char *line = str_ndup(pool, inputline, linelen);
+	if (linelen != strlen(line)) {
+		parser_set_error(tokenizer->parser, PARSER_ERROR_IO, "input not a Makefile?"); // 0 byte before \n ?
+		return;
+	}
 	int will_continue = linelen > 0 && line[linelen - 1] == '\\' && (linelen == 1 || line[linelen - 2] != '\\');
 	if (will_continue) {
  		if (linelen > 2 && line[linelen - 2] == '$' && line[linelen - 3] != '$') {

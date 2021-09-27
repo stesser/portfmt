@@ -1144,11 +1144,11 @@ parser_read_from_file(struct Parser *parser, FILE *fp)
 	}
 
 	LINE_FOREACH(fp, line) {
-		array_append(parser->rawlines, str_ndup(NULL, line, line_len));
 		parser_tokenizer_feed_line(parser->tokenizer, line, line_len);
 		if (parser->error != PARSER_ERROR_OK) {
 			return parser->error;
 		}
+		array_append(parser->rawlines, str_ndup(NULL, line, line_len));
 	}
 
 	return PARSER_ERROR_OK;
