@@ -59,7 +59,9 @@ refactor_dedup_tokens_walker(struct AST *node, struct WalkerData *this)
 
 	switch (node->type) {
 	case AST_VARIABLE:
-		if (skip_dedup(this->parser, node->variable.name, node->variable.modifier)) {
+		if ((parser_settings(this->parser).behavior & PARSER_OUTPUT_EDITED) && !node->edited) {
+			return AST_WALK_CONTINUE;
+		} else if (skip_dedup(this->parser, node->variable.name, node->variable.modifier)) {
 			return AST_WALK_CONTINUE;
 		} else {
 			struct Set *seen = mempool_set(pool, str_compare, NULL, NULL);
