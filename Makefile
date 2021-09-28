@@ -14,6 +14,8 @@ CPPFLAGS+=	-DPORTFMT_SUBPACKAGES=${SUBPACKAGES}
 
 OBJS=		ast.o \
 		constants.o \
+		io/dir.o \
+		io/file.o \
 		mainutils.o \
 		parser.o \
 		parser/astbuilder.o \
@@ -90,8 +92,10 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 #
 ast.o: config.h libias/array.h libias/flow.h libias/map.h libias/mempool.h libias/stack.h libias/str.h ast.h
 constants.o: config.h constants.h
+io/dir.o: config.h libias/mempool/dir.h capsicum_helpers.h io/dir.h
+io/file.o: config.h libias/mempool/file.h capsicum_helpers.h io/file.h
 mainutils.o: config.h libias/array.h libias/mempool.h libias/mempool/file.h libias/str.h capsicum_helpers.h mainutils.h parser.h
-parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/mempool/file.h libias/map.h libias/mem.h libias/mempool.h libias/path.h libias/set.h libias/str.h ast.h constants.h parser.h parser/astbuilder.h parser/edits.h parser/tokenizer.h rules.h
+parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/mempool/file.h libias/map.h libias/mem.h libias/mempool.h libias/path.h libias/set.h libias/str.h ast.h constants.h io/file.h parser.h parser/astbuilder.h parser/edits.h parser/tokenizer.h rules.h
 parser/astbuilder.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/stack.h libias/str.h ast.h parser.h parser/astbuilder.h parser/astbuilder/conditional.h parser/astbuilder/enum.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h rules.h
 parser/astbuilder/conditional.o: config.h libias/mempool.h libias/str.h parser/astbuilder/enum.h parser/astbuilder/conditional.h
 parser/astbuilder/enum.o: config.h parser/astbuilder/enum.h
@@ -123,7 +127,7 @@ parser/tokenizer.o: config.h libias/array.h libias/flow.h libias/mem.h libias/me
 portclippy.o: config.h libias/mempool.h mainutils.h parser.h parser/edits.h
 portedit.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h mainutils.h parser.h parser/edits.h regexp.h
 portfmt.o: config.h libias/mempool.h mainutils.h parser.h
-portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/io/dir.h libias/map.h libias/mem.h libias/mempool.h libias/mempool/dir.h libias/mempool/file.h libias/set.h libias/str.h ast.h capsicum_helpers.h mainutils.h parser.h parser/edits.h portscan/log.h portscan/status.h regexp.h
+portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/io/dir.h libias/map.h libias/mem.h libias/mempool.h libias/mempool/dir.h libias/mempool/file.h libias/set.h libias/str.h ast.h io/dir.h io/file.h mainutils.h parser.h parser/edits.h portscan/log.h portscan/status.h regexp.h
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
 portscan/status.o: config.h libias/array.h libias/mempool.h libias/str.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h

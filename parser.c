@@ -56,6 +56,7 @@
 
 #include "ast.h"
 #include "constants.h"
+#include "io/file.h"
 #include "parser.h"
 #include "parser/astbuilder.h"
 #include "parser/edits.h"
@@ -1343,23 +1344,6 @@ process_include(struct Parser *parser, struct Mempool *pool, const char *curdir,
 	}
 
 	return path;
-}
-
-static FILE *
-fileopenat(struct Mempool *pool, int root, const char *path) // TODO: Move to libias/io/file
-{
-	FILE *f = mempool_fopenat(pool, root, path, "r", 0);
-	if (f == NULL) {
-		return NULL;
-	}
-
-#if HAVE_CAPSICUM
-	if (caph_limit_stream(fileno(f), CAPH_READ) < 0) {
-		err(1, "caph_limit_stream: %s", path);
-	}
-#endif
-
-	return f;
 }
 
 static enum ASTWalkState

@@ -30,9 +30,6 @@
 
 #include <sys/param.h>
 #include <sys/stat.h>
-#if HAVE_CAPSICUM
-# include <sys/capsicum.h>
-#endif
 #include <dirent.h>
 #if HAVE_ERR
 # include <err.h>
@@ -64,6 +61,8 @@
 
 #include "ast.h"
 #include "capsicum_helpers.h"
+#include "io/dir.h"
+#include "io/file.h"
 #include "mainutils.h"
 #include "parser.h"
 #include "parser/edits.h"
@@ -167,8 +166,6 @@ static void lookup_subdirs(int, const char *, const char *, enum ScanFlags, stru
 static void scan_port(struct ScanPortArgs *);
 static void *lookup_origins_worker(void *);
 static PARSER_EDIT(get_default_option_descriptions);
-static DIR *diropenat(struct Mempool *, int, const char *);
-static FILE *fileopenat(struct Mempool *, int, const char *);
 static void *scan_ports_worker(void *);
 static struct Array *lookup_origins(struct Mempool *, int, enum ScanFlags, struct PortscanLog *);
 static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, struct Regexp *, ssize_t, struct PortscanLog *);
@@ -195,40 +192,6 @@ add_error(struct Set *errors, char *msg)
 	if (!set_contains(errors, msg)) {
 		set_add(errors, str_dup(NULL, msg));
 	}
-}
-
-DIR *
-diropenat(struct Mempool *pool, int root, const char *path)
-{
-	DIR *dir = mempool_opendirat(pool, root, path);
-	if (dir == NULL) {
-		return NULL;
-	}
-
-#if HAVE_CAPSICUM
-	if (caph_limit_stream(dirfd(dir), CAPH_READ | CAPH_READDIR) < 0) {
-		err(1, "caph_limit_stream: %s", path);
-	}
-#endif
-
-	return dir;
-}
-
-FILE *
-fileopenat(struct Mempool *pool, int root, const char *path)
-{
-	FILE *f = mempool_fopenat(pool, root, path, "r", 0);
-	if (f == NULL) {
-		return NULL;
-	}
-
-#if HAVE_CAPSICUM
-	if (caph_limit_stream(fileno(f), CAPH_READ) < 0) {
-		err(1, "caph_limit_stream: %s", path);
-	}
-#endif
-
-	return f;
 }
 
 void
