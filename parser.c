@@ -1309,8 +1309,10 @@ parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 }
 
 static const char *
-process_include(struct Parser *parser, struct Mempool *pool, const char *curdir, const char *filename)
+process_include(struct Parser *parser, struct Mempool *extpool, const char *curdir, const char *filename)
 {
+	SCOPE_MEMPOOL(pool);
+
 	if (str_startswith(filename, "${MASTERDIR}/")) {
 		filename += strlen("${MASTERDIR}/");
 		const char *masterdir = parser_metadata(parser, PARSER_METADATA_MASTERDIR);
@@ -1320,30 +1322,34 @@ process_include(struct Parser *parser, struct Mempool *pool, const char *curdir,
 		filename = str_printf(pool, "%s/%s", masterdir, filename);
 	}
 
-	const char *path;
+	struct Array *path = mempool_array(pool);
 	if (str_startswith(filename, "${.PARSEDIR}/")) {
-		filename += strlen("${.PARSEDIR}/");
-		path = str_printf(pool, "%s/%s", curdir, filename);
+		array_append(path, curdir);
+		array_append(path, filename + strlen("${.PARSEDIR}/"));
 	} else if (str_startswith(filename, "${.CURDIR}/")) {
-		filename += strlen("${.CURDIR}/");
-		path = str_printf(pool, "%s/%s", curdir, filename);
+		array_append(path, curdir);
+		array_append(path, filename + strlen("${.CURDIR}/"));
 	} else if (str_startswith(filename, "${.CURDIR:H}/")) {
-		filename += strlen("${.CURDIR:H}/");
-		path = str_printf(pool, "%s/../%s", curdir, filename);
+		array_append(path, curdir);
+		array_append(path, "..");
+		array_append(path, filename + strlen("${.CURDIR:H}/"));
 	} else if (str_startswith(filename, "${.CURDIR:H:H}/")) {
-		filename += strlen("${.CURDIR:H:H}/");
-		path = str_printf(pool, "%s/../../%s", curdir, filename);
+		array_append(path, curdir);
+		array_append(path, "..");
+		array_append(path, "..");
+		array_append(path, filename + strlen("${.CURDIR:H:H}/"));
 	} else if (str_startswith(filename, "${PORTSDIR}/")) {
-		filename += strlen("${PORTSDIR}/");
-		path = filename;
+		array_append(path, filename + strlen("${PORTSDIR}/"));
 	} else if (str_startswith(filename, "${FILESDIR}/")) {
-		filename += strlen("${FILESDIR}/");
-		path = str_printf(pool, "%s/files/%s", curdir, filename);
+		array_append(path, curdir);
+		array_append(path, "files");
+		array_append(path, filename + strlen("${FILESDIR}/"));
 	} else {
-		path = str_printf(pool, "%s/%s", curdir, filename);
+		array_append(path, curdir);
+		array_append(path, filename);
 	}
 
-	return path;
+	return path_join(extpool, path);
 }
 
 static enum ASTWalkState
