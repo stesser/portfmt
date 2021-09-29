@@ -966,6 +966,10 @@ main(int argc, char *argv[])
 				warnx("no changes compared to previous result");
 				return 2;
 			}
+			if (progressinterval) {
+				portscan_status_reset(PORTSCAN_STATUS_FINISHED, 0);
+				portscan_status_print(NULL);
+			}
 			if (!portscan_log_serialize_to_dir(result, logdir)) {
 				err(1, "portscan_log_serialize_to_dir");
 			}
