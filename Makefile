@@ -1,6 +1,7 @@
 .SUFFIXES: .test
 
 include Makefile.configure
+-include Makefile.local
 
 MKDIR?=		mkdir -p
 LN?=		ln

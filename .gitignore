@@ -1,4 +1,5 @@
 .ccls-cache
+.thinlto-cache
 *.core
 *.a
 *.o
@@ -8,6 +9,7 @@ config.log
 config.log.old
 libportfmt.a
 Makefile.configure
+Makefile.local
 /bin
 /tests/log
 TODO
