@@ -181,7 +181,7 @@ parser_astbuilder_append_token(struct ParserASTBuilder *builder, enum ParserASTB
 	struct ParserASTBuilderToken *t = parser_astbuilder_token_new(type, &builder->lines, data, builder->varname, builder->condname, builder->targetname);
 	if (t == NULL) {
 		if (builder->parser) {
-			parser_set_error(builder->parser, PARSER_ERROR_EXPECTED_TOKEN, ParserASTBuilderTokenType_humanize[type]);
+			parser_set_error(builder->parser, PARSER_ERROR_EXPECTED_TOKEN, ParserASTBuilderTokenType_human(type));
 		}
 		return;
 	}
@@ -539,8 +539,8 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		break;
 	} case AST_EXPR: {
 		const char *indent = str_repeat(pool, " ", node->expr.indent);
-		const char *data = str_printf(pool, ".%s%s", indent, ASTExprType_identifier[node->expr.type]);
-		const char *exprname = str_printf(pool, ".%s", ASTExprType_identifier[node->expr.type]);
+		const char *data = str_printf(pool, ".%s%s", indent, ASTExprType_identifier(node->expr.type));
+		const char *exprname = str_printf(pool, ".%s", ASTExprType_identifier(node->expr.type));
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		ARRAY_FOREACH(node->expr.words, const char *, word) {
@@ -554,7 +554,7 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		if (node->ifexpr.ifparent && node->ifexpr.type != AST_IF_ELSE) {
 			prefix = "el";
 		}
-		const char *ifname = str_printf(pool, "%s%s", prefix, ASTIfType_humanize[node->ifexpr.type]);
+		const char *ifname = str_printf(pool, "%s%s", prefix, ASTIfType_human(node->ifexpr.type));
 		const char *ifnamedot = str_printf(pool, ".%s", ifname);
 		const char *data = str_printf(pool, ".%s%s", indent, ifname);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, node->edited, &node->line_start, data, NULL, ifnamedot, NULL);
@@ -626,8 +626,8 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 			break;
 		}
 		const char *indent = str_repeat(pool, " ", node->include.indent);
-		const char *data = str_printf(pool, "%s%s%s", dot, indent, ASTIncludeType_identifier[node->include.type]);
-		const char *exprname = str_printf(pool, "%s%s", dot, ASTIncludeType_identifier[node->include.type]);
+		const char *data = str_printf(pool, "%s%s%s", dot, indent, ASTIncludeType_identifier(node->include.type));
+		const char *exprname = str_printf(pool, "%s%s", dot, ASTIncludeType_identifier(node->include.type));
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		if (node->include.path) {
@@ -665,7 +665,7 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		if (str_endswith(node->variable.name, "+")) {
 			space = " ";
 		}
-		const char *varname = str_printf(pool, "%s%s%s", node->variable.name, space, ASTVariableModifier_humanize[node->variable.modifier]);
+		const char *varname = str_printf(pool, "%s%s%s", node->variable.name, space, ASTVariableModifier_human(node->variable.modifier));
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_VARIABLE_START, node->edited, &node->line_start, NULL, varname, NULL, NULL);
 		ARRAY_FOREACH(node->variable.words, const char *, word) {
 			token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN, node->edited, &node->line_start, word, varname, NULL, NULL);
@@ -684,7 +684,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 	size_t maxvarlen = 0;
 	ARRAY_FOREACH(tokens, struct ParserASTBuilderToken *, o) {
 		if (o->type == PARSER_AST_BUILDER_TOKEN_VARIABLE_START && o->variable.name) {
-			maxvarlen = MAX(maxvarlen, strlen(o->variable.name) + strlen(ASTVariableModifier_humanize[o->variable.modifier]));
+			maxvarlen = MAX(maxvarlen, strlen(o->variable.name) + strlen(ASTVariableModifier_human(o->variable.modifier)));
 			if (str_endswith(o->variable.name, "+")) {
 				maxvarlen += 1;
 			}
@@ -692,7 +692,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 	}
 	struct Array *vars = mempool_array(pool);
 	ARRAY_FOREACH(tokens, struct ParserASTBuilderToken *, t) {
-		const char *type = ParserASTBuilderTokenType_humanize[t->type];
+		const char *type = ParserASTBuilderTokenType_human(t->type);
 		if (t->variable.name &&
 		    (t->type == PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN ||
 		     t->type == PARSER_AST_BUILDER_TOKEN_VARIABLE_START ||
@@ -701,12 +701,12 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 			if (str_endswith(t->variable.name, "+")) {
 				sep = " ";
 			}
-			array_append(vars, str_printf(pool, "%s%s%s", t->variable.name, sep, ASTVariableModifier_humanize[t->variable.modifier]));
+			array_append(vars, str_printf(pool, "%s%s%s", t->variable.name, sep, ASTVariableModifier_human(t->variable.modifier)));
 		} else if (t->conditional.type != PARSER_AST_BUILDER_CONDITIONAL_INVALID &&
 			   (t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START ||
 			    t->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN)) {
-			array_append(vars, ParserASTBuilderConditionalType_humanize[t->conditional.type]);
+			array_append(vars, ParserASTBuilderConditionalType_human(t->conditional.type));
 		} else if (t->target.sources && t->type == PARSER_AST_BUILDER_TOKEN_TARGET_START) {
 			ARRAY_FOREACH(t->target.sources, const char *, name) {
 				array_append(vars, str_dup(pool, name));

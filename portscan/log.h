@@ -46,6 +46,8 @@ enum PortscanLogEntryType {
 	PORTSCAN_LOG_ENTRY_COMMENT,
 };
 
+const char *PortscanLogEntryType_tostring(enum PortscanLogEntryType);
+
 #define PORTSCAN_LOG_LATEST "portscan-latest.log"
 #define PORTSCAN_LOG_PREVIOUS "portscan-previous.log"
 

@@ -40,53 +40,78 @@ enum ASTType {
 	AST_VARIABLE,
 };
 
+const char *ASTType_tostring(enum ASTType);
+
 enum ASTCommentType {
 	AST_COMMENT_LINE,
 };
 
+const char *ASTCommentType_tostring(enum ASTCommentType);
+
 enum ASTExprType {
-	AST_EXPR_ERROR,
-	AST_EXPR_EXPORT_ENV,
-	AST_EXPR_EXPORT_LITERAL,
-	AST_EXPR_EXPORT,
-	AST_EXPR_INFO,
-	AST_EXPR_UNDEF,
-	AST_EXPR_UNEXPORT_ENV,
-	AST_EXPR_UNEXPORT,
-	AST_EXPR_WARNING,
+	AST_EXPR_ERROR,			// identifier:"error"
+	AST_EXPR_EXPORT_ENV,		// identifier:"export-env"
+	AST_EXPR_EXPORT_LITERAL,	// identifier:"export-literal"
+	AST_EXPR_EXPORT,		// identifier:"export"
+	AST_EXPR_INFO,			// identifier:"info"
+	AST_EXPR_UNDEF,			// identifier:"undef"
+	AST_EXPR_UNEXPORT_ENV,		// identifier:"unexport-env"
+	AST_EXPR_UNEXPORT,		// identifier:"unexport"
+	AST_EXPR_WARNING,		// identifier:"warning"
 };
+
+const char *ASTExprType_identifier(enum ASTExprType);
+const char *ASTExprType_tostring(enum ASTExprType);
 
 enum ASTIfType {
-	AST_IF_IF,
-	AST_IF_DEF,
-	AST_IF_ELSE,
-	AST_IF_MAKE,
-	AST_IF_NDEF,
-	AST_IF_NMAKE,
+	AST_IF_IF,	// human:"if"
+	AST_IF_DEF,	// human:"ifdef"
+	AST_IF_ELSE,	// human:"else"
+	AST_IF_MAKE,	// human:"ifmake"
+	AST_IF_NDEF,	// human:"ifndef"
+	AST_IF_NMAKE,	// human:"ifnmake"
 };
 
+const char *ASTIfType_human(enum ASTIfType);
+const char *ASTIfType_tostring(enum ASTIfType);
+
 enum ASTIncludeType {
-	AST_INCLUDE_BMAKE,
-	AST_INCLUDE_POSIX,
-	AST_INCLUDE_POSIX_OPTIONAL,
-	AST_INCLUDE_POSIX_OPTIONAL_S,
-	AST_INCLUDE_OPTIONAL,
-	AST_INCLUDE_OPTIONAL_D,
-	AST_INCLUDE_OPTIONAL_S,
+	AST_INCLUDE_BMAKE,		// identifier:"include"
+	AST_INCLUDE_POSIX,		// identifier:"include"
+	AST_INCLUDE_POSIX_OPTIONAL,	// identifier:"-include"
+	AST_INCLUDE_POSIX_OPTIONAL_S,	// identifier:"sinclude"
+	AST_INCLUDE_OPTIONAL,		// identifier:"-include"
+	AST_INCLUDE_OPTIONAL_D,		// identifier:"dinclude"
+	AST_INCLUDE_OPTIONAL_S,		// identifier:"sinclude"
 };
+
+const char *ASTIncludeType_identifier(enum ASTIncludeType);
+const char *ASTIncludeType_tostring(enum ASTIncludeType);
 
 enum ASTTargetType {
 	AST_TARGET_NAMED,
 	AST_TARGET_UNASSOCIATED,
 };
 
+const char *ASTTargetType_tostring(enum ASTTargetType);
+
 enum ASTVariableModifier {
-	AST_VARIABLE_MODIFIER_APPEND,
-	AST_VARIABLE_MODIFIER_ASSIGN,
-	AST_VARIABLE_MODIFIER_EXPAND,
-	AST_VARIABLE_MODIFIER_OPTIONAL,
-	AST_VARIABLE_MODIFIER_SHELL,
+	AST_VARIABLE_MODIFIER_APPEND,	// human:"+="
+	AST_VARIABLE_MODIFIER_ASSIGN,	// human:"="
+	AST_VARIABLE_MODIFIER_EXPAND,	// human:":="
+	AST_VARIABLE_MODIFIER_OPTIONAL,	// human:"?="
+	AST_VARIABLE_MODIFIER_SHELL,	// human:"!="
 };
+
+const char *ASTVariableModifier_human(enum ASTVariableModifier);
+const char *ASTVariableModifier_tostring(enum ASTVariableModifier);
+
+enum ASTWalkState {
+	AST_WALK_CONTINUE,
+	AST_WALK_STOP,
+};
+
+const char *ASTWalkState_tostring(enum ASTWalkState);
 
 struct ASTComment {
 	enum ASTCommentType type;
@@ -212,17 +237,6 @@ struct AST {
 		struct ASTVariable variable;
 	};
 };
-
-enum ASTWalkState {
-	AST_WALK_CONTINUE,
-	AST_WALK_STOP,
-};
-
-extern const char *ASTType_tostring[];
-extern const char *ASTExprType_identifier[];
-extern const char *ASTIncludeType_identifier[];
-extern const char *ASTVariableModifier_humanize[];
-extern const char *ASTIfType_humanize[];
 
 void ast_free(struct AST *);
 struct AST *ast_new(struct Mempool *, enum ASTType, struct ASTLineRange *, void *);

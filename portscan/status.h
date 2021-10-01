@@ -35,6 +35,8 @@ enum PortscanState {
 	PORTSCAN_STATUS_FINISHED,
 };
 
+const char *PortscanState_tostring(enum PortscanState);
+
 void portscan_status_init(unsigned int);
 void portscan_status_inc(void);
 void portscan_status_reset(enum PortscanState, size_t);

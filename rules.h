@@ -29,48 +29,51 @@
 
 /* Order is significant here and should match variable_order_ in rules.c */
 enum BlockType {
-	BLOCK_PORTNAME,
-	BLOCK_PATCHFILES,
-	BLOCK_MAINTAINER,
-	BLOCK_LICENSE,
-	BLOCK_LICENSE_OLD,
-	BLOCK_BROKEN,
-	BLOCK_DEPENDS,
-	BLOCK_FLAVORS,
-	BLOCK_FLAVORS_HELPER,
+	BLOCK_PORTNAME,		// human:"PORTNAME block"
+	BLOCK_PATCHFILES,	// human:"Patch files"
+	BLOCK_MAINTAINER,	// human:"Maintainer block"
+	BLOCK_LICENSE,		// human:"License block"
+	BLOCK_LICENSE_OLD,	// human:"Old-school license block (please replace with LICENSE)"
+	BLOCK_BROKEN,		// human:"BROKEN/IGNORE/DEPRECATED messages"
+	BLOCK_DEPENDS,		// human:"Dependencies"
+	BLOCK_FLAVORS,		// human:"Flavors"
+	BLOCK_FLAVORS_HELPER,	// human:"Flavors helpers"
 #if PORTFMT_SUBPACKAGES
-	BLOCK_SUBPACKAGES,
+	BLOCK_SUBPACKAGES,	// human:"Subpackages block"
 #endif
-	BLOCK_USES,
-	BLOCK_SHEBANGFIX,
-	BLOCK_UNIQUEFILES,
-	BLOCK_APACHE,
-	BLOCK_ELIXIR,
-	BLOCK_EMACS,
-	BLOCK_ERLANG,
-	BLOCK_CMAKE,
-	BLOCK_CONFIGURE,
-	BLOCK_QMAKE,
-	BLOCK_MESON,
-	BLOCK_SCONS,
-	BLOCK_CABAL,
-	BLOCK_CARGO,
-	BLOCK_GO,
-	BLOCK_LAZARUS,
-	BLOCK_LINUX,
-	BLOCK_NUGET,
-	BLOCK_MAKE,
-	BLOCK_CFLAGS,
-	BLOCK_CONFLICTS,
-	BLOCK_STANDARD,
-	BLOCK_WRKSRC,
-	BLOCK_USERS,
-	BLOCK_PLIST,
-	BLOCK_OPTDEF,
-	BLOCK_OPTDESC,
-	BLOCK_OPTHELPER,
-	BLOCK_UNKNOWN,
+	BLOCK_USES,		// human:"USES block"
+	BLOCK_SHEBANGFIX,	// human:"USES=shebangfix related variables"
+	BLOCK_UNIQUEFILES,	// human:"USES=uniquefiles block"
+	BLOCK_APACHE,		// human:"USES=apache related variables"
+	BLOCK_ELIXIR,		// human:"USES=elixir related variables"
+	BLOCK_EMACS,		// human:"USES=emacs related variables"
+	BLOCK_ERLANG,		// human:"USES=erlang related variables"
+	BLOCK_CMAKE,		// human:"USES=cmake related variables"
+	BLOCK_CONFIGURE,	// human:"Configure block"
+	BLOCK_QMAKE,		// human:"USES=qmake related variables"
+	BLOCK_MESON,		// human:"USES=meson related variables"
+	BLOCK_SCONS,		// human:"USES=scons related variables"
+	BLOCK_CABAL,		// human:"USES=cabal related variables"
+	BLOCK_CARGO,		// human:"USES=cargo related variables"
+	BLOCK_GO,		// human:"USES=go related variables"
+	BLOCK_LAZARUS,		// human:"USES=lazarus related variables"
+	BLOCK_LINUX,		// human:"USES=linux related variables"
+	BLOCK_NUGET,		// human:"USES=mono related variables"
+	BLOCK_MAKE,		// human:"Make block"
+	BLOCK_CFLAGS,		// human:"CFLAGS/CXXFLAGS/LDFLAGS block"
+	BLOCK_CONFLICTS,	// human:"Conflicts"
+	BLOCK_STANDARD,		// human:"Standard bsd.port.mk variables"
+	BLOCK_WRKSRC,		// human:"WRKSRC block"
+	BLOCK_USERS,		// human:"Users and groups block"
+	BLOCK_PLIST,		// human:"Packaging list block"
+	BLOCK_OPTDEF,		// human:"Options definitions"
+	BLOCK_OPTDESC,		// human:"Options descriptions"
+	BLOCK_OPTHELPER,	// human:"Options helpers"
+	BLOCK_UNKNOWN,		// human:"Unknown variables"
 };
+
+const char *BlockType_human(enum BlockType);
+const char *BlockType_tostring(enum BlockType);
 
 struct CompareTokensData {
 	struct Parser *parser;
@@ -83,7 +86,6 @@ struct Set;
 enum ASTVariableModifier;
 struct AST;
 
-const char *blocktype_tostring(enum BlockType);
 int compare_order(const void *, const void *, void *);
 int compare_target_order(const void *, const void *, void *);
 int compare_tokens(const void *, const void *, void *);

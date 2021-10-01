@@ -41,82 +41,6 @@
 
 #include "ast.h"
 
-const char *ASTType_tostring[] = {
-	[AST_ROOT] = "AST_ROOT",
-	[AST_DELETED] = "AST_DELETED",
-	[AST_COMMENT] = "AST_COMMENT",
-	[AST_EXPR] = "AST_EXPR",
-	[AST_IF] = "AST_IF",
-	[AST_FOR] = "AST_FOR",
-	[AST_INCLUDE] = "AST_INCLUDE",
-	[AST_TARGET] = "AST_TARGET",
-	[AST_TARGET_COMMAND] = "AST_TARGET_COMMAND",
-	[AST_VARIABLE] = "AST_VARIABLE",
-};
-
-const char *ASTExprType_identifier[] = {
-	[AST_EXPR_ERROR] = "error",
-	[AST_EXPR_EXPORT_ENV] = "export-env",
-	[AST_EXPR_EXPORT_LITERAL] = "export-literal",
-	[AST_EXPR_EXPORT] = "export",
-	[AST_EXPR_INFO] = "info",
-	[AST_EXPR_UNDEF] = "undef",
-	[AST_EXPR_UNEXPORT_ENV] = "unexport-env",
-	[AST_EXPR_UNEXPORT] = "unexport",
-	[AST_EXPR_WARNING] = "warning",
-};
-
-static const char *ASTIfType_tostring[] = {
-	[AST_IF_IF] = "AST_IF_IF",
-	[AST_IF_DEF] = "AST_IF_DEF",
-	[AST_IF_ELSE] = "AST_IF_ELSE",
-	[AST_IF_MAKE] = "AST_IF_MAKE",
-	[AST_IF_NDEF] = "AST_IF_NDEF",
-	[AST_IF_NMAKE] = "AST_IF_NMAKE",
-};
-
-const char *ASTIfType_humanize[] = {
-	[AST_IF_IF] = "if",
-	[AST_IF_ELSE] = "else",
-	[AST_IF_DEF] = "ifdef",
-	[AST_IF_MAKE] = "ifmake",
-	[AST_IF_NDEF] = "ifndef",
-	[AST_IF_NMAKE] = "ifnmake",
-};
-
-static const char *ASTIncludeType_tostring[] = {
-	[AST_INCLUDE_BMAKE] = "AST_INCLUDE_BMAKE",
-	[AST_INCLUDE_OPTIONAL] = "AST_INCLUDE_OPTIONAL",
-	[AST_INCLUDE_OPTIONAL_D] = "AST_INCLUDE_OPTIONAL_D",
-	[AST_INCLUDE_OPTIONAL_S] = "AST_INCLUDE_OPTIONAL_S",
-	[AST_INCLUDE_POSIX] = "AST_INCLUDE_POSIX",
-	[AST_INCLUDE_POSIX_OPTIONAL] = "AST_INCLUDE_POSIX_OPTIONAL",
-	[AST_INCLUDE_POSIX_OPTIONAL_S] = "AST_INCLUDE_POSIX_OPTIONAL_S",
-};
-
-const char *ASTIncludeType_identifier[] = {
-	[AST_INCLUDE_BMAKE] = "include",
-	[AST_INCLUDE_OPTIONAL] = "-include",
-	[AST_INCLUDE_OPTIONAL_D] = "dinclude",
-	[AST_INCLUDE_OPTIONAL_S] = "sinclude",
-	[AST_INCLUDE_POSIX] = "include",
-	[AST_INCLUDE_POSIX_OPTIONAL] = "-include",
-	[AST_INCLUDE_POSIX_OPTIONAL_S] = "sinclude",
-};
-
-static const char *ASTTargetType_tostring[] = {
-	[AST_TARGET_NAMED] = "AST_TARGET_NAMED",
-	[AST_TARGET_UNASSOCIATED] = "AST_TARGET_UNASSOCIATED",
-};
-
-const char *ASTVariableModifier_humanize[] = {
-	[AST_VARIABLE_MODIFIER_APPEND] = "+=",
-	[AST_VARIABLE_MODIFIER_ASSIGN] = "=",
-	[AST_VARIABLE_MODIFIER_EXPAND] = ":=",
-	[AST_VARIABLE_MODIFIER_OPTIONAL] = "?=",
-	[AST_VARIABLE_MODIFIER_SHELL] = "!=",
-};
-
 static enum ASTWalkState ast_print_helper(struct AST *, FILE *, size_t);
 
 struct AST *
@@ -595,7 +519,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		fprintf(f, "%s{ %sIF/%s, %s, .indent = %zu, .test = { %s }, %s%s.elseif = %d }\n",
 			indent,
 			edited,
-			ASTIfType_tostring[node->ifexpr.type] + strlen("AST_IF_"),
+			ASTIfType_tostring(node->ifexpr.type) + strlen("AST_IF_"),
 			lines,
 			node->ifexpr.indent,
 			str_join(pool, node->ifexpr.test, ", "),
@@ -627,7 +551,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		fprintf(f, "%s{ %sINCLUDE/%s, %s, .indent = %zu, %s.path = %s, .sys = %d, .loaded = %d }\n",
 			indent,
 			edited,
-			ASTIncludeType_tostring[node->include.type] + strlen("AST_INCLUDE_"),
+			ASTIncludeType_tostring(node->include.type) + strlen("AST_INCLUDE_"),
 			lines,
 			node->include.indent,
 			comment,
@@ -644,7 +568,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		fprintf(f, "%s{ %sTARGET/%s, %s, %s.sources = { %s }, .dependencies = { %s } }\n",
 			indent,
 			edited,
-			ASTTargetType_tostring[node->target.type] + strlen("AST_TARGET_"),
+			ASTTargetType_tostring(node->target.type) + strlen("AST_TARGET_"),
 			lines,
 			comment,
 			str_join(pool, node->target.sources, ", "),
@@ -673,7 +597,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 			edited,
 			lines,
 			node->variable.name,
-			ASTVariableModifier_humanize[node->variable.modifier],
+			ASTVariableModifier_human(node->variable.modifier),
 			comment,
 			str_join(pool, node->variable.words, ", "));
 		break;

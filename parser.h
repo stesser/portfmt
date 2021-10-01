@@ -48,6 +48,8 @@ enum ParserBehavior {
 	PARSER_LOAD_LOCAL_INCLUDES = 1 << 17,
 };
 
+const char *ParserBehavior_tostring(enum ParserBehavior);
+
 enum ParserMergeBehavior {
 	PARSER_MERGE_DEFAULT = 0,
 	PARSER_MERGE_COMMENTS = 1 << 0,
@@ -57,24 +59,31 @@ enum ParserMergeBehavior {
 	PARSER_MERGE_IGNORE_VARIABLES_IN_CONDITIONALS = 1 << 5,
 };
 
+const char *ParserMergeBehavior_tostring(enum ParserMergeBehavior);
+
 enum ParserLookupVariableBehavior {
 	PARSER_LOOKUP_DEFAULT = 0,
 	PARSER_LOOKUP_FIRST = 1 << 0,
 	PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS = 1 << 1,
 };
 
+const char *ParserLookupVariableBehavior_tostring(enum ParserLookupVariableBehavior);
+
 enum ParserError {
-	PARSER_ERROR_OK = 0,
-	PARSER_ERROR_DIFFERENCES_FOUND,
-	PARSER_ERROR_EDIT_FAILED,
-	PARSER_ERROR_EXPECTED_CHAR,
-	PARSER_ERROR_EXPECTED_INT,
-	PARSER_ERROR_EXPECTED_TOKEN,
-	PARSER_ERROR_INVALID_ARGUMENT,
-	PARSER_ERROR_IO,
-	PARSER_ERROR_AST_BUILD_FAILED,
-	PARSER_ERROR_UNSPECIFIED,
+	PARSER_ERROR_OK,		// human:"no error"
+	PARSER_ERROR_DIFFERENCES_FOUND, // human:"differences found"
+	PARSER_ERROR_EDIT_FAILED,	// human:"edit failed"
+	PARSER_ERROR_EXPECTED_CHAR,	// human:"expected character"
+	PARSER_ERROR_EXPECTED_INT,	// human:"expected integer"
+	PARSER_ERROR_EXPECTED_TOKEN,	// human:"expected token"
+	PARSER_ERROR_INVALID_ARGUMENT,	// human:"invalid argument"
+	PARSER_ERROR_IO,		// human:"IO error"
+	PARSER_ERROR_AST_BUILD_FAILED,	// human:"error building AST"
+	PARSER_ERROR_UNSPECIFIED,	// human:"parse error"
 };
+
+const char *ParserError_human(enum ParserError);
+const char *ParserError_tostring(enum ParserError);
 
 enum ParserMetadata {
 	PARSER_METADATA_CABAL_EXECUTABLES = 0,
@@ -92,6 +101,8 @@ enum ParserMetadata {
 // Used as sentinel, keep PARSER_METADATA_USES last
 	PARSER_METADATA_USES,
 };
+
+const char *ParserMetadata_tostring(enum ParserMetadata);
 
 struct ParserSettings {
 	const char *filename;

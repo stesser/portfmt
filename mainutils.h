@@ -37,6 +37,8 @@ enum MainutilsOpenFileBehavior {
 	MAINUTILS_OPEN_FILE_KEEP_STDIN = 1 << 1,
 };
 
+const char *MainutilsOpenFileBehavior_tostring(enum MainutilsOpenFileBehavior);
+
 int can_use_colors(FILE *);
 void enter_sandbox(void);
 int open_file(enum MainutilsOpenFileBehavior, int *, char ***, struct Mempool *, FILE **, FILE **, const char **filename);

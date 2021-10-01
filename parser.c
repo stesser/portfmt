@@ -219,64 +219,12 @@ char *
 parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 {
 	SCOPE_MEMPOOL(pool);
-
 	char *lines = ast_line_range_tostring(&parser->builder->lines, 1, pool);
-	switch (parser->error) {
-	case PARSER_ERROR_OK:
-		return str_printf(extpool, "%s: no error", lines);
-	case PARSER_ERROR_DIFFERENCES_FOUND:
-		return str_printf(extpool, "differences found");
-	case PARSER_ERROR_EDIT_FAILED:
-		if (parser->error_msg) {
-			return str_printf(extpool, "%s", parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: edit failed", lines);
-		}
-	case PARSER_ERROR_EXPECTED_CHAR:
-		if (parser->error_msg) {
-			return str_printf(extpool, "%s: expected char: %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: expected char", lines);
-		}
-	case PARSER_ERROR_EXPECTED_INT:
-		if (parser->error_msg) {
-			return str_printf(extpool, "%s: expected integer: %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: expected integer", lines);
-		}
-	case PARSER_ERROR_EXPECTED_TOKEN:
-		if (parser->error_msg) {
-			return str_printf(extpool, "%s: expected %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: expected token", lines);
-		}
-	case PARSER_ERROR_INVALID_ARGUMENT:
-		if (parser->error_msg) {
-			return str_printf(extpool, "invalid argument: %s", parser->error_msg);
-		} else {
-			return str_printf(extpool, "invalid argument");
-		}
-	case PARSER_ERROR_IO:
-		if (parser->error_msg) {
-			return str_printf(extpool, "%s: IO error: %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: IO error", lines);
-		}
-	case PARSER_ERROR_AST_BUILD_FAILED:
-		if (parser->error_msg) {
-			return str_printf(extpool, "error building AST: %s", parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: error building AST", lines);
-		}
-		break;
-	case PARSER_ERROR_UNSPECIFIED:
-		if (parser->error_msg) {
-			return str_printf(extpool, "%s: parse error: %s", lines, parser->error_msg);
-		} else {
-			return str_printf(extpool, "%s: parse error", lines);
-		}
+	if (parser->error_msg) {
+		return str_printf(extpool, "%s: %s: %s", lines, ParserError_human(parser->error), parser->error_msg);
+	} else {
+		return str_printf(extpool, "%s: %s", lines, ParserError_human(parser->error));
 	}
-	panic("unhandled parser error: %d", parser->error);
 }
 
 void
@@ -359,8 +307,8 @@ print_newline_array(struct Parser *parser, struct AST *node, struct Array *arr)
 		startlen++;
 		parser_enqueue_output(parser, " ");
 	}
-	parser_enqueue_output(parser, ASTVariableModifier_humanize[node->variable.modifier]);
-	startlen += strlen(ASTVariableModifier_humanize[node->variable.modifier]);
+	parser_enqueue_output(parser, ASTVariableModifier_human(node->variable.modifier));
+	startlen += strlen(ASTVariableModifier_human(node->variable.modifier));
 
 	size_t ntabs;
 	if (startlen > MAX(16, node->meta.goalcol)) {
@@ -713,7 +661,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 		if (opt_use) {
 			char *var = str_printf(pool, "USE_%s", prefix);
 			array_append(buf, prefix);
-			array_append(buf, ASTVariableModifier_humanize[mod]);
+			array_append(buf, ASTVariableModifier_human(mod));
 			struct CompareTokensData data = {
 				.parser = parser,
 				.var = var,
@@ -728,7 +676,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 			}
 		} else {
 			array_append(buf, prefix);
-			array_append(buf, ASTVariableModifier_humanize[mod]);
+			array_append(buf, ASTVariableModifier_human(mod));
 			array_append(buf, suffix);
 		}
 
@@ -881,7 +829,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 				dot = ".";
 				break;
 			}
-			const char *name = ASTIncludeType_identifier[node->include.type];
+			const char *name = ASTIncludeType_identifier(node->include.type);
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_printf(pool, "%s%s%s", dot, str_repeat(pool, " ", node->include.indent), name));
 			if (node->include.path) {
@@ -906,7 +854,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		break;
 	case AST_EXPR:
 		if (edited) {
-			const char *name = ASTExprType_identifier[node->expr.type];
+			const char *name = ASTExprType_identifier(node->expr.type);
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s",
 				str_repeat(pool, " ", node->expr.indent), name, str_join(pool, node->expr.words, " ")));
@@ -956,7 +904,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 				prefix = "el";
 			}
 			parser_enqueue_output(parser, str_printf(pool, ".%s%s%s ", str_repeat(pool, " ", node->ifexpr.indent),
-				prefix, ASTIfType_humanize[node->ifexpr.type]));
+				prefix, ASTIfType_human(node->ifexpr.type)));
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_join(pool, node->ifexpr.test, " "));
 			if (node->ifexpr.comment && strlen(node->ifexpr.comment) > 0) {

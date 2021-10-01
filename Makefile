@@ -3,6 +3,7 @@
 include Makefile.configure
 -include Makefile.local
 
+AWK?=		awk
 MKDIR?=		mkdir -p
 LN?=		ln
 SH?=		/bin/sh
@@ -13,15 +14,22 @@ LDADD+=		-lm ${LDADD_EXECINFO}
 SUBPACKAGES?=	1
 CPPFLAGS+=	-DPORTFMT_SUBPACKAGES=${SUBPACKAGES}
 
+ENUMS=		ast.h \
+		mainutils.h \
+		parser.h \
+		parser/astbuilder/enum.h \
+		portscan/log.h \
+		portscan/status.h \
+		rules.h
 OBJS=		ast.o \
 		constants.o \
+		enum.o \
 		io/dir.o \
 		io/file.o \
 		mainutils.o \
 		parser.o \
 		parser/astbuilder.o \
 		parser/astbuilder/conditional.o \
-		parser/astbuilder/enum.o \
 		parser/astbuilder/target.o \
 		parser/astbuilder/token.o \
 		parser/astbuilder/variable.o \
@@ -58,6 +66,9 @@ all: bin/portclippy bin/portedit bin/portfmt bin/portscan
 .c.o:
 	${CC} ${CPPFLAGS} ${CFLAGS} -o $@ -c $<
 
+enum.c: scripts/enum.awk ${ENUMS}
+	${AWK} -f scripts/enum.awk ${ENUMS} >enum.c
+
 libportfmt.a: ${OBJS}
 	${AR} rcs libportfmt.a ${OBJS}
 
@@ -91,6 +102,7 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 	${CC} ${LDFLAGS} -o bin/portscan portscan.o libportfmt.a libias/libias.a ${LDADD} -lpthread
 
 #
+enum.o: config.h libias/flow.h ast.h mainutils.h parser.h parser/astbuilder/enum.h portscan/log.h portscan/status.h rules.h
 ast.o: config.h libias/array.h libias/flow.h libias/map.h libias/mempool.h libias/stack.h libias/str.h ast.h
 constants.o: config.h constants.h
 io/dir.o: config.h libias/mempool/dir.h capsicum_helpers.h io/dir.h
@@ -99,7 +111,6 @@ mainutils.o: config.h libias/array.h libias/mempool.h libias/mempool/file.h libi
 parser.o: config.h libias/array.h libias/color.h libias/diff.h libias/diffutil.h libias/flow.h libias/io.h libias/mempool/file.h libias/map.h libias/mem.h libias/mempool.h libias/path.h libias/set.h libias/str.h ast.h constants.h io/file.h parser.h parser/astbuilder.h parser/edits.h parser/tokenizer.h rules.h
 parser/astbuilder.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/stack.h libias/str.h ast.h parser.h parser/astbuilder.h parser/astbuilder/conditional.h parser/astbuilder/enum.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h rules.h
 parser/astbuilder/conditional.o: config.h libias/mempool.h libias/str.h parser/astbuilder/enum.h parser/astbuilder/conditional.h
-parser/astbuilder/enum.o: config.h parser/astbuilder/enum.h
 parser/astbuilder/target.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h parser/astbuilder/target.h
 parser/astbuilder/token.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h parser/astbuilder/conditional.h parser/astbuilder/enum.h parser/astbuilder/target.h parser/astbuilder/token.h parser/astbuilder/variable.h
 parser/astbuilder/variable.o: config.h libias/mempool.h libias/str.h ast.h parser/astbuilder/variable.h
@@ -128,19 +139,19 @@ parser/tokenizer.o: config.h libias/array.h libias/flow.h libias/mem.h libias/me
 portclippy.o: config.h libias/mempool.h mainutils.h parser.h parser/edits.h
 portedit.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h mainutils.h parser.h parser/edits.h regexp.h
 portfmt.o: config.h libias/mempool.h mainutils.h parser.h
-portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/io/dir.h libias/map.h libias/mem.h libias/mempool.h libias/mempool/dir.h libias/mempool/file.h libias/set.h libias/str.h ast.h io/dir.h io/file.h mainutils.h parser.h parser/edits.h portscan/log.h portscan/status.h regexp.h
+portscan.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/io/dir.h libias/map.h libias/mem.h libias/mempool.h libias/mempool/dir.h libias/mempool/file.h libias/set.h libias/str.h ast.h capsicum_helpers.h io/dir.h io/file.h mainutils.h parser.h parser/edits.h portscan/log.h portscan/status.h regexp.h
 portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h libias/mem.h libias/mempool.h libias/mempool/file.h libias/set.h libias/str.h capsicum_helpers.h portscan/log.h
 portscan/status.o: config.h libias/array.h libias/mempool.h libias/str.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
 rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h rules.h parser.h parser/edits.h
 
-deps:
-	@for f in $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \
+deps: enum.c
+	@for f in enum.c $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \
 		${CC} ${CFLAGS} -MM -MT "$${f%.c}.o" $${f} | sed 's/[\\ ]/\n/g' | grep -vF "$${f}" | tr -s '\n' ' ' | sed 's/ $$//'; \
 		echo; \
 	done > Makefile.deps
 	@mv Makefile Makefile.bak
-	@awk '/^#$$/ { print; deps = 1 } \
+	@${AWK} '/^#$$/ { print; deps = 1 } \
 	deps && /^$$/ { deps = 0; system("cat Makefile.deps") } \
 	!deps { print; }' Makefile.bak > Makefile
 	@rm -f Makefile.bak Makefile.deps
@@ -160,7 +171,8 @@ regen-rules:
 clean:
 	@${MAKE} -C libias clean
 	@rm -f ${OBJS} *.o libportfmt.a bin/portclippy bin/portedit bin/portfmt \
-		bin/portscan config.*.old $$(echo ${ALL_TESTS} | sed 's,tests/run.sh,,')
+		bin/portscan config.*.old $$(echo ${ALL_TESTS} | sed 's,tests/run.sh,,') \
+		enum.c
 	@rm -rf bin
 
 debug:
@@ -179,9 +191,9 @@ tag:
 	title="## [${V}] - $${date}"; \
 	if ! grep -Fq "$${title}" CHANGELOG.md; then \
 		echo "# portfmt ${V}"; \
-		awk '/^## Unreleased$$/{x=1;next}x{if($$1=="##"){exit}else if($$1=="###"){$$1="##"};print}' \
+		${AWK} '/^## Unreleased$$/{x=1;next}x{if($$1=="##"){exit}else if($$1=="###"){$$1="##"};print}' \
 			CHANGELOG.md >RELNOTES.md.new; \
-		awk "/^## Unreleased$$/{print;printf\"\n$${title}\n\";next}{print}" \
+		${AWK} "/^## Unreleased$$/{print;printf\"\n$${title}\n\";next}{print}" \
 			CHANGELOG.md >CHANGELOG.md.new; \
 		mv CHANGELOG.md.new CHANGELOG.md; \
 		echo "portfmt ${V}" >RELNOTES.md; \

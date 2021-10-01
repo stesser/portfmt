@@ -78,7 +78,7 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 			array_append(script, variable);
 			array_append(script, "!=\n");
 		}
-		array_append(script, str_printf(pool, "%s%s", var->variable.name, ASTVariableModifier_humanize[var->variable.modifier]));
+		array_append(script, str_printf(pool, "%s%s", var->variable.name, ASTVariableModifier_human(var->variable.modifier)));
 		array_append(script, str_printf(pool, "%d %s\n", rev, comment));
 	} else {
 		array_append(script, variable);

@@ -226,7 +226,7 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct AST *root)
 			if (flag && block != last_block) {
 				row(pool, output, "", NULL);
 			}
-			row(pool, output, str_printf(pool, "# %s", blocktype_tostring(block)), NULL);
+			row(pool, output, str_printf(pool, "# %s", BlockType_human(block)), NULL);
 		}
 		flag = 1;
 		char *hint = get_hint(pool, parser, var, block, uses_candidates);
@@ -300,7 +300,7 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 				if (flag && block != last_block) {
 					row(pool, target, "", NULL);
 				}
-				row(pool, target, str_printf(pool, "# %s", blocktype_tostring(block)), NULL);
+				row(pool, target, str_printf(pool, "# %s", BlockType_human(block)), NULL);
 			}
 			flag = 1;
 			row(pool, target, var, NULL);
@@ -321,7 +321,7 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 
 	if (array_len(vars) > 0 && (array_len(unknowns) > 0 || set_len(all_unknown_variables) > 0)) {
 		row(pool, target, "", NULL);
-		row(pool, target, str_printf(pool, "# %s", blocktype_tostring(BLOCK_UNKNOWN)), NULL);
+		row(pool, target, str_printf(pool, "# %s", BlockType_human(BLOCK_UNKNOWN)), NULL);
 		row(pool, target, "# WARNING:", NULL);
 		row(pool, target, "# The following variables were not recognized.", NULL);
 		row(pool, target, "# They could just be typos or Portclippy needs to be made aware of them.", NULL);
