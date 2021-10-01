@@ -52,6 +52,10 @@ parse_conditional(const char *s, size_t *indent)
 
 	if (strcmp(type, "include") == 0) {
 		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX;
+	} else if (strcmp(type, "-include") == 0) {
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL;
+	} else if (strcmp(type, "sinclude") == 0) {
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL_S;
 	} else if (strcmp(type, ".include") == 0) {
 		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE;
 	} else if (strcmp(type, ".error") == 0) {
@@ -101,9 +105,11 @@ parse_conditional(const char *s, size_t *indent)
 	} else if (strcmp(type, ".endif") == 0) {
 		return PARSER_AST_BUILDER_CONDITIONAL_ENDIF;
 	} else if (strcmp(type, ".dinclude") == 0) {
-		return PARSER_AST_BUILDER_CONDITIONAL_DINCLUDE;
-	} else if (strcmp(type, ".sinclude") == 0 || strcmp(type, ".-include") == 0) {
-		return PARSER_AST_BUILDER_CONDITIONAL_SINCLUDE;
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_D;
+	} else if (strcmp(type, ".sinclude") == 0) {
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_S;
+	} else if (strcmp(type, ".-include") == 0) {
+		return PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL;
 	} else {
 		return PARSER_AST_BUILDER_CONDITIONAL_INVALID;
 	}

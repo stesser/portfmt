@@ -140,6 +140,13 @@ consume_conditional(const char *buf)
 		if (space) {
 			return pos;
 		}
+	} else if (str_startswith(buf, "-include") || str_startswith(buf, "sinclude")) {
+		pos += strlen("-include");
+		int space = 0;
+		for (; isspace(buf[pos]); pos++, space = 1);
+		if (space) {
+			return pos;
+		}
 	}
 
 	return 0;

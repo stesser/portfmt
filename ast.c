@@ -86,16 +86,22 @@ const char *ASTIfType_humanize[] = {
 
 static const char *ASTIncludeType_tostring[] = {
 	[AST_INCLUDE_BMAKE] = "AST_INCLUDE_BMAKE",
-	[AST_INCLUDE_D] = "AST_INCLUDE_D",
+	[AST_INCLUDE_OPTIONAL] = "AST_INCLUDE_OPTIONAL",
+	[AST_INCLUDE_OPTIONAL_D] = "AST_INCLUDE_OPTIONAL_D",
+	[AST_INCLUDE_OPTIONAL_S] = "AST_INCLUDE_OPTIONAL_S",
 	[AST_INCLUDE_POSIX] = "AST_INCLUDE_POSIX",
-	[AST_INCLUDE_S] = "AST_INCLUDE_S",
+	[AST_INCLUDE_POSIX_OPTIONAL] = "AST_INCLUDE_POSIX_OPTIONAL",
+	[AST_INCLUDE_POSIX_OPTIONAL_S] = "AST_INCLUDE_POSIX_OPTIONAL_S",
 };
 
 const char *ASTIncludeType_identifier[] = {
 	[AST_INCLUDE_BMAKE] = "include",
-	[AST_INCLUDE_D] = "dinclude",
+	[AST_INCLUDE_OPTIONAL] = "-include",
+	[AST_INCLUDE_OPTIONAL_D] = "dinclude",
+	[AST_INCLUDE_OPTIONAL_S] = "sinclude",
 	[AST_INCLUDE_POSIX] = "include",
-	[AST_INCLUDE_S] = "sinclude",
+	[AST_INCLUDE_POSIX_OPTIONAL] = "-include",
+	[AST_INCLUDE_POSIX_OPTIONAL_S] = "sinclude",
 };
 
 static const char *ASTTargetType_tostring[] = {
