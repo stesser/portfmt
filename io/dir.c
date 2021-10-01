@@ -35,6 +35,7 @@
 # include <err.h>
 #endif
 #include <dirent.h>
+#include <stdlib.h>
 
 #include <libias/mempool/dir.h>
 
