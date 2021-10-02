@@ -51,40 +51,107 @@
 #include "parser/astbuilder/variable.h"
 #include "rules.h"
 
-static enum ASTExprType conditional_to_expr[] = {
-	[PARSER_AST_BUILDER_CONDITIONAL_ERROR] = AST_EXPR_ERROR,
-	[PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV] = AST_EXPR_EXPORT_ENV,
-	[PARSER_AST_BUILDER_CONDITIONAL_EXPORT_LITERAL] = AST_EXPR_EXPORT_LITERAL,
-	[PARSER_AST_BUILDER_CONDITIONAL_EXPORT] = AST_EXPR_EXPORT,
-	[PARSER_AST_BUILDER_CONDITIONAL_INFO] = AST_EXPR_INFO,
-	[PARSER_AST_BUILDER_CONDITIONAL_UNDEF] = AST_EXPR_UNDEF,
-	[PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV] = AST_EXPR_UNEXPORT_ENV,
-	[PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT] = AST_EXPR_UNEXPORT,
-	[PARSER_AST_BUILDER_CONDITIONAL_WARNING] = AST_EXPR_WARNING,
-};
+static int ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType value, enum ASTExprType *retval)
+{
+	switch (value) {
+	case PARSER_AST_BUILDER_CONDITIONAL_ERROR:
+		*retval = AST_EXPR_ERROR;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV:
+		*retval = AST_EXPR_EXPORT_ENV;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_EXPORT_LITERAL:
+		*retval = AST_EXPR_EXPORT_LITERAL;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_EXPORT:
+		*retval = AST_EXPR_EXPORT;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INFO:
+		*retval = AST_EXPR_INFO;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_UNDEF:
+		*retval = AST_EXPR_UNDEF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV:
+		*retval = AST_EXPR_UNEXPORT_ENV;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT:
+		*retval = AST_EXPR_UNEXPORT;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_WARNING:
+		*retval = AST_EXPR_WARNING;
+		return 1;
+	default:
+		return 0;
+	}
+}
 
-static enum ASTIncludeType conditional_to_include[] = {
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE] = AST_INCLUDE_BMAKE,
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL] = AST_INCLUDE_OPTIONAL,
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_D] = AST_INCLUDE_OPTIONAL_D,
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_S] = AST_INCLUDE_OPTIONAL_S,
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX] = AST_INCLUDE_POSIX,
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL] = AST_INCLUDE_POSIX_OPTIONAL,
-	[PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL_S] = AST_INCLUDE_POSIX_OPTIONAL_S,
-};
+static int ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType value, enum ASTIncludeType *retval)
+{
+	switch (value) {
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE:
+		*retval = AST_INCLUDE_BMAKE;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL:
+		*retval = AST_INCLUDE_OPTIONAL;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_D:
+		*retval = AST_INCLUDE_OPTIONAL_D;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_S:
+		*retval = AST_INCLUDE_OPTIONAL_S;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX:
+		*retval = AST_INCLUDE_POSIX;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL:
+		*retval = AST_INCLUDE_POSIX_OPTIONAL;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL_S:
+		*retval = AST_INCLUDE_POSIX_OPTIONAL_S;
+		return 1;
+	default:
+		return 0;
+	}
+}
 
-static enum ASTIfType ConditionalType_to_ASTIfType[] = {
-	[PARSER_AST_BUILDER_CONDITIONAL_IF] = AST_IF_IF,
-	[PARSER_AST_BUILDER_CONDITIONAL_IFDEF] = AST_IF_DEF,
-	[PARSER_AST_BUILDER_CONDITIONAL_IFMAKE] = AST_IF_MAKE,
-	[PARSER_AST_BUILDER_CONDITIONAL_IFNDEF] = AST_IF_NDEF,
-	[PARSER_AST_BUILDER_CONDITIONAL_IFNMAKE] = AST_IF_NMAKE,
-	[PARSER_AST_BUILDER_CONDITIONAL_ELIF] = AST_IF_IF,
-	[PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF] = AST_IF_DEF,
-	[PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE] = AST_IF_MAKE,
-	[PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF] = AST_IF_NDEF,
-	[PARSER_AST_BUILDER_CONDITIONAL_ELSE] = AST_IF_ELSE,
-};
+static int ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType value, enum ASTIfType *retval)
+{
+	switch (value) {
+	case PARSER_AST_BUILDER_CONDITIONAL_IF:
+		*retval = AST_IF_IF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_IFDEF:
+		*retval = AST_IF_DEF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_IFMAKE:
+		*retval = AST_IF_MAKE;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_IFNDEF:
+		*retval = AST_IF_NDEF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_IFNMAKE:
+		*retval = AST_IF_NMAKE;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_ELIF:
+		*retval = AST_IF_IF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF:
+		*retval = AST_IF_DEF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE:
+		*retval = AST_IF_MAKE;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF:
+		*retval = AST_IF_NDEF;
+		return 1;
+	case PARSER_AST_BUILDER_CONDITIONAL_ELSE:
+		*retval = AST_IF_ELSE;
+		return 1;
+	default:
+		return 0;
+	}
+}
 
 static struct AST *ast_from_token_stream(struct Parser *, struct Array *);
 static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
@@ -262,8 +329,14 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX:
 			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL:
 			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL_S: {
+				enum ASTIncludeType type;
+				unless (ParserASTBuilderConditionalType_to_ASTIncludeType(condtype, &type)) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "cannot map %s to ASTIncludeType",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+				}
 				struct AST *node = ast_new(root->pool, AST_INCLUDE, &t->lines, &(struct ASTInclude){
-					.type = conditional_to_include[condtype],
+					.type = type,
 					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
@@ -323,8 +396,15 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV:
 			case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT:
 			case PARSER_AST_BUILDER_CONDITIONAL_WARNING: {
+				enum ASTExprType type;
+				unless (ParserASTBuilderConditionalType_to_ASTExprType(condtype, &type)) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "cannot map %s to ASTExprType",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+					return NULL;
+				}
 				struct AST *node = ast_new(root->pool, AST_EXPR, &t->lines, &(struct ASTExpr){
-					.type = conditional_to_expr[condtype],
+					.type = type,
 					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 				});
 				ast_parent_append_sibling(stack_peek(nodestack), node, 0);
@@ -392,8 +472,15 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 				if (ifparent) {
 					parent = stack_peek(ifstack);
 				}
+				enum ASTIfType type;
+				unless (ParserASTBuilderConditionalType_to_ASTIfType(condtype, &type)) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "cannot map %s to ASTIfType",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+					return NULL;
+				}
 				struct AST *node = ast_new(root->pool, AST_IF, &t->lines, &(struct ASTIf){
-					.type = ConditionalType_to_ASTIfType[condtype],
+					.type = type,
 					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 					.ifparent = ifparent,
 				});
