@@ -47,7 +47,9 @@
 
 #include "portscan/status.h"
 
+// Prototypes
 static void portscan_status_signal_handler(int);
+static void portscan_status_print_progress(void);
 
 static enum PortscanState state = PORTSCAN_STATUS_START;
 static struct timespec tic;
@@ -118,8 +120,8 @@ portscan_status_reset(enum PortscanState new_state, size_t max)
 	}
 }
 
-static void
-portscan_status_print_progress(void)
+void
+portscan_status_print_progress()
 {
 	int percent = 0;
 	if (max_scanned > 0) {

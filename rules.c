@@ -48,25 +48,32 @@
 #include "parser.h"
 #include "parser/edits.h"
 
+// Prototypes
+static int variable_has_flag(struct Parser *, const char *, int);
+static int extract_arch_prefix(struct Mempool *, const char *, char **, char **);
+static void is_referenced_var_cb(struct Mempool *, const char *, const char *, const char *, void *);
+static void add_referenced_var_candidates(struct Mempool *, struct Array *, struct Array *, const char *, const char *);
+static int is_valid_license(struct Parser *, const char *);
+static int matches_license_name(struct Parser *, const char *);
 static int case_sensitive_sort(struct Parser *, const char *);
 static int compare_rel(const char *[], size_t, const char *, const char *);
 static int compare_license_perms(struct Parser *, const char *, const char *, const char *, int *);
+static char *remove_plist_keyword(const char *, struct Mempool *);
 static int compare_plist_files(struct Parser *, const char *, const char *, const char *, int *);
 static int compare_use_gnome(const char *, const char *, const char *, int *);
 static int compare_use_kde(const char *, const char *, const char *, int *);
 static int compare_use_pyqt(const char *, const char *, const char *, int *);
 static int compare_use_qt(const char *, const char *, const char *, int *);
-static char *extract_subpkg(struct Mempool *, struct Parser *, const char *, char **);
-static int is_cabal_datadir_vars(struct Mempool *, struct Parser *, const char *, char **, char **);
 static int is_flavors_helper(struct Mempool *, struct Parser *, const char *, char **, char **);
-static int is_shebang_lang(struct Mempool *, struct Parser *, const char *, char **, char **);
-static int is_valid_license(struct Parser *, const char *);
-static int matches_license_name(struct Parser *, const char *);
+static char *extract_subpkg(struct Mempool *, struct Parser *, const char *, char **);
 static int matches_options_group(struct Mempool *, struct Parser *, const char *, char **);
-static char *remove_plist_keyword(const char *, struct Mempool *);
+static int is_cabal_datadir_vars_helper(struct Mempool *, const char *, const char *, char **, char **);
+static int is_cabal_datadir_vars(struct Mempool *, struct Parser *, const char *, char **, char **);
+static int is_shebang_lang_helper(struct Mempool *, const char *, const char *, char **, char **);
+static int is_shebang_lang(struct Mempool *, struct Parser *, const char *, char **, char **);
 static void target_extract_opt(struct Mempool *, struct Parser *, const char *, char **, char **, int *);
-static int variable_has_flag(struct Parser *, const char *, int);
 
+// Constants
 static const char *license_perms_rel[] = {
 	"dist-mirror",
 	"no-dist-mirror",
@@ -1277,7 +1284,7 @@ variable_has_flag(struct Parser *parser, const char *var, int flag)
 	return 0;
 }
 
-static int
+int
 extract_arch_prefix(struct Mempool *pool, const char *var, char **prefix_without_arch, char **prefix_without_arch_osrel)
 {
 	for (size_t i = 0; i < known_architectures_len; i++) {
@@ -1301,14 +1308,14 @@ extract_arch_prefix(struct Mempool *pool, const char *var, char **prefix_without
 	return 0;
 }
 
-static void
+void
 is_referenced_var_cb(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
 	struct Array *tokens = userdata;
 	array_append(tokens, str_dup(extpool, value));
 }
 
-static void
+void
 add_referenced_var_candidates(struct Mempool *pool, struct Array *candidates, struct Array *cond_candidates, const char *stem, const char *ref)
 {
 	array_append(candidates, str_printf(pool, "${%s_${%s}}", stem, ref));
@@ -1580,7 +1587,7 @@ skip_goalcol(struct Parser *parser, const char *varname)
 	return variable_has_flag(parser, varname, VAR_SKIP_GOALCOL);
 }
 
-static int
+int
 compare_rel(const char *rel[], size_t rellen, const char *a, const char *b)
 {
 	ssize_t ai = -1;
@@ -2046,7 +2053,7 @@ matches_options_group(struct Mempool *pool, struct Parser *parser, const char *s
 
 }
 
-static int
+int
 is_cabal_datadir_vars_helper(struct Mempool *pool, const char *var, const char *exe, char **prefix, char **suffix)
 {
 	char *buf = str_printf(pool, "%s_DATADIR_VARS", exe);
@@ -2092,7 +2099,7 @@ is_cabal_datadir_vars(struct Mempool *pool, struct Parser *parser, const char *v
 	return 0;
 }
 
-static int
+int
 is_shebang_lang_helper(struct Mempool *extpool, const char *var, const char *lang, char **prefix, char **suffix)
 {
 	SCOPE_MEMPOOL(pool);

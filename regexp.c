@@ -47,7 +47,10 @@ struct Regexp {
 	const char *buf;
 };
 
-static void
+// Prototypes
+static void regexp_init(struct Regexp *, regex_t *);
+
+void
 regexp_init(struct Regexp *regexp, regex_t *regex)
 {
 	regexp->regex = regex;

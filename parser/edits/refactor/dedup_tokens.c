@@ -52,7 +52,10 @@ struct WalkerData {
 	struct Parser *parser;
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState refactor_dedup_tokens_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 refactor_dedup_tokens_walker(struct AST *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);

@@ -48,7 +48,11 @@ struct WalkerData {
 	struct Set *clones;
 };
 
-static void
+// Prototypes
+static void add_clones(struct WalkerData *);
+static enum ASTWalkState lint_clones_walker(struct AST *, struct WalkerData *, int);
+
+void
 add_clones(struct WalkerData *this)
 {
 	SET_FOREACH(this->seen_in_cond, const char *, name) {
@@ -59,7 +63,7 @@ add_clones(struct WalkerData *this)
 	set_truncate(this->seen_in_cond);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 lint_clones_walker(struct AST *node, struct WalkerData *this, int in_conditional)
 {
 	switch (node->type) {

@@ -51,9 +51,12 @@
 #include "parser/edits.h"
 #include "regexp.h"
 
+// Prototypes
+static void enqueue_output(struct Mempool *, const char *, const char *, const char *, void *);
 static int apply(struct ParserSettings *, int, char *[]);
 static int bump_epoch(struct ParserSettings *, int, char *[]);
 static int bump_revision(struct ParserSettings *, int, char *[]);
+static int get_variable_filter(struct Parser *, const char *, void *);
 static int get_variable(struct ParserSettings *, int, char *[]);
 static int merge(struct ParserSettings *, int, char *[]);
 static int sanitize_append(struct ParserSettings *, int, char *[]);
@@ -70,8 +73,7 @@ static void set_version_usage(void);
 static void unknown_targets_usage(void);
 static void unknown_vars_usage(void);
 static void usage(void);
-
-static struct Parser *read_file(struct ParserSettings *, enum MainutilsOpenFileBehavior , struct Mempool *, FILE **, FILE **, int *, char **[]);
+static struct Parser *read_file(struct ParserSettings *, enum MainutilsOpenFileBehavior, struct Mempool *, FILE **, FILE **, int *, char **[]);
 
 struct PorteditCommand {
 	const char *name;
@@ -117,7 +119,7 @@ static struct ParserEdits parser_edits[] = {
 	{ "refactor.sanitize-eol-comments", refactor_sanitize_eol_comments },
 };
 
-static void
+void
 enqueue_output(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
 	struct Parser *parser = userdata;
@@ -283,7 +285,7 @@ bump_revision(struct ParserSettings *settings, int argc, char *argv[])
 	return status;
 }
 
-static int
+int
 get_variable_filter(struct Parser *parser, const char *key, void *userdata)
 {
 	struct Regexp *regexp = userdata;

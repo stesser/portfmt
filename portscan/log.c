@@ -76,17 +76,18 @@ struct PortscanLogEntry {
 	char *value;
 };
 
-#define PORTSCAN_LOG_DATE_FORMAT "portscan-%Y%m%d%H%M%S"
-#define PORTSCAN_LOG_INIT "/dev/null"
-
+// Prototypes
 static void portscan_log_sort(struct PortscanLog *);
 static char *log_entry_tostring(const struct PortscanLogEntry *, struct Mempool *);
-static int log_entry_compare(const void *, const void *, void *);
 static struct PortscanLogEntry *log_entry_parse(struct Mempool *, const char *);
-
+static int log_entry_compare(const void *, const void *, void *);
 static int log_update_latest(struct PortscanLogDir *, const char *);
 static char *log_filename(const char *, struct Mempool *);
 static char *log_commit(int, struct Mempool *);
+
+// Constants
+static const char *PORTSCAN_LOG_DATE_FORMAT = "portscan-%Y%m%d%H%M%S";
+static const char *PORTSCAN_LOG_INIT = "/dev/null";
 
 struct PortscanLog *
 portscan_log_new(struct Mempool *extpool)

@@ -50,6 +50,9 @@
 #include "mainutils.h"
 #include "parser.h"
 
+// Prototypes
+static FILE *open_file_helper(struct Mempool *, const char *, const char *, const char **);
+
 int
 can_use_colors(FILE *fp)
 {
@@ -149,7 +152,7 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 	return 1;
 }
 
-static FILE *
+FILE *
 open_file_helper(struct Mempool *extpool, const char *path, const char *mode, const char **retval)
 {
 	SCOPE_MEMPOOL(pool);

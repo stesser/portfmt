@@ -87,25 +87,39 @@ struct ParserFindGoalcolsState {
 	struct Array *nodes;
 };
 
-static void parser_find_goalcols(struct Parser *);
-static enum ParserError parser_load_includes(struct Parser *);
-static void parser_meta_values(struct Parser *, const char *, struct Set *);
-static void parser_metadata_alloc(struct Parser *);
-static void parser_metadata_free(struct Parser *);
-static void parser_metadata_port_options(struct Parser *);
-static void parser_output_dump_tokens(struct Parser *);
-static void parser_output_prepare(struct Parser *);
-static void parser_output_print_rawlines(struct Parser *, struct ASTLineRange *);
-static void parser_output_print_target_command(struct Parser *, struct AST *);
-static void parser_output_print_variable(struct Parser *, struct Mempool *, struct AST *);
-static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
-static void parser_output_reformatted(struct Parser *);
-static void parser_output_diff(struct Parser *);
+// Prototypes
+static int parser_is_category_makefile(struct AST *, struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
+static enum ASTWalkState parser_find_goalcols_walker(struct AST *, struct ParserFindGoalcolsState *);
+static void parser_find_goalcols(struct Parser *);
 static void print_newline_array(struct Parser *, struct AST *, struct Array *);
 static void print_token_array(struct Parser *, struct AST *, struct Array *);
+static void parser_output_print_rawlines(struct Parser *, struct ASTLineRange *);
+static void parser_output_print_target_command(struct Parser *, struct AST *);
+static void parser_output_prepare(struct Parser *);
+static int matches_opt_use_prefix_helper(char);
+static int matches_opt_use_prefix(const char *);
+static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
+static void parser_output_print_variable(struct Parser *, struct Mempool *, struct AST *);
+static void parser_output_category_makefile_reformatted(struct Parser *, struct AST *);
+static enum ASTWalkState parser_output_reformatted_walker(struct Parser *, struct AST *);
+static void parser_output_reformatted(struct Parser *);
+static void parser_output_diff(struct Parser *);
+static void parser_output_dump_tokens(struct Parser *);
+static const char *process_include(struct Parser *, struct Mempool *, const char *, const char *);
+static enum ASTWalkState parser_load_includes_walker(struct AST *, struct Parser *, int);
+static enum ParserError parser_load_includes(struct Parser *);
+static void parser_meta_values_helper(struct Set *, const char *, char *);
+static void parser_meta_values(struct Parser *, const char *, struct Set *);
+static void parser_port_options_add_from_group(struct Parser *, const char *);
+static void parser_port_options_add_from_var(struct Parser *, const char *);
+static void parser_metadata_port_options(struct Parser *);
+static void parser_metadata_alloc(struct Parser *);
+static void parser_metadata_free(struct Parser *);
+static enum ASTWalkState parser_lookup_target_walker(struct AST *, const char *, struct AST **);
+static enum ASTWalkState parser_lookup_variable_walker(struct AST *, struct Mempool *, const char *, enum ParserLookupVariableBehavior, struct Array *, struct Array *, struct AST **);
 
-static int
+int
 parser_is_category_makefile(struct AST *node, struct Parser *parser)
 {
 	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
@@ -233,7 +247,7 @@ parser_enqueue_output(struct Parser *parser, const char *s)
 	array_append(parser->result, str_dup(NULL, s));
 }
 
-static void
+void
 parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 {
 	this->moving_goalcol = MAX(16, this->moving_goalcol);
@@ -245,7 +259,7 @@ parser_propagate_goalcol(struct ParserFindGoalcolsState *this)
 	array_truncate(this->nodes);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 parser_find_goalcols_walker(struct AST *node, struct ParserFindGoalcolsState *this)
 {
 	if (this->parser->error != PARSER_ERROR_OK) {
@@ -583,13 +597,13 @@ parser_output_prepare(struct Parser *parser)
 	}
 }
 
-static int
+int
 matches_opt_use_prefix_helper(char c)
 {
 	return isupper(c) || islower(c) || isdigit(c) || c == '-' || c == '_';
 }
 
-static int
+int
 matches_opt_use_prefix(const char *s)
 {
 	// ^([-_[:upper:][:lower:][:digit:]]+)
@@ -722,7 +736,7 @@ parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct
 	}
 }
 
-static void
+void
 parser_output_category_makefile_reformatted(struct Parser *parser, struct AST *node)
 {
 	if (parser->error != PARSER_ERROR_OK) {
@@ -792,7 +806,7 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct AST *n
 	}
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 {
 	SCOPE_MEMPOOL(pool);
@@ -1245,7 +1259,7 @@ parser_read_from_buffer(struct Parser *parser, const char *input, size_t len)
 	return parser->error;
 }
 
-static const char *
+const char *
 process_include(struct Parser *parser, struct Mempool *extpool, const char *curdir, const char *filename)
 {
 	SCOPE_MEMPOOL(pool);
@@ -1289,7 +1303,7 @@ process_include(struct Parser *parser, struct Mempool *extpool, const char *curd
 	return path_join(extpool, path);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 parser_load_includes_walker(struct AST *node, struct Parser *parser, int portsdir)
 {
 	SCOPE_MEMPOOL(pool);
@@ -1400,7 +1414,7 @@ struct ParserSettings parser_settings(struct Parser *parser)
 	return parser->settings;
 }
 
-static void
+void
 parser_meta_values_helper(struct Set *set, const char *var, char *value)
 {
 	if (strcmp(var, "USES") == 0) {
@@ -1493,7 +1507,7 @@ parser_meta_values(struct Parser *parser, const char *var, struct Set *set)
 	}
 }
 
-static void
+void
 parser_port_options_add_from_group(struct Parser *parser, const char *groupname)
 {
 	SCOPE_MEMPOOL(pool);
@@ -1517,7 +1531,7 @@ parser_port_options_add_from_group(struct Parser *parser, const char *groupname)
 	}
 }
 
-static void
+void
 parser_port_options_add_from_var(struct Parser *parser, const char *var)
 {
 	SCOPE_MEMPOOL(pool);
@@ -1691,7 +1705,7 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 	return parser->metadata[meta];
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 parser_lookup_target_walker(struct AST *node, const char *name, struct AST **retval)
 {
 	switch (node->type) {
@@ -1720,7 +1734,7 @@ parser_lookup_target(struct Parser *parser, const char *name)
 	return node;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 parser_lookup_variable_walker(struct AST *node, struct Mempool *pool, const char *name, enum ParserLookupVariableBehavior behavior, struct Array *tokens, struct Array *comments, struct AST **retval)
 {
 	switch (node->type) {

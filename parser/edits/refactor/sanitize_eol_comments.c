@@ -43,7 +43,11 @@
 #include "parser/edits.h"
 #include "rules.h"
 
-static int
+// Prototypes
+static int preserve_eol_comment(const char *);
+static enum ASTWalkState refactor_sanitize_eol_comments_walker(struct AST *);
+
+int
 preserve_eol_comment(const char *word)
 {
 	SCOPE_MEMPOOL(pool);
@@ -63,7 +67,7 @@ preserve_eol_comment(const char *word)
 	return strcmp(token, "#") == 0 || strcmp(token, "#empty") == 0 || strcmp(token, "#none") == 0;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 refactor_sanitize_eol_comments_walker(struct AST *node)
 {
 	switch (node->type) {

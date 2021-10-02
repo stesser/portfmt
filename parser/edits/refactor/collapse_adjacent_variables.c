@@ -46,7 +46,14 @@ struct WalkerData {
 	struct Mempool *pool;
 };
 
-static int
+// Prototypes
+static int is_candidate(struct AST *);
+static int has_eol_comment(struct AST *);
+static void merge_variables(struct Array *, struct Array *);
+static void process_siblings(struct Array *, struct Array *);
+static enum ASTWalkState refactor_collapse_adjacent_variables_walker(struct AST *, struct WalkerData *, struct Array *);
+
+int
 is_candidate(struct AST *node)
 {
 	if (node->type != AST_VARIABLE) {
@@ -62,13 +69,13 @@ is_candidate(struct AST *node)
 	}
 }
 
-static int
+int
 has_eol_comment(struct AST *node)
 {
 	return node->variable.comment && strlen(node->variable.comment) > 0;
 }
 
-static void
+void
 merge_variables(struct Array *nodelist, struct Array *group)
 {
 	if (array_len(group) < 2) {
@@ -101,7 +108,7 @@ merge_variables(struct Array *nodelist, struct Array *group)
 	ARRAY_JOIN(nodelist, newnodelist);
 }
 
-static void
+void
 process_siblings(struct Array *nodelist, struct Array *siblings)
 {
 	SCOPE_MEMPOOL(pool);
@@ -125,7 +132,7 @@ process_siblings(struct Array *nodelist, struct Array *siblings)
 	array_truncate(siblings);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 refactor_collapse_adjacent_variables_walker(struct AST *node, struct WalkerData *this, struct Array *last_siblings)
 {
 	SCOPE_MEMPOOL(pool);

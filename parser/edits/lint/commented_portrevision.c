@@ -47,7 +47,10 @@ struct WalkerData {
 	struct Set *comments;
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState lint_commented_portrevision_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 lint_commented_portrevision_walker(struct AST *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);

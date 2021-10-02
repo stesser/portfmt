@@ -40,7 +40,10 @@
 struct WalkerData {
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState %%name%%_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 %%name%%_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {

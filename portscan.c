@@ -162,15 +162,29 @@ struct PortReaderResult {
 	struct Array *scan_results;
 };
 
+// Prototypes
+static void add_error(struct Set *, char *);
 static void lookup_subdirs(int, const char *, const char *, enum ScanFlags, struct Mempool *, struct Array *, struct Array *, struct Array *, struct Array *, struct Array *, struct Array *);
+static int variable_value_filter(struct Parser *, const char *, void *);
+static int unknown_targets_filter(struct Parser *, const char *, void *);
+static int unknown_variables_filter(struct Parser *, const char *, void *);
+static int char_cmp(const void *, const void *, void *);
+static ssize_t edit_distance(const char *, const char *);
+static void collect_output_unknowns(struct Mempool *, const char *, const char *, const char *, void *);
+static void collect_output_variable_values(struct Mempool *, const char *, const char *, const char *, void *);
 static void scan_port(struct ScanPortArgs *);
-static void *lookup_origins_worker(void *);
-static PARSER_EDIT(get_default_option_descriptions);
+static char *next_workitem(struct Array *, atomic_size_t *);
 static void *scan_ports_worker(void *);
+static void *lookup_origins_worker(void *);
+static void *join_next_thread(pthread_t **, ssize_t *);
 static struct Array *lookup_origins(struct Mempool *, int, enum ScanFlags, struct PortscanLog *);
+static enum ASTWalkState get_default_option_descriptions_walker(struct AST *, struct Map *);
+static PARSER_EDIT(get_default_option_descriptions);
 static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, struct Regexp *, ssize_t, struct PortscanLog *);
 static void usage(void);
 
+// Constants
+static const unsigned int DEFAULT_PROGRESSINTERVAL = 1;
 static struct option longopts[SCAN_LONGOPT__N + 1] = {
 	[SCAN_LONGOPT_CATEGORIES] = { "categories", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_CLONES] = { "clones", no_argument, NULL, 1 },
@@ -184,9 +198,7 @@ static struct option longopts[SCAN_LONGOPT__N + 1] = {
 	[SCAN_LONGOPT_VARIABLE_VALUES] = { "variable-values", optional_argument, NULL, 1 },
 };
 
-static unsigned int DEFAULT_PROGRESSINTERVAL = 1;
-
-static void
+void
 add_error(struct Set *errors, char *msg)
 {
 	if (!set_contains(errors, msg)) {
@@ -278,28 +290,28 @@ lookup_subdirs(int portsdir, const char *category, const char *path, enum ScanFl
 	}
 }
 
-static int
+int
 variable_value_filter(struct Parser *parser, const char *value, void *userdata)
 {
 	struct Regexp *query = userdata;
 	return !query || regexp_exec(query, value) == 0;
 }
 
-static int
+int
 unknown_targets_filter(struct Parser *parser, const char *value, void *userdata)
 {
 	struct Regexp *query = userdata;
 	return !query || regexp_exec(query, value) == 0;
 }
 
-static int
+int
 unknown_variables_filter(struct Parser *parser, const char *value, void *userdata)
 {
 	struct Regexp *query = userdata;
 	return !query || regexp_exec(query, value) == 0;
 }
 
-static int
+int
 char_cmp(const void *ap, const void *bp, void *userdata)
 {
 	char a = *(char *)ap;
@@ -313,7 +325,7 @@ char_cmp(const void *ap, const void *bp, void *userdata)
 	}
 }
 
-static ssize_t
+ssize_t
 edit_distance(const char *a, const char *b)
 {
 	if (!a || !b) {
@@ -331,7 +343,7 @@ edit_distance(const char *a, const char *b)
 	return editdist;
 }
 
-static void
+void
 collect_output_unknowns(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
 	if (!set_contains(userdata, key)) {
@@ -339,7 +351,7 @@ collect_output_unknowns(struct Mempool *extpool, const char *key, const char *va
 	}
 }
 
-static void
+void
 collect_output_variable_values(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
 	SCOPE_MEMPOOL(pool);
@@ -487,7 +499,7 @@ scan_port(struct ScanPortArgs *args)
 	}
 }
 
-static char *
+char *
 next_workitem(struct Array *items, atomic_size_t *items_index)
 {
 	return array_get(items, (*items_index)++);
@@ -553,7 +565,7 @@ lookup_origins_worker(void *userdata)
 	return result;
 }
 
-static void *
+void *
 join_next_thread(pthread_t **tid, ssize_t *n_threads)
 {
 	if (*n_threads > 0) {
@@ -632,7 +644,7 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 	return retval;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 get_default_option_descriptions_walker(struct AST *node, struct Map *this)
 {
 	switch (node->type) {

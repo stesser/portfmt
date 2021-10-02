@@ -43,7 +43,11 @@ struct WalkerData {
 	size_t counter;
 };
 
-static int
+// Prototypes
+static int is_empty_line(const char *);
+static enum ASTWalkState refactor_remove_consecutive_empty_lines_walker(struct AST *, struct WalkerData *);
+
+int
 is_empty_line(const char *s)
 {
 	for (const char *p = s; *p != 0; p++) {
@@ -54,7 +58,7 @@ is_empty_line(const char *s)
 	return 1;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 refactor_remove_consecutive_empty_lines_walker(struct AST *node, struct WalkerData *this)
 {
 	SCOPE_MEMPOOL(pool);

@@ -47,7 +47,11 @@ struct WalkerData {
 	struct ASTLineRange *range;
 };
 
-static void
+// Prototypes
+static void kak_error(struct Parser *, const char *);
+static enum ASTWalkState kakoune_select_object_on_line_walker(struct AST *, struct WalkerData *);
+
+void
 kak_error(struct Parser *parser, const char *errstr)
 {
 	parser_enqueue_output(parser, "echo -markup \"{Error}");
@@ -56,7 +60,7 @@ kak_error(struct Parser *parser, const char *errstr)
 	parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, errstr);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 kakoune_select_object_on_line_walker(struct AST *node, struct WalkerData *this)
 {
 	AST_WALK_DEFAULT(kakoune_select_object_on_line_walker, node, this);

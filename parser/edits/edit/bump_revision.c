@@ -42,7 +42,10 @@
 #include "parser.h"
 #include "parser/edits.h"
 
-static char *
+// Prototypes
+static char *get_merge_script(struct Mempool *, struct Parser *, const char *);
+
+char *
 get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *variable)
 {
 	SCOPE_MEMPOOL(pool);

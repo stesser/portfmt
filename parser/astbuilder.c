@@ -51,7 +51,19 @@
 #include "parser/astbuilder/variable.h"
 #include "rules.h"
 
-static int ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType value, enum ASTExprType *retval)
+// Prototypes
+static int ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType, enum ASTExprType *);
+static int ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType, enum ASTIncludeType *);
+static int ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType, enum ASTIfType *);
+static char *split_off_comment(struct Mempool *, struct Array *, ssize_t, ssize_t, struct Array *);
+static void token_to_stream(struct Mempool *, struct Array *, enum ParserASTBuilderTokenType, int, struct ASTLineRange *, const char *, const char *, const char *, const char *);
+static const char *get_targetname(struct Mempool *, struct ASTTarget *);
+static void ast_from_token_stream_flush_comments(struct AST *, struct Array *);
+static struct AST *ast_from_token_stream(struct Parser *, struct Array *);
+static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
+
+int
+ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType value, enum ASTExprType *retval)
 {
 	switch (value) {
 	case PARSER_AST_BUILDER_CONDITIONAL_ERROR:
@@ -86,7 +98,8 @@ static int ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderC
 	}
 }
 
-static int ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType value, enum ASTIncludeType *retval)
+int
+ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType value, enum ASTIncludeType *retval)
 {
 	switch (value) {
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE:
@@ -115,7 +128,8 @@ static int ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuild
 	}
 }
 
-static int ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType value, enum ASTIfType *retval)
+int
+ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType value, enum ASTIfType *retval)
 {
 	switch (value) {
 	case PARSER_AST_BUILDER_CONDITIONAL_IF:
@@ -153,10 +167,7 @@ static int ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderCon
 	}
 }
 
-static struct AST *ast_from_token_stream(struct Parser *, struct Array *);
-static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
-
-static char *
+char *
 split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssize_t b, struct Array *words)
 {
 	SCOPE_MEMPOOL(pool);
@@ -179,7 +190,7 @@ split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssiz
 	}
 }
 
-static void
+void
 token_to_stream(struct Mempool *pool, struct Array *tokens, enum ParserASTBuilderTokenType type, int edited, struct ASTLineRange *lines, const char *data, const char *varname, const char *condname, const char *targetname)
 {
 	struct ParserASTBuilderToken *t = parser_astbuilder_token_new(type, lines, data, varname, condname, targetname);
@@ -192,7 +203,7 @@ token_to_stream(struct Mempool *pool, struct Array *tokens, enum ParserASTBuilde
 	}
 }
 
-static const char *
+const char *
 get_targetname(struct Mempool *pool, struct ASTTarget *target)
 {
 	switch (target->type) {
@@ -266,7 +277,7 @@ parser_astbuilder_finish(struct ParserASTBuilder *builder)
 	return root;
 }
 
-static void
+void
 ast_from_token_stream_flush_comments(struct AST *parent, struct Array *comments)
 {
 	if (array_len(comments) == 0) {
@@ -631,7 +642,7 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 	}
 }
 
-static void
+void
 ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tokens)
 {
 	SCOPE_MEMPOOL(pool);

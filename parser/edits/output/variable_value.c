@@ -44,7 +44,10 @@ struct WalkerData {
 	struct ParserEditOutput *param;
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState output_variable_value_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 output_variable_value_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {

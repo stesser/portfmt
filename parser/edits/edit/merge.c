@@ -61,7 +61,18 @@ struct VariableMergeParameter {
 	struct Array *values;
 };
 
-static struct AST *
+// Prototypes
+static struct AST *empty_line(struct AST *);
+static int insert_empty_line_before_block(enum BlockType, enum BlockType);
+static void prepend_variable(struct Parser *, struct AST *, struct AST *, enum BlockType);
+static enum ASTWalkState delete_variable(struct AST *, struct Parser *, const char *);
+static ssize_t find_insert_point_generic(struct Parser *, struct AST *, const char *, enum BlockType *);
+static ssize_t find_insert_point_same_block(struct Parser *, struct AST *, const char *, enum BlockType *);
+static void insert_variable(struct Parser *, struct AST *, struct AST *);
+static enum ASTWalkState find_variable(struct AST *, const char *, int, struct AST **);
+static enum ASTWalkState edit_merge_walker(struct AST *, struct WalkerData *, int);
+
+struct AST *
 empty_line(struct AST *parent)
 {
 	struct AST *node = ast_new(parent->pool, AST_COMMENT, &parent->line_start, &(struct ASTComment){
@@ -72,13 +83,13 @@ empty_line(struct AST *parent)
 	return node;
 }
 
-static int
+int
 insert_empty_line_before_block(enum BlockType before, enum BlockType block)
 {
 	return before < block && (before < BLOCK_USES || block > BLOCK_PLIST);
 }
 
-static void
+void
 prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum BlockType block_var)
 {
 	SCOPE_MEMPOOL(pool);
@@ -133,7 +144,7 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 	}
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 delete_variable(struct AST *node, struct Parser *parser, const char *var)
 {
 	switch (node->type) {
@@ -155,7 +166,7 @@ delete_variable(struct AST *node, struct Parser *parser, const char *var)
 	return AST_WALK_CONTINUE;
 }
 
-static ssize_t
+ssize_t
 find_insert_point_generic(struct Parser *parser, struct AST *root, const char *var, enum BlockType *block_before_var)
 {
 	SCOPE_MEMPOOL(pool);
@@ -198,7 +209,7 @@ loop_end:
 	return insert_after;
 }
 
-static ssize_t
+ssize_t
 find_insert_point_same_block(struct Parser *parser, struct AST *root, const char *var, enum BlockType *block_before_var)
 {
 	SCOPE_MEMPOOL(pool);
@@ -242,7 +253,7 @@ find_insert_point_same_block(struct Parser *parser, struct AST *root, const char
 	return insert_after;
 }
 
-static void
+void
 insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 {
 	SCOPE_MEMPOOL(pool);
@@ -310,7 +321,7 @@ insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 	ast_parent_append_sibling(root, node, 0);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 find_variable(struct AST *node, const char *var, int level, struct AST **retval)
 {
 	if (level > 1) {
@@ -338,7 +349,7 @@ find_variable(struct AST *node, const char *var, int level, struct AST **retval)
 	return AST_WALK_CONTINUE;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 {
 	if (level > 1) {

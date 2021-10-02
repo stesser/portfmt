@@ -45,7 +45,10 @@ struct WalkerData {
 	const char *target;
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState output_target_command_token_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 output_target_command_token_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {

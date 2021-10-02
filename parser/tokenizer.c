@@ -62,14 +62,15 @@ struct ParserTokenizer {
 	int finished;
 };
 
+// Prototypes
 static size_t consume_comment(const char *);
 static size_t consume_conditional(const char *);
 static size_t consume_target(const char *);
 static size_t consume_token(struct ParserTokenizer *, const char *, size_t, char, char, int);
 static size_t consume_var(const char *);
 static int is_empty_line(const char *);
-static void parser_tokenizer_read_internal(struct ParserTokenizer *);
 static void parser_tokenize(struct ParserTokenizer *, const char *, enum ParserASTBuilderTokenType, size_t);
+static void parser_tokenizer_read_internal(struct ParserTokenizer *);
 
 struct ParserTokenizer *
 parser_tokenizer_new(struct Parser *parser, const enum ParserError *error, struct ParserASTBuilder *builder)

@@ -44,7 +44,11 @@ struct WalkerData {
 	struct ParserEditOutput *param;
 };
 
-static void
+// Prototypes
+static void add_word(struct WalkerData *, const char *);
+static enum ASTWalkState output_conditional_token_walker(struct AST *, struct WalkerData *);
+
+void
 add_word(struct WalkerData *this, const char *word)
 {
 	if ((this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
@@ -55,7 +59,7 @@ add_word(struct WalkerData *this, const char *word)
 	}
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 output_conditional_token_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {

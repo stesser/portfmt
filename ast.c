@@ -41,7 +41,12 @@
 
 #include "ast.h"
 
+// Prototypes
+static struct AST *ast_clone_helper(struct Mempool *, struct Map *, struct AST *, struct AST *);
+static struct Array *ast_siblings_helper(struct AST *);
 static enum ASTWalkState ast_print_helper(struct AST *, FILE *, size_t);
+static void ast_balance_comments_join(struct Array *);
+static enum ASTWalkState ast_balance_comments_walker(struct AST *, struct Array *);
 
 struct AST *
 ast_new(struct Mempool *pool, enum ASTType type, struct ASTLineRange *lines, void *value)
@@ -174,7 +179,7 @@ ast_new(struct Mempool *pool, enum ASTType type, struct ASTLineRange *lines, voi
 	return node;
 }
 
-static struct AST *
+struct AST *
 ast_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct AST *template, struct AST *parent)
 {
 	struct AST *node = mempool_alloc(pool, sizeof(struct AST));
@@ -367,7 +372,7 @@ ast_parent_append_sibling(struct AST *parent, struct AST *node, int orelse)
 	}
 }
 
-static struct Array *
+struct Array *
 ast_siblings_helper(struct AST *node)
 {
 	ssize_t index = -1;
@@ -609,7 +614,7 @@ ast_print(struct AST *node, FILE *f)
 	ast_print_helper(node, f, 0);
 }
 
-static void
+void
 ast_balance_comments_join(struct Array *comments)
 {
 	if (array_len(comments) == 0) {
@@ -629,7 +634,7 @@ ast_balance_comments_join(struct Array *comments)
 	array_truncate(comments);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 ast_balance_comments_walker(struct AST *node, struct Array *comments)
 {
 	switch (node->type) {

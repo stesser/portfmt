@@ -63,12 +63,24 @@ struct Row {
 	char *hint;
 };
 
-static int check_target_order(struct Parser *, struct AST *, int, int);
+// Prototypes
+static void row_free(struct Row *);
+static void row(struct Mempool *, struct Array *, const char *, const char *);
+static int row_compare(const void *, const void *, void *);
+static enum ASTWalkState get_variables(struct AST *, struct GetVariablesWalkerData *);
+static int get_all_unknown_variables_row_compare(const void *, const void *, void *);
+static void get_all_unknown_variables_helper(struct Mempool *, const char *, const char *, const char *, void *);
+static int get_all_unknown_variables_filter(struct Parser *, const char *, void *);
+static struct Set *get_all_unknown_variables(struct Mempool *, struct Parser *);
+static char *get_hint(struct Mempool *, struct Parser *, const char *, enum BlockType, struct Set *);
+static struct Array *variable_list(struct Mempool *, struct Parser *, struct AST *);
+static enum ASTWalkState target_list(struct AST *, struct TargetListWalkData *);
 static int check_variable_order(struct Parser *, struct AST *, int);
-static int output_diff(struct Parser *, struct Array *, struct Array *, int);
+static int check_target_order(struct Parser *, struct AST *, int, int);
 static void output_row(struct Parser *, struct Row *, size_t);
+static int output_diff(struct Parser *, struct Array *, struct Array *, int);
 
-static void
+void
 row_free(struct Row *row)
 {
 	if (row) {
@@ -78,7 +90,7 @@ row_free(struct Row *row)
 	}
 }
 
-static void
+void
 row(struct Mempool *pool, struct Array *output, const char *name, const char *hint)
 {
 	struct Row *row = xmalloc(sizeof(struct Row));
@@ -90,7 +102,7 @@ row(struct Mempool *pool, struct Array *output, const char *name, const char *hi
 	array_append(output, row);
 }
 
-static int
+int
 row_compare(const void *ap, const void *bp, void *userdata)
 {
 	struct Row *a = *(struct Row **)ap;
@@ -98,7 +110,7 @@ row_compare(const void *ap, const void *bp, void *userdata)
 	return strcmp(a->name, b->name);
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 {
 	switch (node->type) {
@@ -135,7 +147,7 @@ get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 	return AST_WALK_CONTINUE;
 }
 
-static int
+int
 get_all_unknown_variables_row_compare(const void *ap, const void *bp, void *userdata)
 {
 	struct Row *a = *(struct Row **)ap;
@@ -154,7 +166,7 @@ get_all_unknown_variables_row_compare(const void *ap, const void *bp, void *user
 	}
 }
 
-static void
+void
 get_all_unknown_variables_helper(struct Mempool *extpool, const char *key, const char *val, const char *hint, void *userdata)
 {
 	struct Set *unknowns = userdata;
@@ -167,13 +179,13 @@ get_all_unknown_variables_helper(struct Mempool *extpool, const char *key, const
 	}
 }
 
-static int
+int
 get_all_unknown_variables_filter(struct Parser *parser, const char *key, void *userdata)
 {
 	return *key != '_';
 }
 
-static struct Set *
+struct Set *
 get_all_unknown_variables(struct Mempool *pool, struct Parser *parser)
 {
 	struct Set *unknowns = mempool_set(pool, get_all_unknown_variables_row_compare, NULL, row_free);
@@ -184,7 +196,7 @@ get_all_unknown_variables(struct Mempool *pool, struct Parser *parser)
 	return unknowns;
 }
 
-static char *
+char *
 get_hint(struct Mempool *pool, struct Parser *parser, const char *var, enum BlockType block, struct Set *uses_candidates)
 {
 	char *hint = NULL;
@@ -206,7 +218,7 @@ get_hint(struct Mempool *pool, struct Parser *parser, const char *var, enum Bloc
 	return hint;
 }
 
-static struct Array *
+struct Array *
 variable_list(struct Mempool *pool, struct Parser *parser, struct AST *root)
 {
 	struct Array *output = mempool_array(pool);
@@ -237,7 +249,7 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct AST *root)
 	return output;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 target_list(struct AST *node, struct TargetListWalkData *this)
 {
 	switch (node->type) {
@@ -464,7 +476,7 @@ check_target_order(struct Parser *parser, struct AST *root, int no_color, int st
 	return status_target;
 }
 
-static void
+void
 output_row(struct Parser *parser, struct Row *row, size_t maxlen)
 {
 	SCOPE_MEMPOOL(pool);
@@ -479,7 +491,7 @@ output_row(struct Parser *parser, struct Row *row, size_t maxlen)
 	parser_enqueue_output(parser, "\n");
 }
 
-static int
+int
 output_diff(struct Parser *parser, struct Array *origin, struct Array *target, int no_color)
 {
 	SCOPE_MEMPOOL(pool);

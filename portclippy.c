@@ -46,6 +46,7 @@
 #include "parser.h"
 #include "parser/edits.h"
 
+// Prototypes
 static void usage(void);
 
 void

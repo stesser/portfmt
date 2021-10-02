@@ -42,7 +42,12 @@
 #include "parser.h"
 #include "parser/edits.h"
 
-static ssize_t
+// Prototypes
+static ssize_t extract_git_describe_suffix(const char *);
+static ssize_t extract_git_describe_prefix(const char *);
+static int is_git_describe_version(struct Mempool *, const char *, char **, char **, char **);
+
+ssize_t
 extract_git_describe_suffix(const char *ver)
 {
 	if (strlen(ver) == 0) {
@@ -78,7 +83,7 @@ extract_git_describe_suffix(const char *ver)
 	return -1;
 }
 
-static ssize_t
+ssize_t
 extract_git_describe_prefix(const char *ver)
 {
 	if (*ver == 0 || isdigit(*ver)) {
@@ -94,7 +99,7 @@ extract_git_describe_prefix(const char *ver)
 	return -1;
 }
 
-static int
+int
 is_git_describe_version(struct Mempool *pool, const char *ver, char **distversion, char **prefix, char **suffix)
 {
 	ssize_t suffix_index;

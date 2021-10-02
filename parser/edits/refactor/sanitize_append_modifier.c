@@ -46,7 +46,10 @@ struct WalkerData {
 	struct Set *seen;
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState refactor_sanitize_append_modifier_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 refactor_sanitize_append_modifier_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {

@@ -44,7 +44,10 @@ struct WalkerData {
 	int found;
 };
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState lint_bsd_port_walker(struct AST *, struct WalkerData *);
+
+enum ASTWalkState
 lint_bsd_port_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {

@@ -50,7 +50,11 @@ struct WalkerData {
 	struct Set *post_plist_targets;
 };
 
-static int
+// Prototypes
+static int add_target(struct WalkerData *, const char *, int);
+static enum ASTWalkState output_unknown_targets_walker(struct AST *, struct WalkerData *);
+
+int
 add_target(struct WalkerData *this, const char *name, int deps)
 {
 	if (deps && is_special_source(name)) {
@@ -73,7 +77,7 @@ add_target(struct WalkerData *this, const char *name, int deps)
 	return 0;
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 output_unknown_targets_walker(struct AST *node, struct WalkerData *this) 
 {
 	switch (node->type) {

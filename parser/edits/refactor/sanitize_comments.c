@@ -40,7 +40,10 @@
 #include "parser.h"
 #include "parser/edits.h"
 
-static enum ASTWalkState
+// Prototypes
+static enum ASTWalkState refactor_sanitize_comments_walker(struct AST *, int);
+
+enum ASTWalkState
 refactor_sanitize_comments_walker(struct AST *node, int in_target)
 {
 	switch (node->type) {

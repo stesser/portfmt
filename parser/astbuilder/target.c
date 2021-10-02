@@ -46,7 +46,12 @@ struct Target {
 	char *comment;
 };
 
-static size_t
+// Prototypes
+static size_t consume_token(const char *, size_t, char, char);
+static void add_name(struct Mempool *, struct Array *, const char *, size_t, size_t);
+static const char *consume_sources(struct Mempool *, const char *, struct Array *, int);
+
+size_t
 consume_token(const char *line, size_t pos, char startchar, char endchar)
 {
 	int counter = 0;
@@ -83,7 +88,7 @@ consume_token(const char *line, size_t pos, char startchar, char endchar)
 	return 0;
 }
 
-static void
+void
 add_name(struct Mempool *pool, struct Array *sources, const char *buf, size_t start, size_t i)
 {
 	char *name = str_trim(pool, str_slice(pool, buf, start, i));
@@ -92,7 +97,7 @@ add_name(struct Mempool *pool, struct Array *sources, const char *buf, size_t st
 	}
 }
 
-static const char *
+const char *
 consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, int deps)
 {
 	const char *after_target = NULL;

@@ -42,6 +42,7 @@
 #include "mainutils.h"
 #include "parser.h"
 
+// Prototypes
 static void usage(void);
 
 void

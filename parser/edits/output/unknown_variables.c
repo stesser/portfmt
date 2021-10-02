@@ -57,7 +57,14 @@ struct UnknownVariable {
 	char *hint;
 };
 
-static struct UnknownVariable *
+// Prototypes
+static struct UnknownVariable *var_new(const char *, const char *);
+static void var_free(struct UnknownVariable *);
+static int var_compare(const void *, const void *, void *);
+static void check_opthelper(struct WalkerData *, const char *, int, int);
+static enum ASTWalkState output_unknown_variables_walker(struct AST *, struct WalkerData *);
+
+struct UnknownVariable *
 var_new(const char *name, const char *hint)
 {
 	struct UnknownVariable *var = xmalloc(sizeof(struct UnknownVariable));
@@ -68,7 +75,7 @@ var_new(const char *name, const char *hint)
 	return var;
 }
 
-static void
+void
 var_free(struct UnknownVariable *var)
 {
 	if (var) {
@@ -78,7 +85,7 @@ var_free(struct UnknownVariable *var)
 	}
 }
 
-static int
+int
 var_compare(const void *ap, const void *bp, void *userdata)
 {
 	struct UnknownVariable *a = *(struct UnknownVariable **)ap;
@@ -97,7 +104,7 @@ var_compare(const void *ap, const void *bp, void *userdata)
 	}
 }
 
-static void
+void
 check_opthelper(struct WalkerData *this, const char *option, int optuse, int optoff)
 {
 	SCOPE_MEMPOOL(pool);
@@ -146,7 +153,7 @@ check_opthelper(struct WalkerData *this, const char *option, int optuse, int opt
 	}
 }
 
-static enum ASTWalkState
+enum ASTWalkState
 output_unknown_variables_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
