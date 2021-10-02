@@ -539,8 +539,8 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		break;
 	} case AST_EXPR: {
 		const char *indent = str_repeat(pool, " ", node->expr.indent);
-		const char *data = str_printf(pool, ".%s%s", indent, ASTExprType_identifier(node->expr.type));
-		const char *exprname = str_printf(pool, ".%s", ASTExprType_identifier(node->expr.type));
+		const char *data = str_printf(pool, ".%s%s", indent, ASTExprType_identifier(node->expr.type) + 1);
+		const char *exprname = ASTExprType_identifier(node->expr.type);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		ARRAY_FOREACH(node->expr.words, const char *, word) {
@@ -616,18 +616,12 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, node->edited, &node->line_end, data, NULL, ".endfor", NULL);
 		break;
 	} case AST_INCLUDE: {
-		const char *dot;
-		switch (node->include.type) {
-		case AST_INCLUDE_POSIX:
-			dot = "";
-			break;
-		default:
-			dot = ".";
-			break;
+		const char *exprname = ASTIncludeType_identifier(node->include.type);
+		const char *data = exprname;
+		if (*exprname == '.') {
+			const char *indent = str_repeat(pool, " ", node->include.indent);
+			data = str_printf(pool, ".%s%s", indent, exprname + 1);
 		}
-		const char *indent = str_repeat(pool, " ", node->include.indent);
-		const char *data = str_printf(pool, "%s%s%s", dot, indent, ASTIncludeType_identifier(node->include.type));
-		const char *exprname = str_printf(pool, "%s%s", dot, ASTIncludeType_identifier(node->include.type));
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, node->edited, &node->line_start, data, NULL, exprname, NULL);
 		if (node->include.path) {

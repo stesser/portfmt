@@ -49,15 +49,15 @@ enum ASTCommentType {
 const char *ASTCommentType_tostring(enum ASTCommentType);
 
 enum ASTExprType {
-	AST_EXPR_ERROR,			// identifier:"error"
-	AST_EXPR_EXPORT_ENV,		// identifier:"export-env"
-	AST_EXPR_EXPORT_LITERAL,	// identifier:"export-literal"
-	AST_EXPR_EXPORT,		// identifier:"export"
-	AST_EXPR_INFO,			// identifier:"info"
-	AST_EXPR_UNDEF,			// identifier:"undef"
-	AST_EXPR_UNEXPORT_ENV,		// identifier:"unexport-env"
-	AST_EXPR_UNEXPORT,		// identifier:"unexport"
-	AST_EXPR_WARNING,		// identifier:"warning"
+	AST_EXPR_ERROR,			// identifier:".error"
+	AST_EXPR_EXPORT_ENV,		// identifier:".export-env"
+	AST_EXPR_EXPORT_LITERAL,	// identifier:".export-literal"
+	AST_EXPR_EXPORT,		// identifier:".export"
+	AST_EXPR_INFO,			// identifier:".info"
+	AST_EXPR_UNDEF,			// identifier:".undef"
+	AST_EXPR_UNEXPORT_ENV,		// identifier:".unexport-env"
+	AST_EXPR_UNEXPORT,		// identifier:".unexport"
+	AST_EXPR_WARNING,		// identifier:".warning"
 };
 
 const char *ASTExprType_identifier(enum ASTExprType);
@@ -76,13 +76,13 @@ const char *ASTIfType_human(enum ASTIfType);
 const char *ASTIfType_tostring(enum ASTIfType);
 
 enum ASTIncludeType {
-	AST_INCLUDE_BMAKE,		// identifier:"include"
+	AST_INCLUDE_BMAKE,		// identifier:".include"
 	AST_INCLUDE_POSIX,		// identifier:"include"
 	AST_INCLUDE_POSIX_OPTIONAL,	// identifier:"-include"
 	AST_INCLUDE_POSIX_OPTIONAL_S,	// identifier:"sinclude"
-	AST_INCLUDE_OPTIONAL,		// identifier:"-include"
-	AST_INCLUDE_OPTIONAL_D,		// identifier:"dinclude"
-	AST_INCLUDE_OPTIONAL_S,		// identifier:"sinclude"
+	AST_INCLUDE_OPTIONAL,		// identifier:".-include"
+	AST_INCLUDE_OPTIONAL_D,		// identifier:".dinclude"
+	AST_INCLUDE_OPTIONAL_S,		// identifier:".sinclude"
 };
 
 const char *ASTIncludeType_identifier(enum ASTIncludeType);

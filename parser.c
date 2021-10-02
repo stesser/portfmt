@@ -820,20 +820,15 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		break;
 	case AST_INCLUDE:
 		if (edited) {
-			const char *dot;
-			switch (node->include.type) {
-			case AST_INCLUDE_POSIX:
-				dot = "";
-				break;
-			default:
-				dot = ".";
-				break;
-			}
-			const char *name = ASTIncludeType_identifier(node->include.type);
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
-			parser_enqueue_output(parser, str_printf(pool, "%s%s%s", dot, str_repeat(pool, " ", node->include.indent), name));
+			const char *name = ASTIncludeType_identifier(node->include.type);
+			if (*name == '.') {
+				parser_enqueue_output(parser, str_printf(pool, ".%s%s", str_repeat(pool, " ", node->include.indent), name + 1));
+			} else {
+				parser_enqueue_output(parser, name);
+			}
 			if (node->include.path) {
-				if (node->include.type == AST_INCLUDE_POSIX) {
+				if (*name != '.') {
 					parser_enqueue_output(parser, " ");
 					parser_enqueue_output(parser, node->include.path);
 				} else if (node->include.sys) {
@@ -857,7 +852,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 			const char *name = ASTExprType_identifier(node->expr.type);
 			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s",
-				str_repeat(pool, " ", node->expr.indent), name, str_join(pool, node->expr.words, " ")));
+				str_repeat(pool, " ", node->expr.indent), name + 1, str_join(pool, node->expr.words, " ")));
 			if (node->expr.comment && strlen(node->expr.comment) > 0) {
 				parser_enqueue_output(parser, " ");
 				parser_enqueue_output(parser, node->expr.comment);
