@@ -1,0 +1,1 @@
+{ *VARIABLE, line 1, .name = MAKE_ENV, .modifier = +=, .words = { CXXFLAGS_WARN="${CXXFLAGS_WARN}", GNUSED=${LOCALBASE}/bin/gsed, DISPLAY=, verbose=1 } }

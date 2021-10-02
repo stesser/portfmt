@@ -1,0 +1,7 @@
+PORTNAME=llvm90
+.   for option a in CLANG COMPILER_RT EXTRAS LLD LLDB OPENMP
+WRKSRC_${option:tl}_$a=	${WRKDIR}/${${option}_DISTFILES}
+. endfor
+FOO=meh
+
+. include <bsd.port.mk>

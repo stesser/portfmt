@@ -35,6 +35,26 @@ for test in *.sh; do
 	fi
 	tests_run=$((tests_run + 1))
 done
+for test in ast*.in; do
+	t=${test%*.in}
+	tests_run=$((tests_run + 1))
+	if ${PORTFMT} -d <"${t}.in" >"${t}.actual"; then
+		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
+			echo -n . >&3
+		else
+			echo -n X >&3
+			echo "parser/${t}: FAIL" >&2
+			tests_failed=$((tests_failed + 1))
+			continue
+		fi
+	else
+		echo -n X >&3
+		echo "parser/${t}: FAIL" >&2
+		tests_failed=$((tests_failed + 1))
+		continue
+	fi
+done
+rm -f ./*.actual
 
 cd "${ROOT}/tests/format" || exit 1
 for test in *.in; do
