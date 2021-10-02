@@ -244,9 +244,7 @@ ast_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct AST *template,
 		if (template->include.comment) {
 			node->include.comment = str_dup(pool, template->include.comment);
 		}
-		if (template->include.path) {
-			node->include.path = str_dup(pool, template->include.path);
-		}
+		node->include.path = str_dup(pool, template->include.path);
 		node->include.indent = template->include.indent;
 		node->include.sys = template->include.sys;
 		node->include.loaded = template->include.loaded;
@@ -540,10 +538,6 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		}
 		return AST_WALK_CONTINUE;
 	} case AST_INCLUDE: {
-		const char *path = node->include.path;
-		unless (path) {
-			path = "";
-		}
 		const char *comment = "";
 		if (node->include.comment) {
 			comment = str_printf(pool, ".comment = %s, ", node->include.comment);
@@ -555,7 +549,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 			lines,
 			node->include.indent,
 			comment,
-			path,
+			node->include.path,
 			node->include.sys,
 			node->include.loaded);
 		level++;

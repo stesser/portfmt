@@ -114,8 +114,7 @@ parser_is_category_makefile(struct AST *node, struct Parser *parser)
 
 	switch (node->type) {
 	case AST_INCLUDE:
-		if (node->include.type == AST_INCLUDE_BMAKE &&
-		    node->include.sys && node->include.path &&
+		if (node->include.type == AST_INCLUDE_BMAKE && node->include.sys &&
 		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
 			return AST_WALK_STOP;
 		}
@@ -745,8 +744,7 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct AST *n
 	case AST_DELETED:
 		break;
 	case AST_INCLUDE:
-		if (node->include.type == AST_INCLUDE_BMAKE &&
-		    node->include.sys && node->include.path &&
+		if (node->include.type == AST_INCLUDE_BMAKE && node->include.sys &&
 		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
 			parser_enqueue_output(parser, ".include <bsd.port.subdir.mk>\n");
 			return;
@@ -827,17 +825,13 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 			} else {
 				parser_enqueue_output(parser, name);
 			}
-			if (node->include.path) {
-				if (*name != '.') {
-					parser_enqueue_output(parser, " ");
-					parser_enqueue_output(parser, node->include.path);
-				} else if (node->include.sys) {
-					parser_enqueue_output(parser, str_printf(pool, " <%s>", node->include.path));
-				} else {
-					parser_enqueue_output(parser, str_printf(pool, " \"%s\"", node->include.path));
-				}
-			} else if (node->include.type != AST_INCLUDE_POSIX) {
-				parser_enqueue_output(parser, " \"\"");
+			if (*name != '.') {
+				parser_enqueue_output(parser, " ");
+				parser_enqueue_output(parser, node->include.path);
+			} else if (node->include.sys) {
+				parser_enqueue_output(parser, str_printf(pool, " <%s>", node->include.path));
+			} else {
+				parser_enqueue_output(parser, str_printf(pool, " \"%s\"", node->include.path));
 			}
 			if (node->include.comment && strlen(node->include.comment) > 0) {
 				parser_enqueue_output(parser, str_printf(pool, " %s", node->include.comment));

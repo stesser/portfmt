@@ -270,20 +270,47 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 				node->edited = t->edited;
 				struct Array *pathwords = mempool_array(pool);
 				node->include.comment = split_off_comment(node->pool, current_cond, 1, -1, pathwords);
-				if (array_len(pathwords) > 0) {
-					char *path = str_trim(node->pool, str_join(pool, pathwords, " "));
+				if (array_len(pathwords) == 0) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "missing path for %s on %s",
+								ASTIncludeType_identifier(node->include.type),
+								ast_line_range_tostring(&t->lines, 1, pool)));
+					return NULL;
+				}
+				char *path = str_trim(node->pool, str_join(pool, pathwords, " "));
+				int invalid = 0;
+				const char *hint = "";
+				if (*ASTIncludeType_identifier(node->include.type) == '.') {
 					if (*path == '<') {
 						node->include.sys = 1;
 						path++;
 						if (str_endswith(path, ">")) {
 							path[strlen(path) - 1] = 0;
+						} else {
+							invalid = 1;
+							hint = ": missing > at the end";
 						}
 					} else if (*path == '"') {
 						path++;
 						if (str_endswith(path, "\"")) {
 							path[strlen(path) - 1] = 0;
+						} else {
+							invalid = 1;
+							hint = ": missing \" at the end";
 						}
+					} else {
+						invalid = 1;
+						hint = ": must start with < or \"";
 					}
+				}
+				if (strlen(path) == 0 || invalid) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "invalid path for %s on %s%s",
+								ASTIncludeType_identifier(node->include.type),
+								ast_line_range_tostring(&t->lines, 1, pool),
+								hint));
+					return NULL;
+				} else {
 					node->include.path = path;
 				}
 				break;
