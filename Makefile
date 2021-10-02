@@ -166,7 +166,7 @@ install-symlinks:
 		INSTALL_PROGRAM="\$${INSTALL_MAN}" install
 
 regen-rules:
-	@/bin/sh generate_rules.sh
+	@/bin/sh scripts/generate_rules.sh
 
 clean:
 	@${MAKE} -C libias clean
