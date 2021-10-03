@@ -966,7 +966,12 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		if (edited) {
 			const char *sep = "";
 			if (array_len(node->target.dependencies) > 0) {
-				sep = " ";
+				if (array_len(node->target.sources) == 1 &&
+				    is_special_target(array_get(node->target.sources, 0))) {
+					sep = "\t";
+				} else {
+					sep = " ";
+				}
 			}
 			parser_enqueue_output(parser, str_printf(pool, "%s:%s%s",
 				str_join(pool, node->target.sources, " "),
