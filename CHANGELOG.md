@@ -9,14 +9,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- The underlying data structures have been changed to use an Abstract
-  Syntax Tree instead of operating directly on the tokens.  With
-  the AST a portscan only takes about ~150 s down from ~200 s.  This
-  is on FreeBSD 13.0-RELEASE on a i3-4130T in Hyper-V on Windows 10
-  with 1 core.
-- The last regular expression in the tokenizer has been replaced with
-  a manually written matcher.  This further improves performance of a
-  portscan and brings it down to ~50 s.
+- General performance has been improved due to the following changes:
+  - The underlying data structures have been changed to use an Abstract
+    Syntax Tree instead of operating directly on the token stream from
+    the tokenizer
+  - The last regular expression in the tokenizer has been replaced with
+    a manually written matcher
+  - When possible the build now uses Link Time Optimization
+
+  Benchmark on FreeBSD 13.0-RELEASE in Hyper-V on a i3-4130T on Windows 10
+  with 2 cores:
+```
+$ hyperfine -w 2 -- './portscan-main-no-lto --progress=0' './portscan-main-lto --progress=0' ./portscan-1.0.0-no-lto ./portscan-1.0.0-lto
+Benchmark #1: ./portscan-main-no-lto --progress=0
+  Time (mean ± σ):     28.444 s ±  0.574 s    [User: 52.437 s, System: 1.133 s]
+  Range (min … max):   27.887 s … 29.664 s    10 runs
+
+Benchmark #2: ./portscan-main-lto --progress=0
+  Time (mean ± σ):     22.771 s ±  0.195 s    [User: 41.234 s, System: 1.000 s]
+  Range (min … max):   22.538 s … 23.171 s    10 runs
+
+Benchmark #3: ./portscan-1.0.0-no-lto
+  Time (mean ± σ):     108.637 s ±  0.500 s    [User: 209.864 s, System: 1.420 s]
+  Range (min … max):   107.824 s … 109.260 s    10 runs
+
+Benchmark #4: ./portscan-1.0.0-lto
+  Time (mean ± σ):     103.229 s ±  2.668 s    [User: 199.575 s, System: 1.404 s]
+  Range (min … max):   101.674 s … 110.710 s    10 runs
+
+Summary
+  './portscan-main-lto --progress=0' ran
+    1.25 ± 0.03 times faster than './portscan-main-no-lto --progress=0'
+    4.53 ± 0.12 times faster than './portscan-1.0.0-lto'
+    4.77 ± 0.05 times faster than './portscan-1.0.0-no-lto'
+```
 - portscan: The progress report has been enabled by default with the
   interval shortened to 1 s when `stderr` is a TTY.  The output
   is also kept on only one line in that case.  `--progress=0`
