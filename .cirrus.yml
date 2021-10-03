@@ -29,7 +29,7 @@ linux_task:
       env:
         CC: clang
       clang_script:
-        - apt-get -y install clang
+        - apt-get -y install clang llvm
     - name: linux_gcc
   test_script:
     - ./configure
@@ -44,6 +44,8 @@ macos_task:
       env:
         CC: clang
     - name: macos_gcc
+      env:
+        CC: gcc
   clone_script:
     - git clone --recurse-submodules --branch=$CIRRUS_BRANCH https://github.com/${CIRRUS_REPO_FULL_NAME}.git $CIRRUS_WORKING_DIR
   test_script:

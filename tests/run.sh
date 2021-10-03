@@ -25,9 +25,9 @@ exec 2>&1
 cd "${ROOT}/tests/parser" || exit 1
 for test in *.sh; do
 	if sh -eu "${test}"; then
-		echo -n . >&3
+		printf . >&3
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "parser/${test%*.sh}: FAIL" >&2
 		tests_run=$((tests_run + 1))
 		tests_failed=$((tests_failed + 1))
@@ -40,15 +40,15 @@ for test in ast*.in; do
 	tests_run=$((tests_run + 1))
 	if ${PORTFMT} -ddd <"${t}.in" >"${t}.actual"; then
 		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
-			echo -n . >&3
+			printf . >&3
 		else
-			echo -n X >&3
+			printf X >&3
 			echo "parser/${t}: FAIL" >&2
 			tests_failed=$((tests_failed + 1))
 			continue
 		fi
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "parser/${t}: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 		continue
@@ -62,15 +62,15 @@ for test in *.in; do
 	tests_run=$((tests_run + 1))
 	if ${PORTFMT} -t <"${t}.in" >"${t}.actual"; then
 		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
-			echo -n . >&3
+			printf . >&3
 		else
-			echo -n X >&3
+			printf X >&3
 			echo "format/${t}#1: FAIL" >&2
 			tests_failed=$((tests_failed + 1))
 			continue
 		fi
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "format/${t}#1: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 		continue
@@ -79,14 +79,14 @@ for test in *.in; do
 	tests_run=$((tests_run + 1))
 	if ${PORTFMT} -t <"${t}.expected" >"${t}.actual2"; then
 		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual2"; then
-			echo -n . >&3
+			printf . >&3
 		else
-			echo -n X >&3
+			printf X >&3
 			echo "format/${t}#2: FAIL" >&2
 			tests_failed=$((tests_failed + 1))
 		fi
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "format/${t}#2: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	fi
@@ -99,9 +99,9 @@ for test in bump-epoch/*.sh bump-revision/*.sh apply/*.sh get/*.sh merge/*.sh se
 	tests_run=$((tests_run + 1))
 	cd "${ROOT}/tests/edit/$(dirname "${test}")" || exit 1
 	if ${SH} -o pipefail -eu "$(basename "${test}")"; then
-		echo -n . >&3
+		printf . >&3
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "edit/${t}: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	fi
@@ -113,9 +113,9 @@ for test in *.in; do
 	tests_run=$((tests_run + 1))
 	${PORTCLIPPY} "${t}.in" >"${t}.actual"
 	if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
-		echo -n . >&3
+		printf . >&3
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "clippy/${t}: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 		continue
@@ -127,11 +127,11 @@ cd "${ROOT}/tests" || exit 1
 for t in reject/*.in; do
 	tests_run=$((tests_run + 1))
 	if ${PORTFMT} "${t}"; then
-		echo -n X >&3
+		printf X >&3
 		echo "${t%*.in}: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	else
-		echo -n . >&3
+		printf . >&3
 	fi
 done
 
@@ -139,9 +139,9 @@ cd "${ROOT}/tests/portscan" || exit 1
 for t in *.sh; do
 	tests_run=$((tests_run + 1))
 	if ${SH} -o pipefail -eu "${t}"; then
-		echo -n . >&3
+		printf . >&3
 	else
-		echo -n X >&3
+		printf X >&3
 		echo "portscan/${t%*.sh}: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	fi
