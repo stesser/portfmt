@@ -38,7 +38,7 @@ done
 for test in ast*.in; do
 	t=${test%*.in}
 	tests_run=$((tests_run + 1))
-	if ${PORTFMT} -d <"${t}.in" >"${t}.actual"; then
+	if ${PORTFMT} -ddd <"${t}.in" >"${t}.actual"; then
 		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
 			echo -n . >&3
 		else

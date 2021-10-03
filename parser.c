@@ -1070,7 +1070,7 @@ parser_output_dump_tokens(struct Parser *parser)
 		return;
 	}
 
-	if (parser->settings.debug_level >= 2) {
+	if (parser->settings.debug_level == 2) {
 		struct ParserASTBuilder *builder = mempool_add(pool, parser_astbuilder_from_ast(parser, parser->ast), parser_astbuilder_free);
 		FILE *f = open_memstream(&buf, &len);
 		panic_unless(f, "open_memstream: %s", strerror(errno));
@@ -1078,7 +1078,7 @@ parser_output_dump_tokens(struct Parser *parser)
 		fclose(f);
 		parser_enqueue_output(parser, buf);
 		free(buf);
-	} else if (parser->settings.debug_level == 1) {
+	} else if (parser->settings.debug_level == 1 || parser->settings.debug_level > 2) {
 		FILE *f = open_memstream(&buf, &len);
 		panic_unless(f, "open_memstream: %s", strerror(errno));
 		ast_print(parser->ast, f);
@@ -1134,6 +1134,11 @@ parser_read_finish(struct Parser *parser)
 
 	if (parser->settings.behavior & PARSER_LOAD_LOCAL_INCLUDES &&
 	    PARSER_ERROR_OK != parser_load_includes(parser)) {
+		return parser->error;
+	}
+
+	if ((parser->settings.behavior & PARSER_OUTPUT_DUMP_TOKENS) &&
+	    parser->settings.debug_level > 2) {
 		return parser->error;
 	}
 
