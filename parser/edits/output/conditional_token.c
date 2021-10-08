@@ -29,9 +29,11 @@
 #include "config.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include <libias/array.h>
 #include <libias/flow.h>
+#include <libias/mempool.h>
 #include <libias/str.h>
 
 #include "ast.h"
@@ -76,12 +78,55 @@ output_conditional_token_walker(struct AST *node, struct WalkerData *this)
 			add_word(this, word);
 		}
 		break;
-	case AST_IF:
+	case AST_IF: {
+		static const char *merge_with_next[] = {
+			"commands(",
+			"defined(",
+			"empty(",
+			"exists(",
+			"make(",
+			"target(",
+			"!",
+			"(",
+		};
+		SCOPE_MEMPOOL(pool);
+		struct Array *word_groups = mempool_array(pool);
 		ARRAY_FOREACH(node->ifexpr.test, const char *, word) {
+			int merge = 0;
+			if (word_index < array_len(node->ifexpr.test) - 1) {
+				merge = 1;
+				for (size_t i = 0; i < nitems(merge_with_next); i++) {
+					if (strcmp(word, merge_with_next[i]) == 0) {
+						merge = 0;
+						break;
+					}
+				}
+				if (merge) {
+					// No merge yet when ) next
+					const char *next = array_get(node->ifexpr.test, word_index + 1);
+					if (next && strcmp(next, ")") == 0) {
+						merge = 0;
+					}
+				}
+			}
+
+			struct Array *group = array_get(word_groups, array_len(word_groups) - 1);
+			unless (group) {
+				group = mempool_array(pool);
+				array_append(word_groups, group);
+			}
+			array_append(group, word);
+			if (merge) {
+				group = mempool_array(pool);
+				array_append(word_groups, group);
+			}
+		}
+		ARRAY_FOREACH(word_groups, struct Array *, group) {
+			const char *word = str_join(pool, group, "");
 			add_word(this, word);
 		}
 		break;
-	case AST_INCLUDE:
+	} case AST_INCLUDE:
 		if (node->include.sys) {
 			add_word(this, str_printf(this->pool, "<%s>", node->include.path));
 		} else {
