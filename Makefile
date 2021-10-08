@@ -135,7 +135,7 @@ parser/edits/refactor/sanitize_cmake_args.o: config.h libias/array.h libias/flow
 parser/edits/refactor/sanitize_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h
 parser/edits/refactor/sanitize_eol_comments.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/str.h ast.h parser.h parser/edits.h rules.h
 parser/edits/template.o: config.h libias/array.h libias/flow.h ast.h parser.h parser/edits.h
-parser/tokenizer.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h parser/astbuilder.h parser/astbuilder/enum.h parser.h parser/tokenizer.h
+parser/tokenizer.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h ast.h parser/astbuilder.h parser/astbuilder/enum.h parser/astbuilder/conditional.h parser.h parser/tokenizer.h
 portclippy.o: config.h libias/mempool.h mainutils.h parser.h parser/edits.h
 portedit.o: config.h libias/array.h libias/flow.h libias/mempool.h libias/set.h libias/str.h mainutils.h parser.h parser/edits.h regexp.h
 portfmt.o: config.h libias/mempool.h mainutils.h parser.h

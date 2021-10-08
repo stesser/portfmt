@@ -43,6 +43,7 @@
 #include "ast.h"
 #include "astbuilder.h"
 #include "astbuilder/enum.h"
+#include "astbuilder/conditional.h"
 #include "parser.h"
 #include "tokenizer.h"
 
@@ -79,6 +80,7 @@ static size_t consume_target(const char *);
 static size_t consume_token(struct ParserTokenizeData *, size_t, char, char, int);
 static size_t consume_var(const char *);
 static int is_empty_line(const char *);
+static const char *parser_tokenize_conditional(struct ParserTokenizeData *);
 static void parser_tokenize_helper(struct ParserTokenizeData *);
 static void parser_tokenize(struct ParserTokenizer *, const char *, enum ParserASTBuilderTokenType, size_t);
 static void parser_tokenizer_create_token(struct ParserTokenizer *, enum ParserASTBuilderTokenType, const char *);
@@ -339,6 +341,49 @@ consume_expansion(struct ParserTokenizeData *this)
 	}
 }
 
+static const char *
+parser_tokenize_conditional(struct ParserTokenizeData *this)
+{
+	unless (this->type == PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN && this->tokenizer->builder->condname) {
+		return NULL;
+	}
+
+	size_t indent = 0;
+	switch (parse_conditional(this->tokenizer->builder->condname, &indent)) {
+	case PARSER_AST_BUILDER_CONDITIONAL_ELIF:
+	case PARSER_AST_BUILDER_CONDITIONAL_IF:
+		break;
+	default:
+		return NULL;
+	}
+
+	static const char *condtokens[] = {
+		"commands(",
+		"defined(",
+		"empty(",
+		"exists(",
+		"make(",
+		"target(",
+		"==",
+		"!=",
+		"<",
+		">",
+		"&&",
+		"||",
+		"!",
+		"(",
+		")",
+	};
+
+	for (size_t i = 0; i < nitems(condtokens); i++) {
+		if (str_startswith(this->line + this->i, condtokens[i])) {
+			return condtokens[i];
+		}
+	}
+
+	return NULL;
+}
+
 void
 parser_tokenize_helper(struct ParserTokenizeData *this)
 {
@@ -353,6 +398,7 @@ parser_tokenize_helper(struct ParserTokenizeData *this)
 				continue;
 			}
 		}
+		const char *condtoken = NULL;
 		if (this->dollar) {
 			consume_expansion(this);
 		} else if (c == ' ' || c == '\t') {
@@ -376,6 +422,14 @@ parser_tokenize_helper(struct ParserTokenizeData *this)
 			parser_tokenizer_create_token(this->tokenizer, this->type, token);
 			parser_set_error(this->tokenizer->parser, PARSER_ERROR_OK, NULL);
 			return;
+		} else if ((condtoken = parser_tokenize_conditional(this))) {
+			const char *token = str_trim(pool, str_slice(pool, this->line, this->start, this->i));
+			if (strcmp(token, "") != 0 && strcmp(token, "\\") != 0) {
+				parser_tokenizer_create_token(this->tokenizer, this->type, token);
+			}
+			parser_tokenizer_create_token(this->tokenizer, this->type, condtoken);
+			this->start = this->i + strlen(condtoken);
+			this->i += strlen(condtoken) - 1;
 		}
 		if (*this->tokenizer->parser_error != PARSER_ERROR_OK) {
 			return;
