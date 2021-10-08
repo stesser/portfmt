@@ -70,6 +70,7 @@ static size_t consume_token(struct ParserTokenizer *, const char *, size_t, char
 static size_t consume_var(const char *);
 static int is_empty_line(const char *);
 static void parser_tokenize(struct ParserTokenizer *, const char *, enum ParserASTBuilderTokenType, size_t);
+static void parser_tokenizer_create_token(struct ParserTokenizer *, enum ParserASTBuilderTokenType, const char *);
 static void parser_tokenizer_read_internal(struct ParserTokenizer *);
 
 struct ParserTokenizer *
@@ -92,6 +93,12 @@ parser_tokenizer_free(struct ParserTokenizer *tokenizer)
 		free(tokenizer->inbuf.buf);
 		free(tokenizer);
 	}
+}
+
+void
+parser_tokenizer_create_token(struct ParserTokenizer *tokenizer, enum ParserASTBuilderTokenType type, const char *token)
+{
+	parser_astbuilder_append_token(tokenizer->builder, type, token);
 }
 
 size_t
@@ -343,7 +350,7 @@ parser_tokenize(struct ParserTokenizer *tokenizer, const char *line, enum Parser
 			if (c == ' ' || c == '\t') {
 				token = str_trim(pool, str_slice(pool, line, start, i));
 				if (strcmp(token, "") != 0 && strcmp(token, "\\") != 0) {
-					parser_astbuilder_append_token(tokenizer->builder, type, token);
+					parser_tokenizer_create_token(tokenizer, type, token);
 				}
 				token = NULL;
 				start = i;
@@ -359,7 +366,7 @@ parser_tokenize(struct ParserTokenizer *tokenizer, const char *line, enum Parser
 				escape = 1;
 			} else if (c == '#') {
 				token = str_trim(pool, str_slice(pool, line, i, -1));
-				parser_astbuilder_append_token(tokenizer->builder, type, token);
+				parser_tokenizer_create_token(tokenizer, type, token);
 				token = NULL;
 				parser_set_error(tokenizer->parser, PARSER_ERROR_OK, NULL);
 				return;
@@ -372,7 +379,7 @@ parser_tokenize(struct ParserTokenizer *tokenizer, const char *line, enum Parser
 
 	token = str_trim(pool, str_slice(pool, line, start, i));
 	if (strcmp(token, "") != 0) {
-		parser_astbuilder_append_token(tokenizer->builder, type, token);
+		parser_tokenizer_create_token(tokenizer, type, token);
 	}
 	parser_set_error(parser, PARSER_ERROR_OK, NULL);
 }
@@ -464,10 +471,10 @@ parser_tokenizer_read_internal(struct ParserTokenizer *tokenizer)
 
 	pos = consume_comment(buf);
 	if (pos > 0) {
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
 		goto next;
 	} else if (is_empty_line(buf)) {
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_COMMENT, buf);
 		goto next;
 	}
 
@@ -475,33 +482,33 @@ parser_tokenizer_read_internal(struct ParserTokenizer *tokenizer)
 		pos = consume_conditional(buf);
 		if (pos > 0) {
 			tokenizer->builder->condname = str_trimr(tokenizer->builder->pool, str_ndup(tokenizer->builder->pool, buf, pos));
-			parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, tokenizer->builder->condname);
-			parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, tokenizer->builder->condname);
+			parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, tokenizer->builder->condname);
+			parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, tokenizer->builder->condname);
 			parser_tokenize(tokenizer, buf, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, pos);
-			parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, tokenizer->builder->condname);
+			parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, tokenizer->builder->condname);
 			goto next;
 		}
 		if (consume_var(buf) == 0 && consume_target(buf) == 0 &&
 		    *buf != 0 && *buf == '\t') {
-			parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START, NULL);
+			parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START, NULL);
 			parser_tokenize(tokenizer, buf, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN, 0);
-			parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END, NULL);
+			parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END, NULL);
 			goto next;
 		}
 		if (consume_var(buf) > 0) {
 			goto var;
 		}
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
 		tokenizer->in_target = 0;
 	}
 
 	pos = consume_conditional(buf);
 	if (pos > 0) {
 		tokenizer->builder->condname = str_trimr(tokenizer->builder->pool, str_ndup(tokenizer->builder->pool, buf, pos));
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, tokenizer->builder->condname);
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, tokenizer->builder->condname);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_START, tokenizer->builder->condname);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, tokenizer->builder->condname);
 		parser_tokenize(tokenizer, buf, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_TOKEN, pos);
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, tokenizer->builder->condname);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_CONDITIONAL_END, tokenizer->builder->condname);
 		goto next;
 	}
 
@@ -509,7 +516,7 @@ parser_tokenizer_read_internal(struct ParserTokenizer *tokenizer)
 	if (pos > 0) {
 		tokenizer->in_target = 1;
 		tokenizer->builder->targetname = str_dup(tokenizer->builder->pool, buf);
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_TARGET_START, buf);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_START, buf);
 		goto next;
 	}
 
@@ -521,7 +528,7 @@ var:
 			goto next;
 		}
 		tokenizer->builder->varname = str_trim(tokenizer->builder->pool, str_ndup(tokenizer->builder->pool, buf, pos));
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_VARIABLE_START, NULL);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_VARIABLE_START, NULL);
 	}
 	parser_tokenize(tokenizer, buf, PARSER_AST_BUILDER_TOKEN_VARIABLE_TOKEN, pos);
 	if (tokenizer->builder->varname == NULL) {
@@ -529,7 +536,7 @@ var:
 	}
 next:
 	if (tokenizer->builder->varname) {
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_VARIABLE_END, NULL);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_VARIABLE_END, NULL);
 		tokenizer->builder->varname = NULL;
 	}
 }
@@ -558,7 +565,7 @@ parser_tokenizer_finish(struct ParserTokenizer *tokenizer)
 	}
 
 	if (tokenizer->in_target) {
-		parser_astbuilder_append_token(tokenizer->builder, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
+		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
 	}
 
 	tokenizer->finished = 1;
