@@ -100,6 +100,7 @@ static void parser_output_prepare(struct Parser *);
 static int matches_opt_use_prefix_helper(char);
 static int matches_opt_use_prefix(const char *);
 static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
+static void parser_output_print_if(struct Parser *, struct AST *);
 static void parser_output_print_variable(struct Parser *, struct Mempool *, struct AST *);
 static void parser_output_category_makefile_reformatted(struct Parser *, struct AST *);
 static enum ASTWalkState parser_output_reformatted_walker(struct Parser *, struct AST *);
@@ -152,6 +153,7 @@ parser_init_settings(struct ParserSettings *settings)
 	settings->target_command_format_threshold = 8;
 	settings->target_command_format_wrapcol = 65;
 	settings->wrapcol = 80;
+	settings->if_wrapcol = 80;
 	settings->debug_level = 0;
 }
 
@@ -699,6 +701,104 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 }
 
 void
+parser_output_print_if(struct Parser *parser, struct AST *node)
+{
+	SCOPE_MEMPOOL(pool);
+
+	static const char *merge_with_next[] = {
+		"commands(",
+		"defined(",
+		"empty(",
+		"exists(",
+		"make(",
+		"target(",
+		"!",
+		"(",
+	};
+
+	static const char *line_breaks_after[] = {
+		"&&",
+		"||",
+		"!=",
+		"==",
+		"<=",
+		">=",
+		"<",
+		">",
+	};
+
+	const char *prefix = "";
+	if (node->ifexpr.ifparent) {
+		prefix = "el";
+	}
+	const char *start = str_printf(pool, ".%s%s%s ", str_repeat(pool, " ", node->ifexpr.indent), prefix, ASTIfType_human(node->ifexpr.type));
+	parser_enqueue_output(parser, start);
+
+	// Group words ("!", "defined(", "foo", ")" should be one word "!defined(foo)")
+	struct Array *word_groups = mempool_array(pool);
+	ARRAY_FOREACH(node->ifexpr.test, const char *, word) {
+		int merge = 0;
+		if (word_index < array_len(node->ifexpr.test) - 1) {
+			merge = 1;
+			for (size_t i = 0; i < nitems(merge_with_next); i++) {
+				if (strcmp(word, merge_with_next[i]) == 0) {
+					merge = 0;
+					break;
+				}
+			}
+			if (merge) {
+				// No merge yet when ) next
+				const char *next = array_get(node->ifexpr.test, word_index + 1);
+				if (next && strcmp(next, ")") == 0) {
+					merge = 0;
+				}
+			}
+		}
+
+		struct Array *group = array_get(word_groups, array_len(word_groups) - 1);
+		unless (group) {
+			group = mempool_array(pool);
+			array_append(word_groups, group);
+		}
+		array_append(group, word);
+		if (merge) {
+			group = mempool_array(pool);
+			array_append(word_groups, group);
+		}
+	}
+
+	size_t linelen = strlen(start);
+	ARRAY_FOREACH(word_groups, struct Array *, group) {
+		const char *word = str_join(pool, group, "");
+		if ((linelen + strlen(word)) > parser->settings.if_wrapcol) {
+			int ok = 1;
+			for (size_t i = 0; i < nitems(line_breaks_after); i++) {
+				if (strcmp(word, line_breaks_after[i]) == 0) {
+					ok = 0;
+					break;
+				}
+			}
+			if (ok) {
+				parser_enqueue_output(parser, "\\\n\t");
+				linelen = 8;
+			}
+		}
+		parser_enqueue_output(parser, word);
+		linelen += strlen(word);
+		if (group_index < (array_len(word_groups) - 1)) {
+			parser_enqueue_output(parser, " ");
+			linelen++;
+		}
+	}
+
+	if (node->ifexpr.comment && strlen(node->ifexpr.comment) > 0) {
+		parser_enqueue_output(parser, " ");
+		parser_enqueue_output(parser, node->ifexpr.comment);
+	}
+	parser_enqueue_output(parser, "\n");
+}
+
+void
 parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct AST *node)
 {
 	panic_unless(node->type == AST_VARIABLE, "expected AST_VARIABLE");
@@ -902,19 +1002,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		break;
 	case AST_IF:
 		if (edited) {
-			const char *prefix = "";
-			if (node->ifexpr.ifparent) {
-				prefix = "el";
-			}
-			parser_enqueue_output(parser, str_printf(pool, ".%s%s%s ", str_repeat(pool, " ", node->ifexpr.indent),
-				prefix, ASTIfType_human(node->ifexpr.type)));
-			// TODO: Apply some formatting like line breaks instead of just one long forever line???
-			parser_enqueue_output(parser, str_join(pool, node->ifexpr.test, " "));
-			if (node->ifexpr.comment && strlen(node->ifexpr.comment) > 0) {
-				parser_enqueue_output(parser, " ");
-				parser_enqueue_output(parser, node->ifexpr.comment);
-			}
-			parser_enqueue_output(parser, "\n");
+			parser_output_print_if(parser, node);
 			ARRAY_FOREACH(node->ifexpr.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
