@@ -111,7 +111,7 @@ struct ParserSettings {
 	int target_command_format_threshold;
 	size_t diff_context;
 	size_t target_command_format_wrapcol;
-	size_t wrapcol;
+	size_t variable_wrapcol;
 	size_t if_wrapcol;
 	int debug_level;
 };

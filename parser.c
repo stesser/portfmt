@@ -150,10 +150,10 @@ parser_init_settings(struct ParserSettings *settings)
 	settings->portsdir = -1;
 	settings->behavior = PARSER_DEFAULT;
 	settings->diff_context = 3;
+	settings->if_wrapcol = 80;
 	settings->target_command_format_threshold = 8;
 	settings->target_command_format_wrapcol = 65;
-	settings->wrapcol = 80;
-	settings->if_wrapcol = 80;
+	settings->variable_wrapcol = 80;
 	settings->debug_level = 0;
 }
 
@@ -383,7 +383,7 @@ print_token_array(struct Parser *parser, struct AST *node, struct Array *tokens)
 		wrapcol = 99999999;
 	} else {
 		/* Minus ' \' at end of line */
-		wrapcol = parser->settings.wrapcol - node->meta.goalcol - 2;
+		wrapcol = parser->settings.variable_wrapcol - node->meta.goalcol - 2;
 	}
 
 	struct Array *row = mempool_array(pool);
