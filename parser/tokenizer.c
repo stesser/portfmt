@@ -302,6 +302,7 @@ is_empty_line(const char *buf)
 static void
 consume_expansion(struct ParserTokenizeData *this)
 {
+	SCOPE_MEMPOOL(pool);
 	panic_unless(this->dollar, "not in '$' state");
 	char c = this->line[this->i];
 	if (this->dollar > 1) {
@@ -313,6 +314,13 @@ consume_expansion(struct ParserTokenizeData *this)
 			this->dollar = 0;
 		} else if (c == '$') {
 			this->dollar++;
+		} else if (c == ' ' || c == '\t') {
+			const char *token = str_trim(pool, str_slice(pool, this->line, this->start, this->i));
+			if (strcmp(token, "") != 0 && strcmp(token, "\\") != 0) {
+				parser_tokenizer_create_token(this->tokenizer, this->type, token);
+			}
+			this->start = this->i;
+			this->dollar = 0;
 		} else {
 			this->dollar = 0;
 		}
