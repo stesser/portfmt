@@ -62,13 +62,24 @@ struct ParserTokenizer {
 	int finished;
 };
 
+struct ParserTokenizeData {
+	struct ParserTokenizer *tokenizer;
+	int dollar;
+	int escape;
+	size_t i;
+	size_t start;
+	const char *line;
+	enum ParserASTBuilderTokenType type;
+};
+
 // Prototypes
 static size_t consume_comment(const char *);
 static size_t consume_conditional(const char *);
 static size_t consume_target(const char *);
-static size_t consume_token(struct ParserTokenizer *, const char *, size_t, char, char, int);
+static size_t consume_token(struct ParserTokenizeData *, size_t, char, char, int);
 static size_t consume_var(const char *);
 static int is_empty_line(const char *);
+static void parser_tokenize_helper(struct ParserTokenizeData *);
 static void parser_tokenize(struct ParserTokenizer *, const char *, enum ParserASTBuilderTokenType, size_t);
 static void parser_tokenizer_create_token(struct ParserTokenizer *, enum ParserASTBuilderTokenType, const char *);
 static void parser_tokenizer_read_internal(struct ParserTokenizer *);
@@ -191,14 +202,13 @@ consume_target(const char *buf)
 }
 
 size_t
-consume_token(struct ParserTokenizer *tokenizer, const char *line, size_t pos,
-	      char startchar, char endchar, int eol_ok)
+consume_token(struct ParserTokenizeData *this, size_t pos, char startchar, char endchar, int eol_ok)
 {
 	int counter = 0;
 	int escape = 0;
 	size_t i = pos;
-	for (; i < strlen(line); i++) {
-		char c = line[i];
+	for (; i < strlen(this->line); i++) {
+		char c = this->line[i];
 		if (escape) {
 			escape = 0;
 			continue;
@@ -227,7 +237,7 @@ consume_token(struct ParserTokenizer *tokenizer, const char *line, size_t pos,
 	}
 	if (!eol_ok) {
 		SCOPE_MEMPOOL(pool);
-		parser_set_error(tokenizer->parser, PARSER_ERROR_EXPECTED_CHAR, str_printf(pool, "%c", endchar));
+		parser_set_error(this->tokenizer->parser, PARSER_ERROR_EXPECTED_CHAR, str_printf(pool, "%c", endchar));
 		return 0;
 	} else {
 		return i;
@@ -287,101 +297,110 @@ is_empty_line(const char *buf)
 	return 1;
 }
 
+static void
+consume_expansion(struct ParserTokenizeData *this)
+{
+	panic_unless(this->dollar, "not in '$' state");
+	char c = this->line[this->i];
+	if (this->dollar > 1) {
+		if (c == '(') {
+			this->i = consume_token(this, this->i - 2, '(', ')', 0);
+			if (*this->tokenizer->parser_error != PARSER_ERROR_OK) {
+				return;
+			}
+			this->dollar = 0;
+		} else if (c == '$') {
+			this->dollar++;
+		} else {
+			this->dollar = 0;
+		}
+	} else if (c == '{') {
+		this->i = consume_token(this, this->i, '{', '}', 0);
+		this->dollar = 0;
+	} else if (c == '(') {
+		this->i = consume_token(this, this->i, '(', ')', 0);
+		this->dollar = 0;
+	} else if (isalnum(c) || c == '@' || c == '<' || c == '>' || c == '/' ||
+		   c == '?' || c == '*' || c == '^' || c == '-' || c == '_' ||
+		   c == ')') {
+		this->dollar = 0;
+	} else if (c == ' ' || c == '\\') {
+		/* '$ ' or '$\' are ignored by make for some reason instead of making
+		 * it an error, so we do the same...
+		 */
+		this->dollar = 0;
+		this->i--;
+	} else if (c == 1) {
+		this->dollar = 0;
+	} else if (c == '$') {
+		this->dollar++;
+	} else {
+		parser_set_error(this->tokenizer->parser, PARSER_ERROR_EXPECTED_CHAR, "$");
+	}
+}
+
 void
-parser_tokenize(struct ParserTokenizer *tokenizer, const char *line, enum ParserASTBuilderTokenType type, size_t start)
+parser_tokenize_helper(struct ParserTokenizeData *this)
 {
 	SCOPE_MEMPOOL(pool);
-	struct Parser *parser = tokenizer->parser;
 
-	int dollar = 0;
-	int escape = 0;
-	char *token = NULL;
-	size_t i = start;
-	for (; i < strlen(line); i++) {
-		panic_if(i < start, "index went before start");
-		char c = line[i];
-		if (escape) {
-			escape = 0;
+	for (; this->i < strlen(this->line); this->i++) {
+		panic_if(this->i < this->start, "index went before start");
+		char c = this->line[this->i];
+		if (this->escape) {
+			this->escape = 0;
 			if (c == '#' || c == '\\' || c == '$' || isspace(c)) {
 				continue;
 			}
 		}
-		if (dollar) {
-			if (dollar > 1) {
-				if (c == '(') {
-					i = consume_token(tokenizer, line, i - 2, '(', ')', 0);
-					if (*tokenizer->parser_error != PARSER_ERROR_OK) {
-						return;
-					}
-					dollar = 0;
-					continue;
-				} else if (c == '$') {
-					dollar++;
-				} else {
-					dollar = 0;
-				}
-			} else if (c == '{') {
-				i = consume_token(tokenizer, line, i, '{', '}', 0);
-				dollar = 0;
-			} else if (c == '(') {
-				i = consume_token(tokenizer, line, i, '(', ')', 0);
-				dollar = 0;
-			} else if (isalnum(c) || c == '@' || c == '<' || c == '>' || c == '/' ||
-				   c == '?' || c == '*' || c == '^' || c == '-' || c == '_' ||
-				   c == ')') {
-				dollar = 0;
-			} else if (c == ' ' || c == '\\') {
-				/* '$ ' or '$\' are ignored by make for some reason instead of making
-				 * it an error, so we do the same...
-				 */
-				dollar = 0;
-				i--;
-			} else if (c == 1) {
-				dollar = 0;
-			} else if (c == '$') {
-				dollar++;
-			} else {
-				parser_set_error(parser, PARSER_ERROR_EXPECTED_CHAR, "$");
+		if (this->dollar) {
+			consume_expansion(this);
+		} else if (c == ' ' || c == '\t') {
+			const char *token = str_trim(pool, str_slice(pool, this->line, this->start, this->i));
+			if (strcmp(token, "") != 0 && strcmp(token, "\\") != 0) {
+				parser_tokenizer_create_token(this->tokenizer, this->type, token);
 			}
-			if (*tokenizer->parser_error != PARSER_ERROR_OK) {
-				return;
-			}
-		} else {
-			if (c == ' ' || c == '\t') {
-				token = str_trim(pool, str_slice(pool, line, start, i));
-				if (strcmp(token, "") != 0 && strcmp(token, "\\") != 0) {
-					parser_tokenizer_create_token(tokenizer, type, token);
-				}
-				token = NULL;
-				start = i;
-			} else if (c == '"') {
-				i = consume_token(tokenizer, line, i, '"', '"', 1);
-			} else if (c == '\'') {
-				i = consume_token(tokenizer, line, i, '\'', '\'', 1);
-			} else if (c == '`') {
-				i = consume_token(tokenizer, line, i, '`', '`', 1);
-			} else if (c == '$') {
-				dollar++;
-			} else if (c == '\\') {
-				escape = 1;
-			} else if (c == '#') {
-				token = str_trim(pool, str_slice(pool, line, i, -1));
-				parser_tokenizer_create_token(tokenizer, type, token);
-				token = NULL;
-				parser_set_error(tokenizer->parser, PARSER_ERROR_OK, NULL);
-				return;
-			}
-			if (*tokenizer->parser_error != PARSER_ERROR_OK) {
-				return;
-			}
+			this->start = this->i;
+		} else if (c == '"') {
+			this->i = consume_token(this, this->i, '"', '"', 1);
+		} else if (c == '\'') {
+			this->i = consume_token(this, this->i, '\'', '\'', 1);
+		} else if (c == '`') {
+			this->i = consume_token(this, this->i, '`', '`', 1);
+		} else if (c == '$') {
+			this->dollar++;
+		} else if (c == '\\') {
+			this->escape = 1;
+		} else if (c == '#') {
+			const char *token = str_trim(pool, str_slice(pool, this->line, this->i, -1));
+			parser_tokenizer_create_token(this->tokenizer, this->type, token);
+			parser_set_error(this->tokenizer->parser, PARSER_ERROR_OK, NULL);
+			return;
+		}
+		if (*this->tokenizer->parser_error != PARSER_ERROR_OK) {
+			return;
 		}
 	}
 
-	token = str_trim(pool, str_slice(pool, line, start, i));
+	const char *token = str_trim(pool, str_slice(pool, this->line, this->start, this->i));
 	if (strcmp(token, "") != 0) {
-		parser_tokenizer_create_token(tokenizer, type, token);
+		parser_tokenizer_create_token(this->tokenizer, this->type, token);
 	}
-	parser_set_error(parser, PARSER_ERROR_OK, NULL);
+	parser_set_error(this->tokenizer->parser, PARSER_ERROR_OK, NULL);
+}
+
+void
+parser_tokenize(struct ParserTokenizer *tokenizer, const char *line, enum ParserASTBuilderTokenType type, size_t start)
+{
+	parser_tokenize_helper(&(struct ParserTokenizeData){
+		.tokenizer = tokenizer,
+		.dollar = 0,
+		.escape = 0,
+		.i = start,
+		.start = start,
+		.line = line,
+		.type = type,
+	});
 }
 
 void
