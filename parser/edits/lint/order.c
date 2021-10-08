@@ -115,11 +115,15 @@ get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 {
 	switch (node->type) {
 	case AST_IF:
-		if (array_len(node->ifexpr.test) == 1) {
-			const char *word = array_get(node->ifexpr.test, 0);
-			if (strcmp(word, "defined(DEVELOPER)") == 0 ||
-			    strcmp(word, "defined(MAINTAINER_MODE)") == 0 ||
-			    strcmp(word, "make(makesum)") == 0) {
+		if (array_len(node->ifexpr.test) == 3) {
+			const char *word0 = array_get(node->ifexpr.test, 0);
+			const char *word1 = array_get(node->ifexpr.test, 1);
+			const char *word2 = array_get(node->ifexpr.test, 2);
+			if (strcmp(word0, "defined(") == 0 &&
+			    (strcmp(word1, "DEVELOPER") == 0 || strcmp(word1, "MAINTAINER_MODE") == 0) &&
+			    strcmp(word2, ")") == 0) {
+				return AST_WALK_CONTINUE;
+			} else if (strcmp(word0, "make(") == 0 && strcmp(word1, "makesum") == 0 && strcmp(word2, ")") == 0) {
 				return AST_WALK_CONTINUE;
 			}
 		}
@@ -254,11 +258,15 @@ target_list(struct AST *node, struct TargetListWalkData *this)
 {
 	switch (node->type) {
 	case AST_IF:
-		if (array_len(node->ifexpr.test) == 1) {
-			const char *word = array_get(node->ifexpr.test, 0);
-			if (strcmp(word, "defined(DEVELOPER)") == 0 ||
-			    strcmp(word, "defined(MAINTAINER_MODE)") == 0 ||
-			    strcmp(word, "make(makesum)") == 0) {
+		if (array_len(node->ifexpr.test) == 3) {
+			const char *word0 = array_get(node->ifexpr.test, 0);
+			const char *word1 = array_get(node->ifexpr.test, 1);
+			const char *word2 = array_get(node->ifexpr.test, 2);
+			if (strcmp(word0, "defined(") == 0 &&
+			    (strcmp(word1, "DEVELOPER") == 0 || strcmp(word1, "MAINTAINER_MODE") == 0) &&
+			    strcmp(word2, ")") == 0) {
+				return AST_WALK_CONTINUE;
+			} else if (strcmp(word0, "make(") == 0 && strcmp(word1, "makesum") == 0 && strcmp(word2, ")") == 0) {
 				return AST_WALK_CONTINUE;
 			}
 		}
