@@ -340,6 +340,12 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX:
 			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL:
 			case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL_S: {
+				unless (array_len(current_cond) > 0) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "%s has no tokens",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+					return NULL;
+				}
 				enum ASTIncludeType type;
 				unless (ParserASTBuilderConditionalType_to_ASTIncludeType(condtype, &type)) {
 					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
@@ -407,6 +413,12 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV:
 			case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT:
 			case PARSER_AST_BUILDER_CONDITIONAL_WARNING: {
+				unless (array_len(current_cond) > 0) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "%s has no tokens",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+					return NULL;
+				}
 				enum ASTExprType type;
 				unless (ParserASTBuilderConditionalType_to_ASTExprType(condtype, &type)) {
 					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
@@ -423,6 +435,12 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 				node->expr.comment = split_off_comment(node->pool, current_cond, 1, -1, node->expr.words);
 				break;
 			} case PARSER_AST_BUILDER_CONDITIONAL_FOR: {
+				unless (array_len(current_cond) > 0) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "%s has no tokens",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+					return NULL;
+				}
 				struct AST *node = ast_new(root->pool, AST_FOR, &t->lines, &(struct ASTFor){
 					.indent = ((struct ParserASTBuilderToken *)array_get(current_cond, 0))->conditional.indent,
 				});
@@ -466,6 +484,12 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			case PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE:
 			case PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF:
 			case PARSER_AST_BUILDER_CONDITIONAL_ELSE: {
+				unless (array_len(current_cond) > 0) {
+					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+							str_printf(pool, "%s has no tokens",
+								ParserASTBuilderConditionalType_tostring(condtype)));
+					return NULL;
+				}
 				struct AST *parent = stack_peek(nodestack);
 				struct AST *ifparent = NULL;
 				switch (condtype) {
@@ -614,6 +638,10 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			array_append(current_var, t);
 			break;
 		case PARSER_AST_BUILDER_TOKEN_VARIABLE_END: {
+			unless (array_len(current_var) > 0) {
+				parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED, "variable has no tokens");
+				return NULL;
+			}
 			struct AST *node = ast_new(root->pool, AST_VARIABLE, &t->lines, &(struct ASTVariable){
 				.name = t->variable.name,
 				.modifier = ((struct ParserASTBuilderToken *)array_get(current_var, 0))->variable.modifier,
