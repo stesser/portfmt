@@ -188,7 +188,10 @@ apply(struct ParserSettings *settings, int argc, char *argv[])
 
 	void *userdata = NULL;
 	if (str_startswith(apply_edit, "output.")) {
-		userdata = mempool_alloc(pool, sizeof(struct ParserEditOutput));
+		struct ParserEditOutput *data = mempool_alloc(pool, sizeof(struct ParserEditOutput));
+		userdata = data;
+		data->callback = enqueue_output;
+		data->callbackuserdata = parser;
 	}
 
 	int error = parser_edit(parser, pool, editfn, userdata);
