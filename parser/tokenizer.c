@@ -366,6 +366,8 @@ parser_tokenize_conditional(struct ParserTokenizeData *this)
 		"target(",
 		"==",
 		"!=",
+		"<=",
+		">=",
 		"<",
 		">",
 		"&&",
