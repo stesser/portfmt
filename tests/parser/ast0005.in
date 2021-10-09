@@ -1,9 +1,0 @@
-.if 0
-.    for deptype in ${_OPTIONS_DEPENDS}
-.      if defined(${opt}_${deptype}_DEPENDS)
-${deptype}_DEPENDS+=	${${opt}_${deptype}_DEPENDS}
-.      endif
-.    endfor
-.else
-FOO=asd
-.endif

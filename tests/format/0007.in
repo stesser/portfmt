@@ -1,2 +1,0 @@
-FOO_CMAKE_OFF=	-D a -D b
-FOO_CMAKE_ON=	-D c -D d

@@ -1,4 +1,0 @@
-FOO_CMAKE_OFF=	-Da \
-		-Db
-FOO_CMAKE_ON=	-Dc \
-		-Dd

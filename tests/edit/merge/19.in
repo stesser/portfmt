@@ -1,5 +1,0 @@
-USE_GL=		gl glu
-
-LLD_UNSAFE=	yes
-
-MAKE_ARGS=	CC="${CC}" CXX="${CXX}"

@@ -1,2 +1,0 @@
-OPENMPI2_VARS=		cc=${LOCALBASE}/mpi/openmpi2/bin/mpicc \
-			cxx=${LOCALBASE}/mpi/openmpi2/bin/mpicxx

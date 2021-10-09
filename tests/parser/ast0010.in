@@ -1,4 +1,0 @@
-MAKE_ENV+=     CXXFLAGS_WARN="${CXXFLAGS_WARN}"
-MAKE_ENV+=     GNUSED=${LOCALBASE}/bin/gsed
-MAKE_ENV+=     DISPLAY=
-MAKE_ENV+=     verbose=1

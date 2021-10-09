@@ -1,0 +1,31 @@
+# You can force skipping these test by defining IGNORE_PATH_CHECKS
+.if !defined(IGNORE_PATH_CHECKS)
+.if ! ${PREFIX:M/*}
+.BEGIN:
+	@${ECHO_MSG} "PREFIX must be defined as an absolute path so that when 'make'"
+	@${ECHO_MSG} "is invoked in the work area PREFIX points to the right place."
+	@${FALSE}
+.endif
+.endif
+
+DATADIR?=		${PREFIX}/share/${PORTNAME}
+DOCSDIR?=		${PREFIX}/share/doc/${PORTNAME}
+ETCDIR?=		${PREFIX}/etc/${PORTNAME}
+EXAMPLESDIR?=	${PREFIX}/share/examples/${PORTNAME}
+WWWDIR?=		${PREFIX}/www/${PORTNAME}
+<<<<<<<<<
+{ COMMENT, line 1, .comment = # You can force skipping these test by defining IGNORE_PATH_CHECKS }
+{ IF/IF, line 2, .indent = 0, .test = { !, defined(, IGNORE_PATH_CHECKS, ) }, .elseif = 0 }
+=> if:
+	{ IF/IF, line 3, .indent = 0, .test = { !, ${PREFIX:M/*} }, .elseif = 0 }
+	=> if:
+		{ TARGET/NAMED, line 4, .sources = { .BEGIN }, .dependencies = {  } }
+			{ TARGET_COMMAND, line 5, .words = { @${ECHO_MSG}, "PREFIX must be defined as an absolute path so that when 'make'" } }
+			{ TARGET_COMMAND, line 6, .words = { @${ECHO_MSG}, "is invoked in the work area PREFIX points to the right place." } }
+			{ TARGET_COMMAND, line 7, .words = { @${FALSE} } }
+{ COMMENT, line 10, .comment =  }
+{ VARIABLE, line 11, .name = DATADIR, .modifier = ?=, .words = { ${PREFIX}/share/${PORTNAME} } }
+{ VARIABLE, line 12, .name = DOCSDIR, .modifier = ?=, .words = { ${PREFIX}/share/doc/${PORTNAME} } }
+{ VARIABLE, line 13, .name = ETCDIR, .modifier = ?=, .words = { ${PREFIX}/etc/${PORTNAME} } }
+{ VARIABLE, line 14, .name = EXAMPLESDIR, .modifier = ?=, .words = { ${PREFIX}/share/examples/${PORTNAME} } }
+{ VARIABLE, line 15, .name = WWWDIR, .modifier = ?=, .words = { ${PREFIX}/www/${PORTNAME} } }

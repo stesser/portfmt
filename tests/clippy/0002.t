@@ -1,0 +1,7 @@
+OPTIONS_DEFINE=	GIT GIT_LITE
+
+GIT_RUN_DEPENDS=
+GIT_LITE_RUN_DEPENDS=
+
+.include <bsd.port.mk>
+<<<<<<<<<

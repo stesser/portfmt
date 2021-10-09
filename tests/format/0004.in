@@ -1,3 +1,0 @@
-post-install:
-	# hello
-	${INSTALL_DATA} ...

@@ -1,2 +1,0 @@
-PORTSCOUT=	limit:^[0-9.]+$$ # bla
-PORTSCOUT=	limit:^[0-9.]+$$	# bla

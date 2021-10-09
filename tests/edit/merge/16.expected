@@ -1,3 +1,0 @@
-LDFLAGS+=	-L${FOO}
-LDFLAGS_i386=	-Wl,-znotext
-DOS2UNIX_FILES=	foo

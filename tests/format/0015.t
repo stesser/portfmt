@@ -1,0 +1,3 @@
+.MAKEFLAGS: foo
+<<<<<<<<<
+.MAKEFLAGS:	foo

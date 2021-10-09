@@ -1,4 +1,0 @@
-.if 1
-fo=
-.elifndef 2
-.endif

@@ -1,9 +1,0 @@
-USES+=a
-.if 1
-USES+=b
-.endif
-USES+=c
-.include <bsd.port.options.mk>
-USES+=a
-USES+=b
-USES+=c

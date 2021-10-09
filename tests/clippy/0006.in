@@ -1,5 +1,0 @@
-SUBPACKAGES=gdbm foo
-COMMENT.gdbm=
-COMMENT.foo=
-
-.include <bsd.port.mk>

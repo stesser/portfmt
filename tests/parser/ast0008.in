@@ -1,9 +1,0 @@
-.if 1
-.if 2
-foo:
-.if 3
-	adflasdf
-.endif
-.endif
-bar:
-.endif

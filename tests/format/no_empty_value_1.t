@@ -1,0 +1,10 @@
+PORTDOCS=	\
+		CREDITS.md \
+		DEVNOTES.md \
+		GAMELISTS.md \
+		README.md \
+		SYSTEMS.md \
+		THEMES.md
+<<<<<<<<<
+PORTDOCS=	CREDITS.md DEVNOTES.md GAMELISTS.md README.md SYSTEMS.md \
+		THEMES.md

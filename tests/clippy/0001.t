@@ -1,0 +1,14 @@
+OPTIONS_DEFINE=	GIT GIT_LITE
+
+GIT_LITE_RUN_DEPENDS=
+GIT_RUN_DEPENDS=
+
+.include <bsd.port.mk>
+<<<<<<<<<
+# Options definitions
+OPTIONS_DEFINE
+
+# Options helpers
++GIT_RUN_DEPENDS
+GIT_LITE_RUN_DEPENDS
+-GIT_RUN_DEPENDS

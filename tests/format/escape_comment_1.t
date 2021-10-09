@@ -1,0 +1,3 @@
+NATIVE_PKCS11_DESC=	Use PKCS\#11 native API (**READ HELP**)
+<<<<<<<<<
+NATIVE_PKCS11_DESC=	Use PKCS\#11 native API (**READ HELP**)

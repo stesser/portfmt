@@ -11,7 +11,6 @@ PORTSCAN="${ROOT}/bin/portscan"
 export PORTCLIPPY
 export PORTEDIT
 export PORTFMT
-export PORTFMT_PLUGIN_PATH
 export PORTSCAN
 export ROOT
 
@@ -22,56 +21,73 @@ exec 3>&1
 exec >"${LOG}"
 exec 2>&1
 
-cd "${ROOT}/tests/parser" || exit 1
-for test in *.sh; do
-	if sh -eu "${test}"; then
+printf "\n  parser: " >&3
+for t in tests/parser/*.sh; do
+	if actual="${t}.actual" input="${t}.in" expected="${t}.expected" ${SH} -o pipefail -eu "${t}"; then
 		printf . >&3
 	else
 		printf X >&3
-		echo "parser/${test%*.sh}: FAIL" >&2
+		echo "${t}:1:1: FAIL" >&2
 		tests_run=$((tests_run + 1))
 		tests_failed=$((tests_failed + 1))
 		continue
 	fi
 	tests_run=$((tests_run + 1))
 done
-for test in ast*.in; do
-	t=${test%*.in}
+for t in tests/parser/ast*.t tests/parser/token*.t; do
+	if ! ${ROOT}/tests/split_test "${t}"; then
+		printf X >&3
+		echo "${t}:1:1: split_test failed" >&2
+		tests_failed=$((tests_failed + 1))
+		continue
+	fi
 	tests_run=$((tests_run + 1))
-	if ${PORTFMT} -ddd <"${t}.in" >"${t}.actual"; then
+	args=""
+	end="false"
+	case "$(basename "${t}")" in
+	ast_err*) args="-ddd"; end="true" ;;
+	ast*) args="-ddd" ;;
+	token*) args="-dd" ;;
+	esac
+	if ${PORTFMT} ${args} <"${t}.in" >"${t}.actual" 2>&1 || ${end}; then
 		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
 			printf . >&3
 		else
 			printf X >&3
-			echo "parser/${t}: FAIL" >&2
+			echo "${t}:1:1: FAIL" >&2
 			tests_failed=$((tests_failed + 1))
 			continue
 		fi
 	else
 		printf X >&3
-		echo "parser/${t}: FAIL" >&2
+		echo "${t}:1:1: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 		continue
 	fi
 done
-rm -f ./*.actual
+rm -f tests/parser/*.t.actual tests/parser/*.t.expected tests/parser/*.t.in
 
-cd "${ROOT}/tests/format" || exit 1
-for test in *.in; do
-	t=${test%*.in}
+printf "\n  format: " >&3
+for t in tests/format/*.t; do
+	if ! ${ROOT}/tests/split_test "${t}"; then
+		printf X >&3
+		echo "${t}:1:1: split_test failed" >&2
+		tests_failed=$((tests_failed + 1))
+		continue
+	fi
 	tests_run=$((tests_run + 1))
 	if ${PORTFMT} -t <"${t}.in" >"${t}.actual"; then
 		if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
 			printf . >&3
 		else
 			printf X >&3
-			echo "format/${t}#1: FAIL" >&2
+			echo "${t}:1:1: FAIL #1" >&2
 			tests_failed=$((tests_failed + 1))
 			continue
 		fi
 	else
 		printf X >&3
-		echo "format/${t}#1: FAIL" >&2
+		echo "${t}:1:1: FAIL #1" >&2
 		tests_failed=$((tests_failed + 1))
 		continue
 	fi
@@ -82,67 +98,77 @@ for test in *.in; do
 			printf . >&3
 		else
 			printf X >&3
-			echo "format/${t}#2: FAIL" >&2
+			echo "${t}:1:1: FAIL #2" >&2
 			tests_failed=$((tests_failed + 1))
 		fi
 	else
 		printf X >&3
-		echo "format/${t}#2: FAIL" >&2
+		echo "${t}:1:1: FAIL #2" >&2
 		tests_failed=$((tests_failed + 1))
 	fi
 done
-rm -f ./*.actual ./*.actual2
+rm -f tests/format/*.t.actual tests/format/*.t.actual2 tests/format/*.t.in tests/format/*.t.expected
 
-cd "${ROOT}/tests/edit" || exit 1
-for test in bump-epoch/*.sh bump-revision/*.sh apply/*.sh get/*.sh merge/*.sh set-version/*.sh; do
-	t=${test%*.sh}
+printf "\n  edit: " >&3
+for t in $(cd "${ROOT}"; find tests/edit -name '*.t' | sort); do
+	if ! ${ROOT}/tests/split_test "${t}"; then
+		printf X >&3
+		echo "${t}:1:1: split_test failed" >&2
+		tests_failed=$((tests_failed + 1))
+		continue
+	fi
 	tests_run=$((tests_run + 1))
-	cd "${ROOT}/tests/edit/$(dirname "${test}")" || exit 1
-	if ${SH} -o pipefail -eu "$(basename "${test}")"; then
+	if actual="${t}.actual" input="${t}.in" expected="${t}.expected" ${SH} -o pipefail -eu "${t}.sh"; then
 		printf . >&3
 	else
 		printf X >&3
-		echo "edit/${t}: FAIL" >&2
+		echo "${t}:1:1: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	fi
+	rm -f "${t}.in" "${t}.expected" "${t}.sh"
 done
 
-cd "${ROOT}/tests/clippy" || exit 1
-for test in *.in; do
-	t=${test%*.in}
+printf "\n  clippy: " >&3
+for t in tests/clippy/*.t; do
+	if ! ${ROOT}/tests/split_test "${t}"; then
+		printf X >&3
+		echo "${t}:1:1: split_test failed" >&2
+		tests_failed=$((tests_failed + 1))
+		continue
+	fi
 	tests_run=$((tests_run + 1))
 	${PORTCLIPPY} "${t}.in" >"${t}.actual"
 	if diff -L "${t}.expected" -L "${t}.actual" -u "${t}.expected" "${t}.actual"; then
 		printf . >&3
 	else
 		printf X >&3
-		echo "clippy/${t}: FAIL" >&2
+		echo "${t}:1:1: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 		continue
 	fi
 done
-rm -f ./*.actual
+rm -f tests/clippy/*.t.actual tests/clippy/*.t.expected tests/clippy/*.t.in
 
-cd "${ROOT}/tests" || exit 1
-for t in reject/*.in; do
+printf "\n  reject: " >&3
+for t in tests/reject/*.in; do
 	tests_run=$((tests_run + 1))
 	if ${PORTFMT} "${t}"; then
 		printf X >&3
-		echo "${t%*.in}: FAIL" >&2
+		echo "${t}:1:1: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	else
 		printf . >&3
 	fi
 done
 
-cd "${ROOT}/tests/portscan" || exit 1
-for t in *.sh; do
+printf "\n  portscan: " >&3
+for t in tests/portscan/*.sh; do
 	tests_run=$((tests_run + 1))
-	if ${SH} -o pipefail -eu "${t}"; then
+	if (cd "${ROOT}/tests/portscan"; ${SH} -o pipefail -eu "$(basename "${t}")"); then
 		printf . >&3
 	else
 		printf X >&3
-		echo "portscan/${t%*.sh}: FAIL" >&2
+		echo "${t}:1:1: FAIL" >&2
 		tests_failed=$((tests_failed + 1))
 	fi
 done
@@ -151,8 +177,10 @@ echo >&3
 if [ "${tests_failed}" -gt 0 ]; then
 	cat "${LOG}" >&3
 	rm -f "${LOG}"
+	printf "  fail: %s ok: %s/%s\n" "${tests_failed}" "$((tests_run - tests_failed))" "${tests_run}" >&3
 	exit 1
 else
 	rm -f "${LOG}"
+	printf "  fail: %s ok: %s/%s\n" "${tests_failed}" "$((tests_run - tests_failed))" "${tests_run}" >&3
 	exit 0
 fi

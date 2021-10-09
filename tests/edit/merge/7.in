@@ -1,3 +1,0 @@
-PORTNAME=	cloak
-
-.include <bsd.port.mk>

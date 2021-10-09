@@ -1,1 +1,0 @@
-CXXFLAGS+=	$$(llvm-config${LLVM_VERSION} --cflags)

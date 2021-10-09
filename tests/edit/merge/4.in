@@ -1,4 +1,0 @@
-PORTNAME=
-
-# enable all output serialization formats
-CARGO_FEATURES=	all

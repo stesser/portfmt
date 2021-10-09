@@ -13,6 +13,7 @@ Makefile.configure
 Makefile.local
 /bin
 /tests/log
+/tests/split_test
 TODO
 RELNOTES.md
 portfmt-*.tar.lz

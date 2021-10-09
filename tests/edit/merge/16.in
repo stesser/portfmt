@@ -1,2 +1,0 @@
-LDFLAGS+=	-L${FOO}
-DOS2UNIX_FILES=	foo

@@ -101,6 +101,9 @@ bin/portscan: portscan.o libias/libias.a libportfmt.a
 	@mkdir -p bin
 	${CC} ${LDFLAGS} -o bin/portscan portscan.o libportfmt.a libias/libias.a ${LDADD} -lpthread
 
+tests/split_test: tests/split_test.o libias/libias.a
+	${CC} ${LDFLAGS} -o tests/split_test tests/split_test.o libias/libias.a ${LDADD}
+
 #
 enum.o: config.h libias/flow.h ast.h mainutils.h parser.h parser/astbuilder/enum.h portscan/log.h portscan/status.h rules.h
 ast.o: config.h libias/array.h libias/flow.h libias/map.h libias/mempool.h libias/stack.h libias/str.h ast.h
@@ -144,6 +147,7 @@ portscan/log.o: config.h libias/array.h libias/diff.h libias/flow.h libias/io.h 
 portscan/status.o: config.h libias/array.h libias/mempool.h libias/str.h portscan/status.h
 regexp.o: config.h libias/flow.h libias/mem.h libias/mempool.h libias/str.h regexp.h
 rules.o: config.h libias/array.h libias/flow.h libias/mem.h libias/mempool.h libias/set.h libias/str.h ast.h constants.h rules.h parser.h parser/edits.h
+tests/split_test.o: config.h libias/array.h libias/flow.h libias/io.h libias/mempool.h libias/mempool/file.h libias/path.h libias/str.h
 
 deps: enum.c
 	@for f in enum.c $$(git ls-files | grep '.*\.c$$' | grep -v '^tests\.c$$' | LC_ALL=C sort); do \
@@ -172,7 +176,7 @@ clean:
 	@${MAKE} -C libias clean
 	@rm -f ${OBJS} *.o libportfmt.a bin/portclippy bin/portedit bin/portfmt \
 		bin/portscan config.*.old $$(echo ${ALL_TESTS} | sed 's,tests/run.sh,,') \
-		enum.c
+		enum.c tests/split_test tests/split_test.o
 	@rm -rf bin
 
 debug:
@@ -182,7 +186,7 @@ debug:
 lint: all
 	@${SH} tests/lint.sh
 
-test: all ${TESTS}
+test: all ${TESTS} tests/split_test
 	@${SH} libias/tests/run.sh ${TESTS}
 
 tag:
