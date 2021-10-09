@@ -100,6 +100,7 @@ static void parser_output_prepare(struct Parser *);
 static int matches_opt_use_prefix_helper(char);
 static int matches_opt_use_prefix(const char *);
 static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
+static void parser_output_print_for(struct Parser *, struct AST *);
 static void parser_output_print_if(struct Parser *, struct AST *);
 static void parser_output_print_variable(struct Parser *, struct Mempool *, struct AST *);
 static void parser_output_category_makefile_reformatted(struct Parser *, struct AST *);
@@ -701,6 +702,23 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 }
 
 void
+parser_output_print_for(struct Parser *parser, struct AST *node)
+{
+	SCOPE_MEMPOOL(pool);
+	const char *indent = str_repeat(pool, " ", node->forexpr.indent);
+	// TODO: Apply some formatting like line breaks instead of just one long forever line???
+	parser_enqueue_output(parser, str_printf(pool, ".%sfor %s in %s",
+		indent,
+		str_join(pool, node->forexpr.bindings, " "),
+		str_join(pool, node->forexpr.words, " ")));
+	if (node->forexpr.comment && strlen(node->forexpr.comment) > 0) {
+		parser_enqueue_output(parser, " ");
+		parser_enqueue_output(parser, node->forexpr.comment);
+	}
+	parser_enqueue_output(parser, "\n");
+}
+
+void
 parser_output_print_if(struct Parser *parser, struct AST *node)
 {
 	SCOPE_MEMPOOL(pool);
@@ -932,7 +950,6 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		break;
 	case AST_INCLUDE:
 		if (edited) {
-			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			const char *name = ASTIncludeType_identifier(node->include.type);
 			if (*name == '.') {
 				parser_enqueue_output(parser, str_printf(pool, ".%s%s", str_repeat(pool, " ", node->include.indent), name + 1));
@@ -958,7 +975,6 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 	case AST_EXPR:
 		if (edited) {
 			const char *name = ASTExprType_identifier(node->expr.type);
-			// TODO: Apply some formatting like line breaks instead of just one long forever line???
 			parser_enqueue_output(parser, str_printf(pool, ".%s%s %s",
 				str_repeat(pool, " ", node->expr.indent), name + 1, str_join(pool, node->expr.words, " ")));
 			if (node->expr.comment && strlen(node->expr.comment) > 0) {
@@ -972,21 +988,12 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 		break;
 	case AST_FOR:
 		if (edited) {
-			const char *indent = str_repeat(pool, " ", node->forexpr.indent);
-			// TODO: Apply some formatting like line breaks instead of just one long forever line???
-			parser_enqueue_output(parser, str_printf(pool, ".%sfor %s in %s",
-				indent,
-				str_join(pool, node->forexpr.bindings, " "),
-				str_join(pool, node->forexpr.words, " ")));
-			if (node->forexpr.comment && strlen(node->forexpr.comment) > 0) {
-				parser_enqueue_output(parser, " ");
-				parser_enqueue_output(parser, node->forexpr.comment);
-			}
-			parser_enqueue_output(parser, "\n");
+			parser_output_print_for(parser, node);
 			ARRAY_FOREACH(node->forexpr.body, struct AST *, child) {
 				AST_WALK_RECUR(parser_output_reformatted_walker(parser, child));
 			}
-			parser_enqueue_output(parser, str_printf(pool, ".%sendfor", indent));
+			parser_enqueue_output(parser, str_printf(pool, ".%sendfor",
+				str_repeat(pool, " ", node->forexpr.indent)));
 			if (node->forexpr.end_comment && strlen(node->forexpr.end_comment) > 0) {
 				parser_enqueue_output(parser, " ");
 				parser_enqueue_output(parser, node->forexpr.end_comment);
