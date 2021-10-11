@@ -527,7 +527,6 @@ static struct VariableOrderEntry variable_order_[] = {
 	{ BLOCK_USES, "GCONF_SCHEMAS", VAR_SORTED, { "gnome" } },
 	{ BLOCK_USES, "GLIB_SCHEMAS", VAR_PRINT_AS_NEWLINES | VAR_SORTED, { "gnome" } },
 	{ BLOCK_USES, "GNOME_LOCALSTATEDIR", VAR_SKIP_GOALCOL, { "gnome" } },
-	{ BLOCK_USES, "INSTALLS_ICONS", VAR_DEFAULT, { "gnome" } },
 	{ BLOCK_USES, "INSTALLS_OMF", VAR_DEFAULT, { "gnome" } },
 	{ BLOCK_USES, "USE_GNUSTEP", VAR_SORTED, { "gnustep" } },
 	{ BLOCK_USES, "GNUSTEP_PREFIX", VAR_DEFAULT, { "gnustep" } },

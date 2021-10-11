@@ -122,7 +122,6 @@ const char *use_gnome_rel[] = {
 	"gnomemenus3:build",
 	"gnomemimedata:build",
 	"gsound:build",
-	"gtk-update-icon-cache:build",
 	"gtksharp20:build",
 	"gvfs:build",
 	"intltool:build",
