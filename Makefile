@@ -79,6 +79,7 @@ libias/Makefile.configure: Makefile.configure
 	cp Makefile.configure libias
 
 libias/libias.a: libias libias/config.h libias/Makefile.configure
+	@echo "-include ../Makefile.local" >libias/Makefile.local
 	@${MAKE} -C libias libias.a
 
 ${TESTS}: libportfmt.a
