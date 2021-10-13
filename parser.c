@@ -1459,9 +1459,9 @@ parser_load_includes_walker(struct AST *node, struct Parser *parser, int portsdi
 		return AST_WALK_CONTINUE;
 	case AST_FOR:
 	case AST_IF:
-	case AST_TARGET:
 		// Shorten the walk; we only care about top level includes for now
 		return AST_WALK_CONTINUE;
+	case AST_TARGET:
 	case AST_ROOT:
 	case AST_COMMENT:
 	case AST_DELETED:
