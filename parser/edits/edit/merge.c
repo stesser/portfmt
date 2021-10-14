@@ -113,6 +113,7 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 		}
 		// Insert new empty line
 		switch (sibling->type) {
+		case AST_COMMENT:
 		case AST_EXPR:
 		case AST_FOR:
 		case AST_IF:
@@ -132,7 +133,6 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 			break;
 		} case AST_ROOT:
 		case AST_DELETED:
-		case AST_COMMENT:
 		case AST_TARGET_COMMAND:
 			break;
 		}
