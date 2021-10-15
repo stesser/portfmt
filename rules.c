@@ -1331,7 +1331,9 @@ add_referenced_var_candidates(struct Mempool *pool, struct Array *candidates, st
 	array_append(candidates, str_printf(pool, "$(${%s}_%s)", ref, stem));
 	array_append(candidates, str_printf(pool, "${${%s}_%s:", ref, stem));
 	array_append(cond_candidates, str_printf(pool, "defined(${%s}_%s)", ref, stem));
+	array_append(cond_candidates, str_printf(pool, "defined(${%s}_%s:", ref, stem));
 	array_append(cond_candidates, str_printf(pool, "empty(${%s}_%s)", ref, stem));
+	array_append(cond_candidates, str_printf(pool, "empty(${%s}_%s:", ref, stem));
 }
 
 int
@@ -1354,7 +1356,9 @@ is_referenced_var(struct Parser *parser, const char *var)
 	array_append(candidates, str_printf(pool, "$(%s)", var));
 	array_append(candidates, str_printf(pool, "${%s:", var));
 	array_append(cond_candidates, str_printf(pool, "defined(%s)", var));
+	array_append(cond_candidates, str_printf(pool, "defined(%s:", var));
 	array_append(cond_candidates, str_printf(pool, "empty(%s)", var));
+	array_append(cond_candidates, str_printf(pool, "empty(%s:", var));
 
 	{
 		char *var_without_arch = NULL;
