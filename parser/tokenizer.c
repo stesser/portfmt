@@ -428,7 +428,11 @@ parser_tokenize_helper(struct ParserTokenizeData *this)
 		} else if (c == '\\') {
 			this->escape = 1;
 		} else if (c == '#') {
-			const char *token = str_trim(pool, str_slice(pool, this->line, this->i, -1));
+			const char *token = str_trim(pool, str_slice(pool, this->line, this->start, this->i));
+			if (strcmp(token, "") != 0) {
+				parser_tokenizer_create_token(this->tokenizer, this->type, token);
+			}
+			token = str_trim(pool, str_slice(pool, this->line, this->i, -1));
 			parser_tokenizer_create_token(this->tokenizer, this->type, token);
 			parser_set_error(this->tokenizer->parser, PARSER_ERROR_OK, NULL);
 			return;
