@@ -115,7 +115,11 @@ get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 {
 	switch (node->type) {
 	case AST_IF:
-		if (array_len(node->ifexpr.test) == 3) {
+		if (node->ifexpr.type == AST_IF_NMAKE && array_len(node->ifexpr.test) == 1) {
+			if (strcmp(array_get(node->ifexpr.test, 0), "portclippy") == 0) {
+				return AST_WALK_CONTINUE;
+			}
+		} else if (node->ifexpr.type == AST_IF_IF && array_len(node->ifexpr.test) == 3) {
 			const char *word0 = array_get(node->ifexpr.test, 0);
 			const char *word1 = array_get(node->ifexpr.test, 1);
 			const char *word2 = array_get(node->ifexpr.test, 2);
@@ -258,7 +262,11 @@ target_list(struct AST *node, struct TargetListWalkData *this)
 {
 	switch (node->type) {
 	case AST_IF:
-		if (array_len(node->ifexpr.test) == 3) {
+		if (node->ifexpr.type == AST_IF_NMAKE && array_len(node->ifexpr.test) == 1) {
+			if (strcmp(array_get(node->ifexpr.test, 0), "portclippy") == 0) {
+				return AST_WALK_CONTINUE;
+			}
+		} else if (node->ifexpr.type == AST_IF_IF && array_len(node->ifexpr.test) == 3) {
 			const char *word0 = array_get(node->ifexpr.test, 0);
 			const char *word1 = array_get(node->ifexpr.test, 1);
 			const char *word2 = array_get(node->ifexpr.test, 2);
@@ -347,7 +355,8 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 		row(pool, target, "# They could just be typos or Portclippy needs to be made aware of them.", NULL);
 		row(pool, target, "# Please double check them.", NULL);
 		row(pool, target, "#", NULL);
-		row(pool, target, "# Prefix them with an _ to tell Portclippy to ignore them.", NULL);
+		row(pool, target, "# Prefix them with an _ or wrap in '.ifnmake portclippy' to tell", NULL);
+		row(pool, target, "# Portclippy to ignore them.", NULL);
 		row(pool, target, "#", NULL);
 		row(pool, target, "# If in doubt please report this on portfmt's bug tracker:", NULL);
 		row(pool, target, "# https://github.com/t6/portfmt/issues", NULL);

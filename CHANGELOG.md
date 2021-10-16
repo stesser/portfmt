@@ -48,6 +48,7 @@ Summary
   is also kept on only one line in that case.  `--progress=0`
   disables this.
 - portscan: The `--all` option has been removed
+- portclippy: Ignore blocks wrapped in `.ifnmake portclippy`
 
 ## [1.0.0] - 2021-09-01
 
