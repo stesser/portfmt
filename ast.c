@@ -581,13 +581,13 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		if (node->targetcommand.flags) {
 			struct Array *tokens = MEMPOOL_ARRAY(pool, ", .flags = ");
 			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
-				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_SILENT));
+				array_append(tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_SILENT));
 			}
 			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
-				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
+				array_append(tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
 			}
 			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
-				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
+				array_append(tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
 			}
 			flags = str_join(pool, tokens, "");
 		}

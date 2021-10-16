@@ -560,13 +560,13 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 		if (word_index == 0 && node->targetcommand.flags) {
 			struct Array *tokens = mempool_array(pool);
 			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
-				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_SILENT));
+				array_append(tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_SILENT));
 			}
 			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
-				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
+				array_append(tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
 			}
 			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
-				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
+				array_append(tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
 			}
 			array_append(tokens, word);
 			word = str_join(pool, tokens, "");

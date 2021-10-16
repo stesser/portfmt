@@ -840,13 +840,13 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START, node->edited, &node->line_start, NULL, NULL, NULL, targetname);
 		struct Array *flag_tokens = mempool_array(pool);
 		if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
-			array_append(flag_tokens, "@");
+			array_append(flag_tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_SILENT));
 		}
 		if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
-			array_append(flag_tokens, "-");
+			array_append(flag_tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
 		}
 		if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
-			array_append(flag_tokens, "+");
+			array_append(flag_tokens, ASTTargetCommandFlag_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
 		}
 		if (array_len(node->targetcommand.words) == 0 && array_len(flag_tokens) > 0) {
 			const char *flags = str_join(pool, flag_tokens, "");
