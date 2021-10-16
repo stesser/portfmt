@@ -46,6 +46,7 @@ enum ParserBehavior {
 	PARSER_ALWAYS_SORT_VARIABLES = 1 << 15,
 	PARSER_CHECK_VARIABLE_REFERENCES = 1 << 16,
 	PARSER_LOAD_LOCAL_INCLUDES = 1 << 17,
+	PARSER_SANITIZE_CMAKE_ARGS = 1 << 18,
 };
 
 const char *ParserBehavior_tostring(enum ParserBehavior);

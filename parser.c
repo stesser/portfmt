@@ -1247,7 +1247,8 @@ parser_read_finish(struct Parser *parser)
 		return parser->error;
 	}
 
-	if (PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_cmake_args, NULL)) {
+	if (parser->settings.behavior & PARSER_SANITIZE_CMAKE_ARGS &&
+	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_sanitize_cmake_args, NULL)) {
 		return parser->error;
 	}
 

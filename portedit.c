@@ -342,7 +342,7 @@ merge(struct ParserSettings *settings, int argc, char *argv[])
 {
 	SCOPE_MEMPOOL(pool);
 
-	settings->behavior |= PARSER_ALLOW_FUZZY_MATCHING;
+	settings->behavior |= PARSER_ALLOW_FUZZY_MATCHING | PARSER_SANITIZE_CMAKE_ARGS;
 
 	if (argc < 2) {
 		merge_usage();

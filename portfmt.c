@@ -62,7 +62,8 @@ main(int argc, char *argv[])
 	parser_init_settings(&settings);
 	settings.behavior = PARSER_COLLAPSE_ADJACENT_VARIABLES |
 		PARSER_DEDUP_TOKENS | PARSER_OUTPUT_REFORMAT |
-		PARSER_ALLOW_FUZZY_MATCHING | PARSER_SANITIZE_COMMENTS;
+		PARSER_ALLOW_FUZZY_MATCHING | PARSER_SANITIZE_COMMENTS |
+		PARSER_SANITIZE_CMAKE_ARGS;
 
 	if (!read_common_args(&argc, &argv, &settings, "D::dituUw:", pool, NULL)) {
 		usage();
