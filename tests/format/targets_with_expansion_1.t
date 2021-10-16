@@ -19,7 +19,7 @@ ${target}:
 .if !target(${stage}-${name}-script)
 .if exists(${SCRIPTDIR}/${stage}-${name})
 ${stage}-${name}-script:
-	@ cd ${.CURDIR} && \
+	@cd ${.CURDIR} && \
 		${SETENV} ${SCRIPTS_ENV} ${SH} ${SCRIPTDIR}/${.TARGET:S/-script$//}
 .endif
 .endif

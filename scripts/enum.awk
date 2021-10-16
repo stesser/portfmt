@@ -101,18 +101,21 @@ in_enum {
 	sub(/,$/, "", enum[enum_len])
 	enum[enum_len, "tostring"] = enum[enum_len]
 	enum[enum_len, "line"] = sprintf("%d:%d", FNR, length($0))
-	if ($2 == "//") {
-		for (i = 3; i <= NF;) {
-			n = i
-			if ($i ~ /^identifier:/) {
-				i = parse_string("identifier", i)
-				enum[enum_len, "identifier"] = $n
-			} else if ($i ~ /^human:/) {
-				i = parse_string("human", i)
-				enum[enum_len, "human"] = $n
-			} else {
-				err(enum[enum_len, "line"], sprintf("unknown key %s", $i))
+	for (j = 2; j <= NF; j++) {
+		if ($j == "//") {
+			for (i = j + 1; i <= NF;) {
+				n = i
+				if ($i ~ /^identifier:/) {
+					i = parse_string("identifier", i)
+					enum[enum_len, "identifier"] = $n
+				} else if ($i ~ /^human:/) {
+					i = parse_string("human", i)
+					enum[enum_len, "human"] = $n
+				} else {
+					err(enum[enum_len, "line"], sprintf("unknown key %s", $i))
+				}
 			}
+			break
 		}
 	}
 }

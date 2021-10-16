@@ -623,7 +623,28 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 			ast_parent_append_sibling(stack_peek(nodestack), node, 0);
 			node->edited = t->edited;
 			node->line_end = node->line_start;
-			node->targetcommand.comment = split_off_comment(node->pool, current_target_cmds, 0, -1, node->targetcommand.words);
+			size_t start = 0;
+			struct ParserASTBuilderToken *first = array_get(current_target_cmds, 0);
+			if (first && first->data) {
+				for (; *first->data; first->data++) {
+					switch (*first->data) {
+					case '@':
+						node->targetcommand.flags |= AST_TARGET_COMMAND_FLAG_SILENT;
+						continue;
+					case '-':
+						node->targetcommand.flags |= AST_TARGET_COMMAND_FLAG_IGNORE_ERROR;
+						continue;
+					case '+':
+						node->targetcommand.flags |= AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE;
+						continue;
+					}
+					break;
+				}
+				if (strcmp(first->data, "") == 0) {
+					start = 1;
+				}
+			}
+			node->targetcommand.comment = split_off_comment(node->pool, current_target_cmds, start, -1, node->targetcommand.words);
 			if (array_len(current_target_cmds) > 1) {
 				node->line_start = ((struct ParserASTBuilderToken *)array_get(current_target_cmds, 1))->lines;
 			}
@@ -802,8 +823,27 @@ ast_to_token_stream(struct AST *node, struct Mempool *extpool, struct Array *tok
 	} case AST_TARGET_COMMAND: {
 		const char *targetname = get_targetname(pool, node->targetcommand.target);
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_START, node->edited, &node->line_start, NULL, NULL, NULL, targetname);
-		ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
-			token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN, node->edited, &node->line_start, word, NULL, NULL, targetname);
+		struct Array *flag_tokens = mempool_array(pool);
+		if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
+			array_append(flag_tokens, "@");
+		}
+		if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
+			array_append(flag_tokens, "-");
+		}
+		if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
+			array_append(flag_tokens, "+");
+		}
+		if (array_len(node->targetcommand.words) == 0 && array_len(flag_tokens) > 0) {
+			const char *flags = str_join(pool, flag_tokens, "");
+			token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN, node->edited, &node->line_start, flags, NULL, NULL, targetname);
+		} else {
+			ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
+				if (word_index == 0 && array_len(flag_tokens) > 0) {
+					array_append(flag_tokens, word);
+					word = str_join(pool, flag_tokens, "");
+				}
+				token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_TOKEN, node->edited, &node->line_start, word, NULL, NULL, targetname);
+			}
 		}
 		token_to_stream(extpool, tokens, PARSER_AST_BUILDER_TOKEN_TARGET_COMMAND_END, node->edited, &node->line_start, NULL, NULL, NULL, targetname);
 		break;

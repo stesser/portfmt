@@ -156,6 +156,7 @@ ast_new(struct Mempool *pool, enum ASTType type, struct ASTLineRange *lines, voi
 		struct ASTTargetCommand *targetcommand = value;
 		node->targetcommand.target = targetcommand->target;
 		node->targetcommand.words = mempool_array(pool);
+		node->targetcommand.flags = targetcommand->flags;
 		if (targetcommand->words) {
 			ARRAY_FOREACH(targetcommand->words, const char *, word) {
 				array_append(node->targetcommand.words, str_dup(pool, word));
@@ -299,6 +300,7 @@ ast_clone_helper(struct Mempool *pool, struct Map *ptrmap, struct AST *template,
 		if (template->targetcommand.comment) {
 			node->targetcommand.comment = str_dup(pool, template->targetcommand.comment);
 		}
+		node->targetcommand.flags = template->targetcommand.flags;
 		node->targetcommand.words = mempool_array(pool);
 		ARRAY_FOREACH(template->targetcommand.words, const char *, word) {
 			array_append(node->targetcommand.words, str_dup(pool, word));
@@ -575,16 +577,31 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		level++;
 		break;
 	} case AST_TARGET_COMMAND: {
+		const char *flags = "";
+		if (node->targetcommand.flags) {
+			struct Array *tokens = MEMPOOL_ARRAY(pool, ", .flags = ");
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
+				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_SILENT));
+			}
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
+				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
+			}
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
+				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
+			}
+			flags = str_join(pool, tokens, "");
+		}
 		const char *comment = "";
 		if (node->targetcommand.comment) {
 			comment = str_printf(pool, ".comment = %s, ", node->targetcommand.comment);
 		}
-		fprintf(f, "%s{ %sTARGET_COMMAND, %s, %s.words = { %s } }\n",
+		fprintf(f, "%s{ %sTARGET_COMMAND, %s, %s.words = { %s }%s }\n",
 			indent,
 			edited,
 			lines,
 			comment,
-			str_join(pool, node->targetcommand.words, ", "));
+			str_join(pool, node->targetcommand.words, ", "),
+			flags);
 		break;
 	} case AST_VARIABLE: {
 		const char *comment = "";

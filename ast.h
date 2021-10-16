@@ -95,6 +95,16 @@ enum ASTTargetType {
 
 const char *ASTTargetType_tostring(enum ASTTargetType);
 
+enum ASTTargetCommandFlags {
+	AST_TARGET_COMMAND_FLAG_NONE = 0,			// human:"<none>"
+	AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE = 1 << 0,	// human:"+"
+	AST_TARGET_COMMAND_FLAG_IGNORE_ERROR = 1 << 1,		// human:"-"
+	AST_TARGET_COMMAND_FLAG_SILENT = 1 << 2,		// human:"@"
+};
+
+const char *ASTTargetCommandFlags_human(enum ASTTargetCommandFlags);
+const char *ASTTargetCommandFlags_tostring(enum ASTTargetCommandFlags);
+
 enum ASTVariableModifier {
 	AST_VARIABLE_MODIFIER_APPEND,	// human:"+="
 	AST_VARIABLE_MODIFIER_ASSIGN,	// human:"="
@@ -197,6 +207,7 @@ struct ASTTargetCommand {
 	struct ASTTarget *target;
 	struct Array *words;
 	const char *comment;
+	enum ASTTargetCommandFlags flags;
 };
 
 struct ASTVariable {

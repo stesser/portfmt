@@ -20,9 +20,9 @@ WWWDIR?=		${PREFIX}/www/${PORTNAME}
 	{ IF/IF, line 3, .indent = 0, .test = { !, ${PREFIX:M/*} }, .elseif = 0 }
 	=> if:
 		{ TARGET/NAMED, line 4, .sources = { .BEGIN }, .dependencies = {  } }
-			{ TARGET_COMMAND, line 5, .words = { @${ECHO_MSG}, "PREFIX must be defined as an absolute path so that when 'make'" } }
-			{ TARGET_COMMAND, line 6, .words = { @${ECHO_MSG}, "is invoked in the work area PREFIX points to the right place." } }
-			{ TARGET_COMMAND, line 7, .words = { @${FALSE} } }
+			{ TARGET_COMMAND, line 5, .words = { ${ECHO_MSG}, "PREFIX must be defined as an absolute path so that when 'make'" }, .flags = @ }
+			{ TARGET_COMMAND, line 6, .words = { ${ECHO_MSG}, "is invoked in the work area PREFIX points to the right place." }, .flags = @ }
+			{ TARGET_COMMAND, line 7, .words = { ${FALSE} }, .flags = @ }
 { COMMENT, line 10, .comment =  }
 { VARIABLE, line 11, .name = DATADIR, .modifier = ?=, .words = { ${PREFIX}/share/${PORTNAME} } }
 { VARIABLE, line 12, .name = DOCSDIR, .modifier = ?=, .words = { ${PREFIX}/share/doc/${PORTNAME} } }

@@ -445,9 +445,6 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 
 		if (command == NULL) {
 			command = word;
-			if (*command == '@') {
-				command++;
-			}
 		}
 		if (target_command_should_wrap(word)) {
 			command = NULL;
@@ -522,6 +519,17 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 		}
 
 		column += strlen(start) * 8 + strlen(word);
+		if (word_index == 0 && node->targetcommand.flags) {
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
+				column++;
+			}
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
+				column++;
+			}
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
+				column++;
+			}
+		}
 		if (column > parser->settings.target_command_format_wrapcol ||
 		    strcmp(word, "") == 0 || target_command_should_wrap(word) ||
 		    (command && word_index > command_i && target_command_wrap_after_each_token(command))) {
@@ -549,6 +557,20 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 	parser_enqueue_output(parser, startlv1);
 	int wrapped = 0;
 	ARRAY_FOREACH(commands, const char *, word) {
+		if (word_index == 0 && node->targetcommand.flags) {
+			struct Array *tokens = mempool_array(pool);
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_SILENT) {
+				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_SILENT));
+			}
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_IGNORE_ERROR) {
+				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_IGNORE_ERROR));
+			}
+			if (node->targetcommand.flags & AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE) {
+				array_append(tokens, ASTTargetCommandFlags_human(AST_TARGET_COMMAND_FLAG_ALWAYS_EXECUTE));
+			}
+			array_append(tokens, word);
+			word = str_join(pool, tokens, "");
+		}
 		if (wrapped) {
 			parser_enqueue_output(parser, startlv2);
 		}
