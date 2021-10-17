@@ -1,0 +1,31 @@
+POSTFIX_CCARGS+=	-DDEF_CONFIG_DIR=\\\"${ETCDIR}\\\" \
+			-DDEF_DAEMON_DIR=\\\"${DAEMONDIR}\\\" \
+			-DDEF_META_DIR=\\\"${META_DIRECTORY}\\\" \
+			-DDEF_COMMAND_DIR=\\\"${PREFIX}/sbin\\\" \
+			-DDEF_SENDMAIL_PATH=\\\"${PREFIX}/sbin/sendmail\\\" \
+			-DDEF_NEWALIAS_PATH=\\\"${PREFIX}/bin/newaliases\\\" \
+			-DDEF_MAILQ_PATH=\\\"${PREFIX}/bin/mailq\\\" \
+			-DDEF_MANPAGE_DIR=\\\"${MANPREFIX}/man\\\" \
+			-DDEF_README_DIR=\\\"${READMEDIR}\\\" \
+			-DDEF_HTML_DIR=\\\"${READMEDIR}\\\" \
+			-DDEF_QUEUE_DIR=\\\"/var/spool/postfix\\\" \
+			-DDEF_DATA_DIR=\\\"/var/db/postfix\\\" \
+			-DDEF_MAIL_OWNER=\\\"postfix\\\" \
+			-DDEF_SGID_GROUP=\\\"maildrop\\\" \
+			-Wmissing-prototypes -Wformat -Wno-comment
+<<<<<<<<<
+POSTFIX_CCARGS+=	-DDEF_CONFIG_DIR=\\\"${ETCDIR}\\\" \
+			-DDEF_DAEMON_DIR=\\\"${DAEMONDIR}\\\" \
+			-DDEF_META_DIR=\\\"${META_DIRECTORY}\\\" \
+			-DDEF_COMMAND_DIR=\\\"${PREFIX}/sbin\\\" \
+			-DDEF_SENDMAIL_PATH=\\\"${PREFIX}/sbin/sendmail\\\" \
+			-DDEF_NEWALIAS_PATH=\\\"${PREFIX}/bin/newaliases\\\" \
+			-DDEF_MAILQ_PATH=\\\"${PREFIX}/bin/mailq\\\" \
+			-DDEF_MANPAGE_DIR=\\\"${MANPREFIX}/man\\\" \
+			-DDEF_README_DIR=\\\"${READMEDIR}\\\" \
+			-DDEF_HTML_DIR=\\\"${READMEDIR}\\\" \
+			-DDEF_QUEUE_DIR=\\\"/var/spool/postfix\\\" \
+			-DDEF_DATA_DIR=\\\"/var/db/postfix\\\" \
+			-DDEF_MAIL_OWNER=\\\"postfix\\\" \
+			-DDEF_SGID_GROUP=\\\"maildrop\\\" -Wmissing-prototypes \
+			-Wformat -Wno-comment

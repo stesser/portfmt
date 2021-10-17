@@ -404,7 +404,7 @@ parser_tokenize_helper(struct ParserTokenizeData *this)
 		char c = this->line[this->i];
 		if (this->escape) {
 			this->escape = 0;
-			if (c == '#' || c == '\\' || c == '$' || isspace(c)) {
+			if (c == '#' || c == '"' || c == '\'' || c == '\\' || c == '$' || isspace(c)) {
 				continue;
 			}
 		}
