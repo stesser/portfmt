@@ -10,4 +10,4 @@ A=
 	=> else:
 		{ IF/ELSE, line 3, .indent = 0, .test = {  }, .elseif = 1 }
 		=> if:
-			{ VARIABLE, line 4, .name = A, .modifier = =, .words = {  } }
+			{ VARIABLE, line 4, .name = A, .modifier = =, .words = [0]{} }

@@ -44,6 +44,7 @@
 // Prototypes
 static struct AST *ast_clone_helper(struct Mempool *, struct Map *, struct AST *, struct AST *);
 static struct Array *ast_siblings_helper(struct AST *);
+static const char *ast_print_words(struct Mempool *, struct Array *);
 static enum ASTWalkState ast_print_helper(struct AST *, FILE *, size_t);
 static void ast_balance_comments_join(struct Array *);
 static enum ASTWalkState ast_balance_comments_walker(struct AST *, struct Array *);
@@ -461,6 +462,17 @@ ast_line_range_tostring(struct ASTLineRange *range, int want_prefix, struct Memp
 	}
 }
 
+const char *
+ast_print_words(struct Mempool *pool, struct Array *words)
+{
+	if (array_len(words) > 0) {
+		return str_printf(pool, ".words = [%zu]{ %s }",
+			array_len(words), str_join(pool, words, ", "));
+	} else {
+		return ".words = [0]{}";
+	}
+}
+
 enum ASTWalkState
 ast_print_helper(struct AST *node, FILE *f, size_t level)
 {
@@ -484,13 +496,13 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		if (node->expr.comment) {
 			comment = str_printf(pool, ".comment = %s, ", node->expr.comment);
 		}
-		fprintf(f, "%s{ %sEXPR, %s, .indent = %zu, %s.words = { %s } }\n",
+		fprintf(f, "%s{ %sEXPR, %s, .indent = %zu, %s%s }\n",
 			indent,
 			edited,
 			lines,
 			node->expr.indent,
 			comment,
-			str_join(pool, node->expr.words, ", "));
+			ast_print_words(pool, node->expr.words));
 		break;
 	} case AST_FOR: {
 		const char *comment = "";
@@ -501,7 +513,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		if (node->forexpr.end_comment) {
 			end_comment = str_printf(pool, ".end_comment = %s, ", node->forexpr.end_comment);
 		}
-		fprintf(f, "%s{ %sFOR, %s, .indent = %zu, .bindings = { %s }, %s%s.words = { %s } }\n",
+		fprintf(f, "%s{ %sFOR, %s, .indent = %zu, .bindings = { %s }, %s%s%s }\n",
 			indent,
 			edited,
 			lines,
@@ -509,7 +521,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 			str_join(pool, node->forexpr.bindings, ", "),
 			comment,
 			end_comment,
-			str_join(pool, node->forexpr.words, ", "));
+			ast_print_words(pool, node->forexpr.words));
 		level++;
 		break;
 	} case AST_IF: {
@@ -595,12 +607,12 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		if (node->targetcommand.comment) {
 			comment = str_printf(pool, ".comment = %s, ", node->targetcommand.comment);
 		}
-		fprintf(f, "%s{ %sTARGET_COMMAND, %s, %s.words = { %s }%s }\n",
+		fprintf(f, "%s{ %sTARGET_COMMAND, %s, %s%s%s }\n",
 			indent,
 			edited,
 			lines,
 			comment,
-			str_join(pool, node->targetcommand.words, ", "),
+			ast_print_words(pool, node->targetcommand.words),
 			flags);
 		break;
 	} case AST_VARIABLE: {
@@ -608,14 +620,14 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 		if (node->variable.comment) {
 			comment = str_printf(pool, ".comment = %s, ", node->variable.comment);
 		}
-		fprintf(f, "%s{ %sVARIABLE, %s, .name = %s, .modifier = %s, %s.words = { %s } }\n",
+		fprintf(f, "%s{ %sVARIABLE, %s, .name = %s, .modifier = %s, %s%s }\n",
 			indent,
 			edited,
 			lines,
 			node->variable.name,
 			ASTVariableModifier_human(node->variable.modifier),
 			comment,
-			str_join(pool, node->variable.words, ", "));
+			ast_print_words(pool, node->variable.words));
 		break;
 	} default:
 		break;

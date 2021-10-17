@@ -5,6 +5,6 @@ fo=
 <<<<<<<<<
 { IF/IF, line 1, .indent = 0, .test = { 1 }, .elseif = 0 }
 => if:
-	{ VARIABLE, line 2, .name = fo, .modifier = =, .words = {  } }
+	{ VARIABLE, line 2, .name = fo, .modifier = =, .words = [0]{} }
 => else:
 	{ IF/NDEF, line 3, .indent = 0, .test = { 2 }, .elseif = 1 }
