@@ -134,8 +134,8 @@ consume_conditional(const char *buf)
 		"error", "export-env", "export.env", "export-literal", "export",
 		"unexport-env", "unexport", "undef", "info", "for", "endfor",
 		"warning", "ifdef", "ifndef", "include", "ifmake", "ifnmake",
-		"if", "else", "elifndef", "elifmake", "elifdef", "elif", "endif",
-		"sinclude",
+		"if", "else", "elifdef", "elifndef", "elifmake", "elifnmake",
+		"elif", "endif", "sinclude",
 	};
 
 	size_t pos = 0;

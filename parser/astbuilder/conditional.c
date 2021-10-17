@@ -102,6 +102,8 @@ parse_conditional(const char *s, size_t *indent)
 		return PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF;
 	} else if (strcmp(type, ".elifmake") == 0) {
 		return PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE;
+	} else if (strcmp(type, ".elifnmake") == 0) {
+		return PARSER_AST_BUILDER_CONDITIONAL_ELIFNMAKE;
 	} else if (strcmp(type, ".endif") == 0) {
 		return PARSER_AST_BUILDER_CONDITIONAL_ENDIF;
 	} else if (strcmp(type, ".dinclude") == 0) {
