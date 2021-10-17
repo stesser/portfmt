@@ -424,6 +424,7 @@ static struct VariableOrderEntry variable_order_[] = {
 
 	{ BLOCK_FLAVORS, "FLAVORS", VAR_DEFAULT, {} },
 	{ BLOCK_FLAVORS, "FLAVOR", VAR_DEFAULT, {} },
+	{ BLOCK_FLAVORS, "FLAVORS_SUB", VAR_DEFAULT, {} },
 
 #if PORTFMT_SUBPACKAGES
 	{ BLOCK_SUBPACKAGES, "SUBPACKAGES", VAR_SORTED, {} },
