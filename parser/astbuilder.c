@@ -526,12 +526,7 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 				});
 				ast_parent_append_sibling(parent, node, ifparent != NULL);
 				node->edited = t->edited;
-				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct ParserASTBuilderToken *, t) {
-					if (t->edited) {
-						node->edited = 1;
-					}
-					array_append(node->ifexpr.test, str_dup(node->pool, t->data));
-				}
+				node->ifexpr.comment = split_off_comment(node->pool, current_cond, 1, -1, node->ifexpr.test);
 				switch (type) {
 				case AST_IF_IF:
 				case AST_IF_DEF:
