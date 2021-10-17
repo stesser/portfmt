@@ -540,11 +540,16 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 				case AST_IF_NMAKE:
 					if (array_len(node->ifexpr.test) == 0) {
 						parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
-								str_printf(pool, "%s with no words in test expression", ASTIfType_human(type)));
+								str_printf(pool, ".%s with no words in test expression", ASTIfType_human(type)));
 						return NULL;
 					}
 					break;
 				case AST_IF_ELSE:
+					if (array_len(node->ifexpr.test) != 0) {
+						parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
+								str_printf(pool, ".%s with words in test expression", ASTIfType_human(type)));
+						return NULL;
+					}
 					break;
 				}
 				stack_push(ifstack, node);
