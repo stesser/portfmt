@@ -69,7 +69,8 @@ static enum ASTWalkState delete_variable(struct AST *, struct Parser *, const ch
 static ssize_t find_insert_point_generic(struct Parser *, struct AST *, const char *, enum BlockType *);
 static ssize_t find_insert_point_same_block(struct Parser *, struct AST *, const char *, enum BlockType *);
 static void insert_variable(struct Parser *, struct AST *, struct AST *);
-static enum ASTWalkState find_variable(struct AST *, const char *, int, struct AST **);
+static enum ASTWalkState find_variable_helper(struct AST *, const char *, int, struct AST **);
+static struct AST *find_variable(struct AST *, const char *, int);
 static enum ASTWalkState edit_merge_walker(struct AST *, struct WalkerData *, int);
 
 struct AST *
@@ -322,7 +323,7 @@ insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 }
 
 enum ASTWalkState
-find_variable(struct AST *node, const char *var, int level, struct AST **retval)
+find_variable_helper(struct AST *node, const char *var, int level, struct AST **retval)
 {
 	if (level > 1) {
 		return AST_WALK_STOP;
@@ -345,8 +346,16 @@ find_variable(struct AST *node, const char *var, int level, struct AST **retval)
 	default:
 		break;
 	}
-	AST_WALK_DEFAULT(find_variable, node, var, level, retval);
+	AST_WALK_DEFAULT(find_variable_helper, node, var, level, retval);
 	return AST_WALK_CONTINUE;
+}
+
+struct AST *
+find_variable(struct AST *root, const char *var, int level)
+{
+	struct AST *node = NULL;
+	find_variable_helper(root, var, level, &node);
+	return node;
 }
 
 enum ASTWalkState
@@ -369,8 +378,8 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 		if (node->variable.modifier == AST_VARIABLE_MODIFIER_SHELL &&
 		    (this->merge_behavior & PARSER_MERGE_SHELL_IS_DELETE)) {
 			delete_variable(this->root, this->parser, node->variable.name);
-		} else if (AST_WALK_STOP == find_variable(this->root, node->variable.name, 0, &mergenode) && mergenode &&
-			   (!mergenode->variable.comment || strlen(mergenode->variable.comment) == 0)) {
+			return AST_WALK_CONTINUE;
+		} else if ((mergenode = find_variable(this->root, node->variable.name, 0))) {
 			switch (node->variable.modifier) {
 			case AST_VARIABLE_MODIFIER_ASSIGN:
 				array_truncate(mergenode->variable.words);
@@ -378,12 +387,15 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 					array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
 				}
 				mergenode->edited = 1;
-				break;
+				return AST_WALK_CONTINUE;
 			case AST_VARIABLE_MODIFIER_APPEND:
-				ARRAY_FOREACH(node->variable.words, const char *, word) {
-					array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
+				if ((!mergenode->variable.comment || strlen(mergenode->variable.comment) == 0)) {
+					ARRAY_FOREACH(node->variable.words, const char *, word) {
+						array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
+					}
+					mergenode->edited = 1;
+					return AST_WALK_CONTINUE;
 				}
-				mergenode->edited = 1;
 				break;
 			case AST_VARIABLE_MODIFIER_EXPAND: // TODO
 				array_truncate(mergenode->variable.words);
@@ -392,7 +404,7 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				}
 				mergenode->edited = 1;
 				mergenode->variable.modifier = AST_VARIABLE_MODIFIER_EXPAND;
-				break;
+				return AST_WALK_CONTINUE;
 			case AST_VARIABLE_MODIFIER_OPTIONAL:
 				array_truncate(mergenode->variable.words);
 				ARRAY_FOREACH(node->variable.words, const char *, word) {
@@ -400,7 +412,7 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				}
 				mergenode->edited = 1;
 				mergenode->variable.modifier = AST_VARIABLE_MODIFIER_OPTIONAL;
-				break;
+				return AST_WALK_CONTINUE;
 			case AST_VARIABLE_MODIFIER_SHELL:
 				array_truncate(mergenode->variable.words);
 				ARRAY_FOREACH(node->variable.words, const char *, word) {
@@ -408,11 +420,10 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				}
 				mergenode->edited = 1;
 				mergenode->variable.modifier = AST_VARIABLE_MODIFIER_SHELL;
-				break;
+				return AST_WALK_CONTINUE;
 			}
-		} else {
-			insert_variable(this->parser, this->root, node);
 		}
+		insert_variable(this->parser, this->root, node);
 		break;
 	} default:
 		break;
