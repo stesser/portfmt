@@ -30,4 +30,4 @@
 enum ASTVariableModifier;
 struct Mempool;
 
-int parse_variable(struct Mempool *, const char *, char **, enum ASTVariableModifier *);
+bool parse_variable(struct Mempool *, const char *, char **, enum ASTVariableModifier *);

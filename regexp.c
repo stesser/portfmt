@@ -28,7 +28,10 @@
 
 #include "config.h"
 
+#include <sys/types.h>
+#include <inttypes.h>
 #include <regex.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include <libias/flow.h>
@@ -39,7 +42,7 @@
 #include "regexp.h"
 
 struct Regexp {
-	int exec;
+	bool exec;
 	regex_t *regex;
 	regex_t restorage;
 	regmatch_t *match;
@@ -95,7 +98,7 @@ regexp_free(struct Regexp *regexp)
 size_t
 regexp_length(struct Regexp *regexp, size_t group)
 {
-	panic_unless(regexp->exec > 0, "missing regexp_exec() call");
+	panic_unless(regexp->exec, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch || regexp->match[group].rm_eo < 0 ||
 	    regexp->match[group].rm_so < 0) {
@@ -107,7 +110,7 @@ regexp_length(struct Regexp *regexp, size_t group)
 size_t
 regexp_end(struct Regexp *regexp, size_t group)
 {
-	panic_unless(regexp->exec > 0, "missing regexp_exec() call");
+	panic_unless(regexp->exec, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch || regexp->match[group].rm_eo < 0) {
 		return 0;
@@ -118,7 +121,7 @@ regexp_end(struct Regexp *regexp, size_t group)
 size_t
 regexp_start(struct Regexp *regexp, size_t group)
 {
-	panic_unless(regexp->exec > 0, "missing regexp_exec() call");
+	panic_unless(regexp->exec, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch || regexp->match[group].rm_so < 0) {
 		return 0;
@@ -129,7 +132,7 @@ regexp_start(struct Regexp *regexp, size_t group)
 char *
 regexp_substr(struct Regexp *regexp, struct Mempool *pool, size_t group)
 {
-	panic_unless(regexp->exec > 0 && regexp->buf, "missing regexp_exec() call");
+	panic_unless(regexp->exec && regexp->buf, "missing regexp_exec() call");
 
 	if (group >= regexp->nmatch) {
 		return NULL;
@@ -141,6 +144,6 @@ int
 regexp_exec(struct Regexp *regexp, const char *buf)
 {
 	regexp->buf = buf;
-	regexp->exec++;
+	regexp->exec = true;
 	return regexec(regexp->regex, regexp->buf, regexp->nmatch, regexp->match, 0);
 }

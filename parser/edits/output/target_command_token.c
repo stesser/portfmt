@@ -28,6 +28,8 @@
 
 #include "config.h"
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -55,7 +57,7 @@ output_target_command_token_walker(struct AST *node, struct WalkerData *this)
 	case AST_TARGET:
 		ARRAY_FOREACH(node->target.sources, const char *, src) {
 			if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, src, this->param->keyuserdata))) {
-				this->param->found = 1;
+				this->param->found = true;
 				this->target = src;
 				break;
 			}
@@ -64,7 +66,7 @@ output_target_command_token_walker(struct AST *node, struct WalkerData *this)
 	case AST_TARGET_COMMAND:
 		ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
 			if (this->target && (this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
-				this->param->found = 1;
+				this->param->found = true;
 				if (this->param->callback) {
 					this->param->callback(this->pool, this->target, word, NULL, this->param->callbackuserdata);
 				}
@@ -87,7 +89,7 @@ PARSER_EDIT(output_target_command_token)
 		return;
 	}
 
-	param->found = 0;
+	param->found = false;
 	output_target_command_token_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,

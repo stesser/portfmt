@@ -28,8 +28,10 @@
 
 #include "config.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libias/array.h>
@@ -47,29 +49,29 @@ struct WalkerData {
 };
 
 // Prototypes
-static int is_candidate(struct AST *);
-static int has_eol_comment(struct AST *);
+static bool is_candidate(struct AST *);
+static bool has_eol_comment(struct AST *);
 static void merge_variables(struct Array *, struct Array *);
 static void process_siblings(struct Array *, struct Array *);
 static enum ASTWalkState refactor_collapse_adjacent_variables_walker(struct AST *, struct WalkerData *, struct Array *);
 
-int
+bool
 is_candidate(struct AST *node)
 {
 	if (node->type != AST_VARIABLE) {
-		return 0;
+		return false;
 	}
 
 	switch (node->variable.modifier) {
 	case AST_VARIABLE_MODIFIER_APPEND:
 	case AST_VARIABLE_MODIFIER_ASSIGN:
-		return 1;
+		return true;
 	default:
-		return 0;
+		return false;
 	}
 }
 
-int
+bool
 has_eol_comment(struct AST *node)
 {
 	return node->variable.comment && strlen(node->variable.comment) > 0;
@@ -91,7 +93,7 @@ merge_variables(struct Array *nodelist, struct Array *group)
 			array_append(first->variable.words, word);
 		}
 	}
-	first->edited = 1;
+	first->edited = true;
 	first->line_end = last->line_end;
 
 	struct Array *newnodelist = mempool_array(pool);

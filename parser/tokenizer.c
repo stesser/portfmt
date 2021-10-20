@@ -30,8 +30,10 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libias/array.h>
@@ -57,16 +59,15 @@ struct ParserTokenizer {
 		size_t len;
 		FILE *stream;
 	} inbuf;
-	int continued;
-	int in_target;
-	int skip;
-	int finished;
+	bool continued;
+	bool in_target;
+	bool finished;
 };
 
 struct ParserTokenizeData {
 	struct ParserTokenizer *tokenizer;
-	int dollar;
-	int escape;
+	int32_t dollar;
+	int32_t escape;
 	size_t i;
 	size_t start;
 	const char *line;
@@ -77,9 +78,9 @@ struct ParserTokenizeData {
 static size_t consume_comment(const char *);
 static size_t consume_conditional(const char *);
 static size_t consume_target(const char *);
-static size_t consume_token(struct ParserTokenizeData *, size_t, char, char, int);
+static size_t consume_token(struct ParserTokenizeData *, size_t, char, char, bool);
 static size_t consume_var(const char *);
-static int is_empty_line(const char *);
+static bool is_empty_line(const char *);
 static const char *parser_tokenize_conditional(struct ParserTokenizeData *);
 static void parser_tokenize_helper(struct ParserTokenizeData *);
 static void parser_tokenize(struct ParserTokenizer *, const char *, enum ParserASTBuilderTokenType, size_t);
@@ -156,15 +157,15 @@ consume_conditional(const char *buf)
 		}
 	} else if (str_startswith(buf, "include")) {
 		pos += strlen("include");
-		int space = 0;
-		for (; isspace(buf[pos]); pos++, space = 1);
+		bool space = false;
+		for (; isspace(buf[pos]); pos++, space = true);
 		if (space) {
 			return pos;
 		}
 	} else if (str_startswith(buf, "-include") || str_startswith(buf, "sinclude")) {
 		pos += strlen("-include");
-		int space = 0;
-		for (; isspace(buf[pos]); pos++, space = 1);
+		bool space = false;
+		for (; isspace(buf[pos]); pos++, space = true);
 		if (space) {
 			return pos;
 		}
@@ -204,15 +205,15 @@ consume_target(const char *buf)
 }
 
 size_t
-consume_token(struct ParserTokenizeData *this, size_t pos, char startchar, char endchar, int eol_ok)
+consume_token(struct ParserTokenizeData *this, size_t pos, char startchar, char endchar, bool eol_ok)
 {
 	int counter = 0;
-	int escape = 0;
+	bool escape = false;
 	size_t i = pos;
 	for (; i < strlen(this->line); i++) {
 		char c = this->line[i];
 		if (escape) {
-			escape = 0;
+			escape = false;
 			continue;
 		}
 		if (startchar == endchar) {
@@ -223,7 +224,7 @@ consume_token(struct ParserTokenizeData *this, size_t pos, char startchar, char 
 					counter++;
 				}
 			} else if (c == '\\') {
-				escape = 1;
+				escape = true;
 			}
 		} else {
 			if (c == startchar) {
@@ -233,7 +234,7 @@ consume_token(struct ParserTokenizeData *this, size_t pos, char startchar, char 
 			} else if (c == endchar) {
 				counter--;
 			} else if (c == '\\') {
-				escape = 1;
+				escape = true;
 			}
 		}
 	}
@@ -287,16 +288,16 @@ consume_var(const char *buf)
 	return pos + 1;
 }
 
-int
+bool
 is_empty_line(const char *buf)
 {
 	for (const char *p = buf; *p != 0; p++) {
 		if (!isspace(*p)) {
-			return 0;
+			return false;
 		}
 	}
 
-	return 1;
+	return true;
 }
 
 static void
@@ -307,7 +308,7 @@ consume_expansion(struct ParserTokenizeData *this)
 	char c = this->line[this->i];
 	if (this->dollar > 1) {
 		if (c == '(') {
-			this->i = consume_token(this, this->i - 2, '(', ')', 0);
+			this->i = consume_token(this, this->i - 2, '(', ')', false);
 			if (*this->tokenizer->parser_error != PARSER_ERROR_OK) {
 				return;
 			}
@@ -325,10 +326,10 @@ consume_expansion(struct ParserTokenizeData *this)
 			this->dollar = 0;
 		}
 	} else if (c == '{') {
-		this->i = consume_token(this, this->i, '{', '}', 0);
+		this->i = consume_token(this, this->i, '{', '}', false);
 		this->dollar = 0;
 	} else if (c == '(') {
-		this->i = consume_token(this, this->i, '(', ')', 0);
+		this->i = consume_token(this, this->i, '(', ')', false);
 		this->dollar = 0;
 	} else if (isalnum(c) || c == '@' || c == '<' || c == '>' || c == '/' ||
 		   c == '?' || c == '*' || c == '^' || c == '-' || c == '_' ||
@@ -418,11 +419,11 @@ parser_tokenize_helper(struct ParserTokenizeData *this)
 			}
 			this->start = this->i;
 		} else if (c == '"') {
-			this->i = consume_token(this, this->i, '"', '"', 1);
+			this->i = consume_token(this, this->i, '"', '"', true);
 		} else if (c == '\'') {
-			this->i = consume_token(this, this->i, '\'', '\'', 1);
+			this->i = consume_token(this, this->i, '\'', '\'', true);
 		} else if (c == '`') {
-			this->i = consume_token(this, this->i, '`', '`', 1);
+			this->i = consume_token(this, this->i, '`', '`', true);
 		} else if (c == '$') {
 			this->dollar++;
 		} else if (c == '\\') {
@@ -488,7 +489,7 @@ parser_tokenizer_feed_line(struct ParserTokenizer *tokenizer, const char *inputl
 		parser_set_error(tokenizer->parser, PARSER_ERROR_IO, "input not a Makefile?"); // 0 byte before \n ?
 		return;
 	}
-	int will_continue = linelen > 0 && line[linelen - 1] == '\\' && (linelen == 1 || line[linelen - 2] != '\\');
+	bool will_continue = linelen > 0 && line[linelen - 1] == '\\' && (linelen == 1 || line[linelen - 2] != '\\');
 	if (will_continue) {
  		if (linelen > 2 && line[linelen - 2] == '$' && line[linelen - 3] != '$') {
 			/* Hack to "handle" things like $\ in variable values */
@@ -586,7 +587,7 @@ parser_tokenizer_read_internal(struct ParserTokenizer *tokenizer)
 			goto var;
 		}
 		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
-		tokenizer->in_target = 0;
+		tokenizer->in_target = false;
 	}
 
 	pos = consume_conditional(buf);
@@ -601,7 +602,7 @@ parser_tokenizer_read_internal(struct ParserTokenizer *tokenizer)
 
 	pos = consume_target(buf);
 	if (pos > 0) {
-		tokenizer->in_target = 1;
+		tokenizer->in_target = true;
 		tokenizer->builder->targetname = str_dup(tokenizer->builder->pool, buf);
 		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_START, buf);
 		goto next;
@@ -655,7 +656,7 @@ parser_tokenizer_finish(struct ParserTokenizer *tokenizer)
 		parser_tokenizer_create_token(tokenizer, PARSER_AST_BUILDER_TOKEN_TARGET_END, NULL);
 	}
 
-	tokenizer->finished = 1;
+	tokenizer->finished = true;
 
 	return PARSER_ERROR_OK;
 }

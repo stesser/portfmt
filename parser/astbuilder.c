@@ -30,6 +30,7 @@
 
 #include <sys/param.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,121 +53,121 @@
 #include "rules.h"
 
 // Prototypes
-static int ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType, enum ASTExprType *);
-static int ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType, enum ASTIncludeType *);
-static int ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType, enum ASTIfType *);
+static bool ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType, enum ASTExprType *);
+static bool ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType, enum ASTIncludeType *);
+static bool ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType, enum ASTIfType *);
 static char *split_off_comment(struct Mempool *, struct Array *, ssize_t, ssize_t, struct Array *);
-static void token_to_stream(struct Mempool *, struct Array *, enum ParserASTBuilderTokenType, int, struct ASTLineRange *, const char *, const char *, const char *, const char *);
+static void token_to_stream(struct Mempool *, struct Array *, enum ParserASTBuilderTokenType, bool, struct ASTLineRange *, const char *, const char *, const char *, const char *);
 static const char *get_targetname(struct Mempool *, struct ASTTarget *);
 static void ast_from_token_stream_flush_comments(struct AST *, struct Array *);
 static struct AST *ast_from_token_stream(struct Parser *, struct Array *);
 static void ast_to_token_stream(struct AST *, struct Mempool *, struct Array *);
 
-int
+bool
 ParserASTBuilderConditionalType_to_ASTExprType(enum ParserASTBuilderConditionalType value, enum ASTExprType *retval)
 {
 	switch (value) {
 	case PARSER_AST_BUILDER_CONDITIONAL_ERROR:
 		*retval = AST_EXPR_ERROR;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_EXPORT_ENV:
 		*retval = AST_EXPR_EXPORT_ENV;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_EXPORT_LITERAL:
 		*retval = AST_EXPR_EXPORT_LITERAL;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_EXPORT:
 		*retval = AST_EXPR_EXPORT;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INFO:
 		*retval = AST_EXPR_INFO;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_UNDEF:
 		*retval = AST_EXPR_UNDEF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT_ENV:
 		*retval = AST_EXPR_UNEXPORT_ENV;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_UNEXPORT:
 		*retval = AST_EXPR_UNEXPORT;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_WARNING:
 		*retval = AST_EXPR_WARNING;
-		return 1;
+		return true;
 	default:
-		return 0;
+		return false;
 	}
 }
 
-int
+bool
 ParserASTBuilderConditionalType_to_ASTIncludeType(enum ParserASTBuilderConditionalType value, enum ASTIncludeType *retval)
 {
 	switch (value) {
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE:
 		*retval = AST_INCLUDE_BMAKE;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL:
 		*retval = AST_INCLUDE_OPTIONAL;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_D:
 		*retval = AST_INCLUDE_OPTIONAL_D;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_OPTIONAL_S:
 		*retval = AST_INCLUDE_OPTIONAL_S;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX:
 		*retval = AST_INCLUDE_POSIX;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL:
 		*retval = AST_INCLUDE_POSIX_OPTIONAL;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_INCLUDE_POSIX_OPTIONAL_S:
 		*retval = AST_INCLUDE_POSIX_OPTIONAL_S;
-		return 1;
+		return true;
 	default:
-		return 0;
+		return false;
 	}
 }
 
-int
+bool
 ParserASTBuilderConditionalType_to_ASTIfType(enum ParserASTBuilderConditionalType value, enum ASTIfType *retval)
 {
 	switch (value) {
 	case PARSER_AST_BUILDER_CONDITIONAL_IF:
 		*retval = AST_IF_IF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_IFDEF:
 		*retval = AST_IF_DEF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_IFMAKE:
 		*retval = AST_IF_MAKE;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_IFNDEF:
 		*retval = AST_IF_NDEF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_IFNMAKE:
 		*retval = AST_IF_NMAKE;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_ELIF:
 		*retval = AST_IF_IF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_ELIFDEF:
 		*retval = AST_IF_DEF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_ELIFNDEF:
 		*retval = AST_IF_NDEF;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_ELIFMAKE:
 		*retval = AST_IF_MAKE;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_ELIFNMAKE:
 		*retval = AST_IF_NMAKE;
-		return 1;
+		return true;
 	case PARSER_AST_BUILDER_CONDITIONAL_ELSE:
 		*retval = AST_IF_ELSE;
-		return 1;
+		return true;
 	default:
-		return 0;
+		return false;
 	}
 }
 
@@ -176,10 +177,10 @@ split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssiz
 	SCOPE_MEMPOOL(pool);
 
 	struct Array *commentwords = mempool_array(pool);
-	int comments = 0;
+	bool comments = false;
 	ARRAY_FOREACH_SLICE(tokens, a, b, struct ParserASTBuilderToken *, t) {
 		if (comments || is_comment(t->data)) {
-			comments = 1;
+			comments = true;
 			array_append(commentwords, t->data);
 		} else if (words) {
 			array_append(words, str_dup(extpool, t->data));
@@ -194,13 +195,13 @@ split_off_comment(struct Mempool *extpool, struct Array *tokens, ssize_t a, ssiz
 }
 
 void
-token_to_stream(struct Mempool *pool, struct Array *tokens, enum ParserASTBuilderTokenType type, int edited, struct ASTLineRange *lines, const char *data, const char *varname, const char *condname, const char *targetname)
+token_to_stream(struct Mempool *pool, struct Array *tokens, enum ParserASTBuilderTokenType type, bool edited, struct ASTLineRange *lines, const char *data, const char *varname, const char *condname, const char *targetname)
 {
 	struct ParserASTBuilderToken *t = parser_astbuilder_token_new(type, lines, data, varname, condname, targetname);
 	panic_unless(t, "null token?");
 	if (t) {
 		if (edited) {
-			t->edited = 1;
+			t->edited = true;
 		}
 		array_append(tokens, mempool_add(pool, t, parser_astbuilder_token_free));
 	}
@@ -367,20 +368,20 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
 							str_printf(pool, "missing path for %s on %s",
 								ASTIncludeType_identifier(node->include.type),
-								ast_line_range_tostring(&t->lines, 1, pool)));
+								ast_line_range_tostring(&t->lines, true, pool)));
 					return NULL;
 				}
 				char *path = str_trim(node->pool, str_join(pool, pathwords, " "));
-				int invalid = 0;
+				bool invalid = false;
 				const char *hint = "";
 				if (*ASTIncludeType_identifier(node->include.type) == '.') {
 					if (*path == '<') {
-						node->include.sys = 1;
+						node->include.sys = true;
 						path++;
 						if (str_endswith(path, ">")) {
 							path[strlen(path) - 1] = 0;
 						} else {
-							invalid = 1;
+							invalid = true;
 							hint = ": missing > at the end";
 						}
 					} else if (*path == '"') {
@@ -388,11 +389,11 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 						if (str_endswith(path, "\"")) {
 							path[strlen(path) - 1] = 0;
 						} else {
-							invalid = 1;
+							invalid = true;
 							hint = ": missing \" at the end";
 						}
 					} else {
-						invalid = 1;
+						invalid = true;
 						hint = ": must start with < or \"";
 					}
 				}
@@ -400,7 +401,7 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 					parser_set_error(parser, PARSER_ERROR_AST_BUILD_FAILED,
 							str_printf(pool, "invalid path for %s on %s%s",
 								ASTIncludeType_identifier(node->include.type),
-								ast_line_range_tostring(&t->lines, 1, pool),
+								ast_line_range_tostring(&t->lines, true, pool),
 								hint));
 					return NULL;
 				} else {
@@ -452,7 +453,7 @@ ast_from_token_stream(struct Parser *parser, struct Array *tokens)
 				size_t word_start = 1;
 				ARRAY_FOREACH_SLICE(current_cond, 1, -1, struct ParserASTBuilderToken *, t) {
 					if (t->edited) {
-						node->edited = 1;
+						node->edited = true;
 					}
 					if (strcmp(t->data, "in") == 0) {
 						word_start = t_index + 1;
@@ -934,7 +935,7 @@ parser_astbuilder_print_token_stream(struct ParserASTBuilder *builder, FILE *f)
 
 		ARRAY_FOREACH(vars, char *, var) {
 			ssize_t len = maxvarlen - strlen(var);
-			const char *range = ast_line_range_tostring(&t->lines, 0, pool);
+			const char *range = ast_line_range_tostring(&t->lines, false, pool);
 			char *tokentype;
 			if (array_len(vars) > 1) {
 				tokentype = str_printf(pool, "%s#%zu", type, var_index + 1);

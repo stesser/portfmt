@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -37,7 +38,7 @@
 #include "ast.h"
 #include "variable.h"
 
-int
+bool
 parse_variable(struct Mempool *extpool, const char *buf, char **name, enum ASTVariableModifier *mod)
 {
 	SCOPE_MEMPOOL(pool);
@@ -45,10 +46,10 @@ parse_variable(struct Mempool *extpool, const char *buf, char **name, enum ASTVa
 	size_t len = strlen(buf);
 
 	if (len < 2) {
-		return 0;
+		return false;
 	}
 	if (buf[len - 1] != '=') {
-		return 0;
+		return false;
 	}
 
 	*mod = AST_VARIABLE_MODIFIER_ASSIGN;
@@ -74,9 +75,9 @@ parse_variable(struct Mempool *extpool, const char *buf, char **name, enum ASTVa
 	*name = str_trimr(pool, str_ndup(pool, buf, strlen(buf) - i));
 	if (strcmp(*name, "") == 0) {
 		*name = NULL;
-		return 0;
+		return false;
 	} else {
 		mempool_move(pool, *name, extpool);
-		return 1;
+		return true;
 	}
 }

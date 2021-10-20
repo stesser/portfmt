@@ -29,6 +29,8 @@
 #include "config.h"
 
 #include <sys/param.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -65,7 +67,7 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 	char *current_revision;
 	if ((var = parser_lookup_variable_str(parser, variable, PARSER_LOOKUP_FIRST, pool, &current_revision, &comment)) != NULL) {
 		const char *errstr = NULL;
-		int rev = strtonum(current_revision, 0, INT_MAX, &errstr);
+		uint32_t rev = strtonum(current_revision, 0, INT_MAX, &errstr);
 		if (errstr == NULL) {
 			rev++;
 		} else {
@@ -82,7 +84,7 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 			array_append(script, "!=\n");
 		}
 		array_append(script, str_printf(pool, "%s%s", var->variable.name, ASTVariableModifier_human(var->variable.modifier)));
-		array_append(script, str_printf(pool, "%d %s\n", rev, comment));
+		array_append(script, str_printf(pool, "%" PRIu32 " %s\n", rev, comment));
 	} else {
 		array_append(script, variable);
 		array_append(script, "=1\n");

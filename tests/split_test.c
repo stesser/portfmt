@@ -31,6 +31,7 @@
 # include <err.h>
 #endif
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include <libias/array.h>

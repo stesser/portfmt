@@ -30,6 +30,7 @@
 
 #include <sys/param.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,7 +46,7 @@
 // Prototypes
 static ssize_t extract_git_describe_suffix(const char *);
 static ssize_t extract_git_describe_prefix(const char *);
-static int is_git_describe_version(struct Mempool *, const char *, char **, char **, char **);
+static bool is_git_describe_version(struct Mempool *, const char *, char **, char **, char **);
 
 ssize_t
 extract_git_describe_suffix(const char *ver)
@@ -54,7 +55,7 @@ extract_git_describe_suffix(const char *ver)
 		return -1;
 	}
 
-	int gflag = 0;
+	bool gflag = false;
 	for (size_t i = strlen(ver) - 1; i != 0; i--) {
 		switch (ver[i]) {
 		case 'a':
@@ -65,7 +66,7 @@ extract_git_describe_suffix(const char *ver)
 		case 'f':
 			break;
 		case 'g':
-			gflag = 1;
+			gflag = true;
 			break;
 		case '-':
 			if (gflag) {
@@ -99,7 +100,7 @@ extract_git_describe_prefix(const char *ver)
 	return -1;
 }
 
-int
+bool
 is_git_describe_version(struct Mempool *pool, const char *ver, char **distversion, char **prefix, char **suffix)
 {
 	ssize_t suffix_index;
@@ -113,7 +114,7 @@ is_git_describe_version(struct Mempool *pool, const char *ver, char **distversio
 		if (suffix != NULL) {
 			*suffix = NULL;
 		}
-		return 0;
+		return false;
 	}
 
 	ssize_t prefix_index;
@@ -136,7 +137,7 @@ is_git_describe_version(struct Mempool *pool, const char *ver, char **distversio
 		*distversion = str_slice(pool, ver, prefix_index + 1, suffix_index);
 	}
 
-	return 1;
+	return true;
 }
 
 PARSER_EDIT(edit_set_version)
@@ -160,8 +161,8 @@ PARSER_EDIT(edit_set_version)
 	}
 
 	char *version;
-	int rev = 0;
-	int rev_opt = 0;
+	uint32_t rev = 0;
+	bool rev_opt = false;
 	if (parser_lookup_variable_str(parser, ver, PARSER_LOOKUP_FIRST, pool, &version, NULL)) {
 		char *revision;
 		struct AST *rev_var;
@@ -177,8 +178,8 @@ PARSER_EDIT(edit_set_version)
 		}
 	}
 
-	int remove_distversionprefix = 0;
-	int remove_distversionsuffix = 0;
+	bool remove_distversionprefix = false;
+	bool remove_distversionsuffix = false;
 	char *distversion;
 	char *prefix;
 	char *suffix;
@@ -187,7 +188,7 @@ PARSER_EDIT(edit_set_version)
 			if (str_endswith(newversion, suffix)) {
 				newversion = str_ndup(pool, newversion, strlen(newversion) - strlen(suffix));
 			} else {
-				remove_distversionsuffix = 1;
+				remove_distversionsuffix = true;
 			}
 			suffix = NULL;
 		}
@@ -198,7 +199,7 @@ PARSER_EDIT(edit_set_version)
 			prefix = NULL;
 		}
 	} else if (prefix == NULL) {
-		remove_distversionprefix = 1;
+		remove_distversionprefix = true;
 		ver = "DISTVERSION";
 	} else {
 		ver = "DISTVERSION";

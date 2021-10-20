@@ -1,5 +1,5 @@
 BEGIN {
-	buf = sprintf("// Generated file. Do not edit.\n\n#include \"config.h\"\n#include <stdio.h>\n\n#include <libias/flow.h>\n")
+	buf = sprintf("// Generated file. Do not edit.\n\n#include \"config.h\"\n#include <inttypes.h>\n#include <stdbool.h>\n#include <stdio.h>\n\n#include <libias/flow.h>\n")
 	filename = ""
 	error = 0
 }

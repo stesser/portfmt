@@ -28,6 +28,8 @@
 #include "config.h"
 
 #include <ctype.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -333,7 +335,7 @@ ast_clone(struct Mempool *extpool, struct AST *template)
 }
 
 void
-ast_parent_append_sibling(struct AST *parent, struct AST *node, int orelse)
+ast_parent_append_sibling(struct AST *parent, struct AST *node, bool orelse)
 {
 	panic_unless(parent, "null parent");
 	panic_unless(node, "null node");
@@ -441,7 +443,7 @@ ast_parent_insert_before_sibling(struct AST *node, struct AST *new_sibling)
 }
 
 char *
-ast_line_range_tostring(struct ASTLineRange *range, int want_prefix, struct Mempool *pool)
+ast_line_range_tostring(struct ASTLineRange *range, bool want_prefix, struct Mempool *pool)
 {
 	if (range->a == range->b) {
 		return str_dup(pool, "-");
@@ -493,7 +495,7 @@ ast_print_helper(struct AST *node, FILE *f, size_t level)
 {
 	SCOPE_MEMPOOL(pool);
 	const char *indent = str_repeat(pool, "\t", level);
-	const char *lines = ast_line_range_tostring(&node->line_start, 1, pool);
+	const char *lines = ast_line_range_tostring(&node->line_start, true, pool);
 	unless (node->type == AST_ROOT || node->type == AST_DELETED) {
 		fputs(indent, f);
 		if (node->edited) {
@@ -630,7 +632,7 @@ ast_balance_comments_join(struct Array *comments)
 		panic_if(sibling->type != AST_COMMENT, "unexpected node type");
 		ARRAY_FOREACH(sibling->comment.lines, const char *, line) {
 			array_append(node->comment.lines, line);
-			node->edited = 1;
+			node->edited = true;
 		}
 		sibling->type = AST_DELETED;
 	}

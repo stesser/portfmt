@@ -28,6 +28,8 @@
 
 #include "config.h"
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include <libias/array.h>
@@ -53,7 +55,7 @@ output_variable_value_walker(struct AST *node, struct WalkerData *this)
 	switch (node->type) {
 	case AST_VARIABLE:
 		if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, node->variable.name, this->param->keyuserdata))) {
-			this->param->found = 1;
+			this->param->found = true;
 			ARRAY_FOREACH(node->variable.words, const char *, word) {
 				if ((this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
 					if (this->param->callback) {
@@ -79,7 +81,7 @@ PARSER_EDIT(output_variable_value)
 		return;
 	}
 
-	param->found = 0;
+	param->found = false;
 	output_variable_value_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,

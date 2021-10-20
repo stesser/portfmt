@@ -29,11 +29,11 @@
 #include "config.h"
 
 #include <sys/param.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,7 +83,7 @@ struct Parser {
 
 struct ParserFindGoalcolsState {
 	struct Parser *parser;
-	int moving_goalcol;
+	uint32_t moving_goalcol;
 	struct Array *nodes;
 };
 
@@ -235,7 +235,7 @@ char *
 parser_error_tostring(struct Parser *parser, struct Mempool *extpool)
 {
 	SCOPE_MEMPOOL(pool);
-	char *lines = ast_line_range_tostring(&parser->builder->lines, 1, pool);
+	char *lines = ast_line_range_tostring(&parser->builder->lines, true, pool);
 	if (parser->error_msg) {
 		return str_printf(extpool, "%s: %s: %s", lines, ParserError_human(parser->error), parser->error_msg);
 	} else {
@@ -489,7 +489,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 	// Find the places we need to wrap to the next line.
 	struct Set *wraps = mempool_set(pool, NULL, NULL, NULL);
 	size_t column = 8;
-	int complexity = 0;
+	uint32_t complexity = 0;
 	size_t command_i = 0;
 	ARRAY_FOREACH(commands, char *, word) {
 		if (command == NULL) {
@@ -951,7 +951,7 @@ parser_output_reformatted_walker(struct Parser *parser, struct AST *node)
 {
 	SCOPE_MEMPOOL(pool);
 
-	int edited = node->edited || (!(parser->settings.behavior & PARSER_OUTPUT_EDITED) && (parser->settings.behavior & PARSER_OUTPUT_REFORMAT));
+	bool edited = node->edited || (!(parser->settings.behavior & PARSER_OUTPUT_EDITED) && (parser->settings.behavior & PARSER_OUTPUT_REFORMAT));
 	switch (node->type) {
 	case AST_ROOT:
 		ARRAY_FOREACH(node->root.body, struct AST *, child) {
@@ -1476,8 +1476,8 @@ parser_load_includes_walker(struct AST *node, struct Parser *parser, int portsdi
 				child->parent = node;
 				array_append(node->include.body, child);
 			}
-			node->edited = 1;
-			node->include.loaded = 1;
+			node->edited = true;
+			node->include.loaded = true;
 		}
 		return AST_WALK_CONTINUE;
 	case AST_FOR:

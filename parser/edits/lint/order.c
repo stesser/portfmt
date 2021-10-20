@@ -30,6 +30,7 @@
 
 #include <sys/param.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,6 +49,12 @@
 #include "parser.h"
 #include "parser/edits.h"
 #include "rules.h"
+
+enum OutputDiffResult {
+	OUTPUT_DIFF_OK,
+	OUTPUT_DIFF_NO_EDITS,
+	OUTPUT_DIFF_ERROR,
+};
 
 struct GetVariablesWalkerData {
 	struct Parser *parser;
@@ -70,15 +77,15 @@ static int row_compare(const void *, const void *, void *);
 static enum ASTWalkState get_variables(struct AST *, struct GetVariablesWalkerData *);
 static int get_all_unknown_variables_row_compare(const void *, const void *, void *);
 static void get_all_unknown_variables_helper(struct Mempool *, const char *, const char *, const char *, void *);
-static int get_all_unknown_variables_filter(struct Parser *, const char *, void *);
+static bool get_all_unknown_variables_filter(struct Parser *, const char *, void *);
 static struct Set *get_all_unknown_variables(struct Mempool *, struct Parser *);
 static char *get_hint(struct Mempool *, struct Parser *, const char *, enum BlockType, struct Set *);
 static struct Array *variable_list(struct Mempool *, struct Parser *, struct AST *);
 static enum ASTWalkState target_list(struct AST *, struct TargetListWalkData *);
-static int check_variable_order(struct Parser *, struct AST *, int);
-static int check_target_order(struct Parser *, struct AST *, int, int);
+static enum OutputDiffResult check_variable_order(struct Parser *, struct AST *, bool);
+static enum OutputDiffResult check_target_order(struct Parser *, struct AST *, bool, enum OutputDiffResult);
 static void output_row(struct Parser *, struct Row *, size_t);
-static int output_diff(struct Parser *, struct Array *, struct Array *, int);
+static enum OutputDiffResult output_diff(struct Parser *, struct Array *, struct Array *, bool);
 
 void
 row_free(struct Row *row)
@@ -187,7 +194,7 @@ get_all_unknown_variables_helper(struct Mempool *extpool, const char *key, const
 	}
 }
 
-int
+bool
 get_all_unknown_variables_filter(struct Parser *parser, const char *key, void *userdata)
 {
 	return *key != '_';
@@ -238,7 +245,7 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct AST *root)
 
 	enum BlockType block = BLOCK_UNKNOWN;
 	enum BlockType last_block = BLOCK_UNKNOWN;
-	int flag = 0;
+	bool flag = false;
 	ARRAY_FOREACH(vars, char *, var) {
 		struct Set *uses_candidates = NULL;
 		block = variable_order_block(parser, var, pool, &uses_candidates);
@@ -248,7 +255,7 @@ variable_list(struct Mempool *pool, struct Parser *parser, struct AST *root)
 			}
 			row(pool, output, str_printf(pool, "# %s", BlockType_human(block)), NULL);
 		}
-		flag = 1;
+		flag = true;
 		char *hint = get_hint(pool, parser, var, block, uses_candidates);
 		row(pool, output, var, hint);
 		last_block = block;
@@ -303,8 +310,8 @@ target_list(struct AST *node, struct TargetListWalkData *this)
 	return AST_WALK_CONTINUE;
 }
 
-int
-check_variable_order(struct Parser *parser, struct AST *root, int no_color)
+enum OutputDiffResult
+check_variable_order(struct Parser *parser, struct AST *root, bool no_color)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *origin = variable_list(pool, parser, root);
@@ -321,7 +328,7 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 	struct Array *unknowns = mempool_array(pool);
 	enum BlockType block = BLOCK_UNKNOWN;
 	enum BlockType last_block = BLOCK_UNKNOWN;
-	int flag = 0;
+	bool flag = false;
 	ARRAY_FOREACH(vars, char *, var) {
 		if ((block = variable_order_block(parser, var, pool, &uses_candidates)) != BLOCK_UNKNOWN) {
 			if (block != last_block) {
@@ -330,7 +337,7 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 				}
 				row(pool, target, str_printf(pool, "# %s", BlockType_human(block)), NULL);
 			}
-			flag = 1;
+			flag = true;
 			row(pool, target, var, NULL);
 			last_block = block;
 		} else {
@@ -368,7 +375,7 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 		row(pool, target, var, hint);
 	}
 
-	int retval = output_diff(parser, origin, target, no_color);
+	enum OutputDiffResult retval = output_diff(parser, origin, target, no_color);
 
 	if (array_len(vars) > 0 && set_len(all_unknown_variables) > 0) {
 		struct Map *group = mempool_map(pool, str_compare, NULL, NULL, NULL);
@@ -425,8 +432,8 @@ check_variable_order(struct Parser *parser, struct AST *root, int no_color)
 	return retval;
 }
 
-int
-check_target_order(struct Parser *parser, struct AST *root, int no_color, int status_var)
+enum OutputDiffResult
+check_target_order(struct Parser *parser, struct AST *root, bool no_color, enum OutputDiffResult status_var)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -436,7 +443,7 @@ check_target_order(struct Parser *parser, struct AST *root, int no_color, int st
 	});
 
 	struct Array *origin = mempool_array(pool);
-	if (status_var) {
+	if (status_var == OUTPUT_DIFF_OK) {
 		row(pool, origin, "", NULL);
 	}
 	row(pool, origin, "# Out of order targets", NULL);
@@ -449,7 +456,7 @@ check_target_order(struct Parser *parser, struct AST *root, int no_color, int st
 	array_sort(targets, compare_target_order, parser);
 
 	struct Array *target = mempool_array(pool);
-	if (status_var) {
+	if (status_var == OUTPUT_DIFF_OK) {
 		row(pool, target, str_dup(NULL, ""), NULL);
 	}
 	row(pool, target, "# Out of order targets", NULL);
@@ -466,16 +473,16 @@ check_target_order(struct Parser *parser, struct AST *root, int no_color, int st
 		}
 	}
 
-	int status_target = 0;
-	if ((status_target = output_diff(parser, origin, target, no_color)) == -1) {
+	enum OutputDiffResult status_target = OUTPUT_DIFF_ERROR;
+	if ((status_target = output_diff(parser, origin, target, no_color)) == OUTPUT_DIFF_ERROR) {
 		return status_target;
 	}
 
 	if (array_len(unknowns) > 0) {
-		if (status_var || status_target) {
+		if (status_var == OUTPUT_DIFF_OK || status_target == OUTPUT_DIFF_OK) {
 			parser_enqueue_output(parser, "\n");
 		}
-		status_target = 1;
+		status_target = OUTPUT_DIFF_OK;
 		if (!no_color) {
 			parser_enqueue_output(parser, ANSI_COLOR_CYAN);
 		}
@@ -508,14 +515,14 @@ output_row(struct Parser *parser, struct Row *row, size_t maxlen)
 	parser_enqueue_output(parser, "\n");
 }
 
-int
-output_diff(struct Parser *parser, struct Array *origin, struct Array *target, int no_color)
+enum OutputDiffResult
+output_diff(struct Parser *parser, struct Array *origin, struct Array *target, bool no_color)
 {
 	SCOPE_MEMPOOL(pool);
 
 	struct diff *p = array_diff(origin, target, pool, row_compare, NULL);
 	if (p == NULL) {
-		return -1;
+		return OUTPUT_DIFF_ERROR;
 	}
 
 	size_t edits = 0;
@@ -530,7 +537,7 @@ output_diff(struct Parser *parser, struct Array *origin, struct Array *target, i
 		}
 	}
 	if (edits == 0) {
-		return 0;
+		return OUTPUT_DIFF_NO_EDITS;
 	}
 
 	size_t maxlen = 0;
@@ -581,32 +588,32 @@ output_diff(struct Parser *parser, struct Array *origin, struct Array *target, i
 		}
 	}
 
-	return 1;
+	return OUTPUT_DIFF_OK;
 }
 
 PARSER_EDIT(lint_order)
 {
-	int *status = userdata;
+	bool *status = userdata;
 	struct ParserSettings settings = parser_settings(parser);
 	if (!(settings.behavior & PARSER_OUTPUT_RAWLINES)) {
 		parser_set_error(parser, PARSER_ERROR_INVALID_ARGUMENT, "needs PARSER_OUTPUT_RAWLINES");
 		return;
 	}
-	int no_color = settings.behavior & PARSER_OUTPUT_NO_COLOR;
+	bool no_color = settings.behavior & PARSER_OUTPUT_NO_COLOR;
 
-	int status_var;
-	if ((status_var = check_variable_order(parser, root, no_color)) == -1) {
+	enum OutputDiffResult status_var;
+	if ((status_var = check_variable_order(parser, root, no_color)) == OUTPUT_DIFF_ERROR) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "lint_order: cannot compute difference");
 		return;
 	}
 
-	int status_target;
-	if ((status_target = check_target_order(parser, root, no_color, status_var)) == -1) {
+	enum OutputDiffResult status_target;
+	if ((status_target = check_target_order(parser, root, no_color, status_var)) == OUTPUT_DIFF_ERROR) {
 		parser_set_error(parser, PARSER_ERROR_EDIT_FAILED, "lint_order: cannot compute difference");
 		return;
 	}
 
-	if (status != NULL && (status_var > 0 || status_target > 0)) {
-		*status = 1;
+	if (status && (status_var == OUTPUT_DIFF_OK || status_target == OUTPUT_DIFF_OK)) {
+		*status = true;
 	}
 }

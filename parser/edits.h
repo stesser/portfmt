@@ -40,13 +40,13 @@ struct ParserEdit {
 };
 
 struct ParserEditOutput {
-	int (*keyfilter)(struct Parser *, const char *, void *);
+	bool (*keyfilter)(struct Parser *, const char *, void *);
 	void *keyuserdata;
-	int (*filter)(struct Parser *, const char *, void *);
+	bool (*filter)(struct Parser *, const char *, void *);
 	void *filteruserdata;
 	void (*callback)(struct Mempool *, const char *, const char *, const char *, void *);
 	void *callbackuserdata;
-	int found;
+	bool found;
 };
 
 PARSER_EDIT(edit_bump_revision);

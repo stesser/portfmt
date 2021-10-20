@@ -34,6 +34,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <regex.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +57,7 @@ static void enqueue_output(struct Mempool *, const char *, const char *, const c
 static int apply(struct ParserSettings *, int, char *[]);
 static int bump_epoch(struct ParserSettings *, int, char *[]);
 static int bump_revision(struct ParserSettings *, int, char *[]);
-static int get_variable_filter(struct Parser *, const char *, void *);
+static bool get_variable_filter(struct Parser *, const char *, void *);
 static int get_variable(struct ParserSettings *, int, char *[]);
 static int merge(struct ParserSettings *, int, char *[]);
 static int sanitize_append(struct ParserSettings *, int, char *[]);
@@ -288,7 +289,7 @@ bump_revision(struct ParserSettings *settings, int argc, char *argv[])
 	return status;
 }
 
-int
+bool
 get_variable_filter(struct Parser *parser, const char *key, void *userdata)
 {
 	struct Regexp *regexp = userdata;

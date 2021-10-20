@@ -28,6 +28,8 @@
 
 #include "config.h"
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -61,7 +63,7 @@ refactor_sanitize_append_modifier_walker(struct AST *node, struct WalkerData *th
 	case AST_VARIABLE:
 		if (set_contains(this->seen, node->variable.name)) {
 			if (node->variable.modifier == AST_VARIABLE_MODIFIER_APPEND) {
-				node->edited = 1;
+				node->edited = true;
 			} else {
 				set_remove(this->seen, node->variable.name);
 			}
@@ -75,7 +77,7 @@ refactor_sanitize_append_modifier_walker(struct AST *node, struct WalkerData *th
 				if (node->parent->type != AST_IF && node->parent->type != AST_FOR) {
 					node->variable.modifier = AST_VARIABLE_MODIFIER_ASSIGN;
 				}
-				node->edited = 1;
+				node->edited = true;
 			}
 		}
 		break;

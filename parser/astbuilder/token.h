@@ -48,7 +48,7 @@ struct ParserASTBuilderToken {
 		struct Array *dependencies;
 		const char *comment;
 	} target;
-	int edited;
+	bool edited;
 	struct ASTLineRange lines;
 };
 

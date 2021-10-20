@@ -28,6 +28,8 @@
 
 #include "config.h"
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -41,7 +43,7 @@
 #include "rules.h"
 
 struct WalkerData {
-	int found;
+	bool found;
 };
 
 // Prototypes
@@ -53,7 +55,7 @@ lint_bsd_port_walker(struct AST *node, struct WalkerData *this)
 	switch (node->type) {
 	case AST_INCLUDE:
 		if (is_include_bsd_port_mk(node)) {
-			this->found = 1;
+			this->found = true;
 			return AST_WALK_STOP;
 		}
 		break;
@@ -72,7 +74,7 @@ PARSER_EDIT(lint_bsd_port)
 	}
 
 	struct WalkerData this = {
-		.found = 0,
+		.found = false,
 	};
 	lint_bsd_port_walker(root, &this);
 

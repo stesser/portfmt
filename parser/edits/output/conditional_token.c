@@ -28,6 +28,8 @@
 
 #include "config.h"
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -54,7 +56,7 @@ void
 add_word(struct WalkerData *this, const char *word)
 {
 	if ((this->param->filter == NULL || this->param->filter(this->parser, word, this->param->filteruserdata))) {
-		this->param->found = 1;
+		this->param->found = true;
 		if (this->param->callback) {
 			this->param->callback(this->pool, word, word, NULL, this->param->callbackuserdata);
 		}
@@ -92,12 +94,12 @@ output_conditional_token_walker(struct AST *node, struct WalkerData *this)
 		SCOPE_MEMPOOL(pool);
 		struct Array *word_groups = mempool_array(pool);
 		ARRAY_FOREACH(node->ifexpr.test, const char *, word) {
-			int merge = 0;
+			bool merge = false;
 			if (word_index < array_len(node->ifexpr.test) - 1) {
-				merge = 1;
+				merge = true;
 				for (size_t i = 0; i < nitems(merge_with_next); i++) {
 					if (strcmp(word, merge_with_next[i]) == 0) {
-						merge = 0;
+						merge = false;
 						break;
 					}
 				}
@@ -105,7 +107,7 @@ output_conditional_token_walker(struct AST *node, struct WalkerData *this)
 					// No merge yet when ) next
 					const char *next = array_get(node->ifexpr.test, word_index + 1);
 					if (next && strcmp(next, ")") == 0) {
-						merge = 0;
+						merge = false;
 					}
 				}
 			}
@@ -149,7 +151,7 @@ PARSER_EDIT(output_conditional_token)
 		return;
 	}
 
-	param->found = 0;
+	param->found = false;
 	output_conditional_token_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,

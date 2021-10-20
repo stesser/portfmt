@@ -29,6 +29,8 @@
 #include "config.h"
 
 #include <ctype.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -49,18 +51,18 @@ struct Target {
 // Prototypes
 static size_t consume_token(const char *, size_t, char, char);
 static void add_name(struct Mempool *, struct Array *, const char *, size_t, size_t);
-static const char *consume_sources(struct Mempool *, const char *, struct Array *, int);
+static const char *consume_sources(struct Mempool *, const char *, struct Array *, bool);
 
 size_t
 consume_token(const char *line, size_t pos, char startchar, char endchar)
 {
 	int counter = 0;
-	int escape = 0;
+	bool escape = false;
 	size_t i = pos;
 	for (; i < strlen(line); i++) {
 		char c = line[i];
 		if (escape) {
-			escape = 0;
+			escape = false;
 			continue;
 		}
 		if (startchar == endchar) {
@@ -71,7 +73,7 @@ consume_token(const char *line, size_t pos, char startchar, char endchar)
 					counter++;
 				}
 			} else if (c == '\\') {
-				escape = 1;
+				escape = true;
 			}
 		} else {
 			if (c == startchar) {
@@ -81,7 +83,7 @@ consume_token(const char *line, size_t pos, char startchar, char endchar)
 			} else if (c == endchar) {
 				counter--;
 			} else if (c == '\\') {
-				escape = 1;
+				escape = true;
 			}
 		}
 	}
@@ -98,7 +100,7 @@ add_name(struct Mempool *pool, struct Array *sources, const char *buf, size_t st
 }
 
 const char *
-consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, int deps)
+consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, bool deps)
 {
 	const char *after_target = NULL;
 	size_t start = 0;
@@ -160,12 +162,12 @@ parse_target(struct Mempool *extpool, const char *buf, struct Array **ret_source
 	struct Array *sources = mempool_array(pool);
 	struct Array *deps = mempool_array(pool);
 
-	const char *after_target = consume_sources(pool, buf, sources, 0);
+	const char *after_target = consume_sources(pool, buf, sources, false);
 	if (after_target == NULL) {
 		return 0;
 	}
 
-	const char *comment = consume_sources(pool, after_target, deps, 1);
+	const char *comment = consume_sources(pool, after_target, deps, true);
 	if (comment) {
 		*ret_comment = str_dup(pool, comment);
 	} else {

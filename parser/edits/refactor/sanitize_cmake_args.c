@@ -28,8 +28,10 @@
 
 #include "config.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libias/array.h>
@@ -77,14 +79,14 @@ refactor_sanitize_cmake_args_walker(struct AST *node, struct WalkerData *this)
 		ARRAY_FOREACH(node->variable.words, const char *, word) {
 			if (state == CMAKE_ARGS && strcmp(word, "-D") == 0) {
 				state = CMAKE_D;
-				//XXX: Do not mark as edited to not break edit.merge: node->edited = 1;
+				//XXX: Do not mark as edited to not break edit.merge: node->edited = true;
 				if (word_index == array_len(node->variable.words) - 1) {
 					array_append(words, word);
 				}
 			} else if (state == CMAKE_D) {
 				array_append(words, str_printf(node->pool, "-D%s", word));
 				state = CMAKE_ARGS;
-				//XXX: Do not mark as edited to not break edit.merge: node->edited = 1;
+				//XXX: Do not mark as edited to not break edit.merge: node->edited = true;
 			} else {
 				array_append(words, word);
 			}

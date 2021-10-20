@@ -29,6 +29,8 @@
 #include "config.h"
 
 #include <ctype.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include <libias/array.h>
@@ -44,18 +46,18 @@ struct WalkerData {
 };
 
 // Prototypes
-static int is_empty_line(const char *);
+static bool is_empty_line(const char *);
 static enum ASTWalkState refactor_remove_consecutive_empty_lines_walker(struct AST *, struct WalkerData *);
 
-int
+bool
 is_empty_line(const char *s)
 {
 	for (const char *p = s; *p != 0; p++) {
 		if (!isspace(*p)) {
-			return 0;
+			return false;
 		}
 	}
-	return 1;
+	return true;
 }
 
 enum ASTWalkState
@@ -67,7 +69,7 @@ refactor_remove_consecutive_empty_lines_walker(struct AST *node, struct WalkerDa
 
 	switch (node->type) {
 	case AST_COMMENT: {
-		int empty = 0;
+		uint32_t empty = 0;
 		struct Array *lines = mempool_array(pool);
 		ARRAY_FOREACH(node->comment.lines, const char *, line) {
 			if (is_empty_line(line)) {
@@ -84,7 +86,7 @@ refactor_remove_consecutive_empty_lines_walker(struct AST *node, struct WalkerDa
 		if (array_len(lines) < array_len(node->comment.lines)) {
 			array_truncate(node->comment.lines);
 			ARRAY_JOIN(node->comment.lines, lines);
-			node->edited = 1;
+			node->edited = true;
 		}
 		break;
 	} default:

@@ -29,6 +29,8 @@
 #include "config.h"
 
 #include <ctype.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,16 +46,16 @@
 #include "rules.h"
 
 // Prototypes
-static int preserve_eol_comment(const char *);
+static bool preserve_eol_comment(const char *);
 static enum ASTWalkState refactor_sanitize_eol_comments_walker(struct AST *);
 
-int
+bool
 preserve_eol_comment(const char *word)
 {
 	SCOPE_MEMPOOL(pool);
 
 	if (!is_comment(word)) {
-		return 1;
+		return true;
 	}
 
 	/* Remove all whitespace from the comment first to cover more cases */
@@ -86,8 +88,8 @@ refactor_sanitize_eol_comments_walker(struct AST *node)
 		});
 		array_append(comment->comment.lines, node->variable.comment);
 		node->variable.comment = NULL;
-		node->edited = 1;
-		comment->edited = 1;
+		node->edited = true;
+		comment->edited = true;
 		ast_parent_insert_before_sibling(node, comment);
 		break;
 	} default:

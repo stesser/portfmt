@@ -35,6 +35,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +54,7 @@ static void portscan_status_print_progress(void);
 
 static enum PortscanState state = PORTSCAN_STATUS_START;
 static struct timespec tic;
-static unsigned int interval;
+static uint32_t interval;
 static atomic_int status_requested = ATOMIC_VAR_INIT(0);
 static atomic_size_t scanned = ATOMIC_VAR_INIT(0);
 static size_t max_scanned;
@@ -67,7 +68,7 @@ static const char *endline = "\n";
 static const char *startline = "";
 
 void
-portscan_status_init(unsigned int progress_interval)
+portscan_status_init(uint32_t progress_interval)
 {
 	ssize_t n_threads = sysconf(_SC_NPROCESSORS_ONLN);
 	if (n_threads < 0) {

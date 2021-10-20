@@ -28,8 +28,10 @@
 
 #include "config.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <libias/array.h>
 #include <libias/flow.h>
@@ -41,16 +43,16 @@
 #include "parser/edits.h"
 
 // Prototypes
-static enum ASTWalkState refactor_sanitize_comments_walker(struct AST *, int);
+static enum ASTWalkState refactor_sanitize_comments_walker(struct AST *, bool);
 
 enum ASTWalkState
-refactor_sanitize_comments_walker(struct AST *node, int in_target)
+refactor_sanitize_comments_walker(struct AST *node, bool in_target)
 {
 	switch (node->type) {
 	case AST_COMMENT:
 		if (in_target) {
 			SCOPE_MEMPOOL(pool);
-			node->edited = 1;
+			node->edited = true;
 			struct Array *lines = mempool_array(pool);
 			ARRAY_FOREACH(node->comment.lines, const char *, line) {
 				array_append(lines, str_trim(node->pool, line));
@@ -60,7 +62,7 @@ refactor_sanitize_comments_walker(struct AST *node, int in_target)
 		}
 		break;
 	case AST_TARGET:
-		in_target = 1;
+		in_target = true;
 		break;
 	default:
 		break;
@@ -77,5 +79,5 @@ PARSER_EDIT(refactor_sanitize_comments)
 		return;
 	}
 
-	refactor_sanitize_comments_walker(root, 0);
+	refactor_sanitize_comments_walker(root, false);
 }

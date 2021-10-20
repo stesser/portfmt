@@ -29,6 +29,7 @@
 #include "config.h"
 
 #include <sys/param.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -63,15 +64,15 @@ struct VariableMergeParameter {
 
 // Prototypes
 static struct AST *empty_line(struct AST *);
-static int insert_empty_line_before_block(enum BlockType, enum BlockType);
+static bool insert_empty_line_before_block(enum BlockType, enum BlockType);
 static void prepend_variable(struct Parser *, struct AST *, struct AST *, enum BlockType);
 static enum ASTWalkState delete_variable(struct AST *, struct Parser *, const char *);
 static ssize_t find_insert_point_generic(struct Parser *, struct AST *, const char *, enum BlockType *);
 static ssize_t find_insert_point_same_block(struct Parser *, struct AST *, const char *, enum BlockType *);
 static void insert_variable(struct Parser *, struct AST *, struct AST *);
-static enum ASTWalkState find_variable_helper(struct AST *, const char *, int, struct AST **);
-static struct AST *find_variable(struct AST *, const char *, int);
-static enum ASTWalkState edit_merge_walker(struct AST *, struct WalkerData *, int);
+static enum ASTWalkState find_variable_helper(struct AST *, const char *, uint32_t, struct AST **);
+static struct AST *find_variable(struct AST *, const char *, uint32_t);
+static enum ASTWalkState edit_merge_walker(struct AST *, struct WalkerData *, uint32_t);
 
 struct AST *
 empty_line(struct AST *parent)
@@ -80,11 +81,11 @@ empty_line(struct AST *parent)
 		.type = AST_COMMENT_LINE,
 	});
 	array_append(node->comment.lines, str_dup(node->pool, ""));
-	node->edited = 1;
+	node->edited = true;
 	return node;
 }
 
-int
+bool
 insert_empty_line_before_block(enum BlockType before, enum BlockType block)
 {
 	return before < block && (before < BLOCK_USES || block > BLOCK_PLIST);
@@ -106,11 +107,11 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 		}
 	}
 
-	int added = 0;
+	bool added = false;
 	ARRAY_FOREACH_SLICE(siblings, start_index, -1, struct AST *, sibling) {
 		if (sibling_index == start_index) {
 			ast_parent_insert_before_sibling(sibling, node);
-			added = 1;
+			added = true;
 		}
 		// Insert new empty line
 		switch (sibling->type) {
@@ -141,7 +142,7 @@ prepend_variable(struct Parser *parser, struct AST *root, struct AST *node, enum
 
 	unless (added) {
 		// If all else fails just append it
-		ast_parent_append_sibling(root, node, 0);
+		ast_parent_append_sibling(root, node, false);
 	}
 }
 
@@ -174,7 +175,7 @@ find_insert_point_generic(struct Parser *parser, struct AST *root, const char *v
 
 	ssize_t insert_after = INSERT_VARIABLE_NO_POINT_FOUND;
 	*block_before_var = BLOCK_UNKNOWN;
-	int always_greater = 1;
+	bool always_greater = true;
 
 	ARRAY_FOREACH(ast_siblings(pool, root), struct AST *, sibling) {
 		switch (sibling->type) {
@@ -191,7 +192,7 @@ find_insert_point_generic(struct Parser *parser, struct AST *root, const char *v
 			if (compare_order(&sibling->variable.name, &var, parser) < 0) {
 				*block_before_var = variable_order_block(parser, sibling->variable.name, NULL, NULL);
 				insert_after = sibling_index;
-				always_greater = 0;
+				always_greater = false;
 			}
 			break;
 		case AST_INCLUDE:
@@ -260,7 +261,7 @@ insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 	SCOPE_MEMPOOL(pool);
 
 	struct AST *node = ast_clone(root->pool, template);
-	node->edited = 1;
+	node->edited = true;
 
 	enum BlockType block_var = variable_order_block(parser, node->variable.name, NULL, NULL);
 	enum BlockType block_before_var = BLOCK_UNKNOWN;
@@ -317,13 +318,13 @@ insert_variable(struct Parser *parser, struct AST *root, struct AST *template)
 	// If all else fails just append it
 	if (block_before_var != BLOCK_UNKNOWN && block_before_var != block_var &&
 	    insert_empty_line_before_block(block_before_var, block_var)) {
-		ast_parent_append_sibling(root, empty_line(node), 0);
+		ast_parent_append_sibling(root, empty_line(node), false);
 	}
-	ast_parent_append_sibling(root, node, 0);
+	ast_parent_append_sibling(root, node, false);
 }
 
 enum ASTWalkState
-find_variable_helper(struct AST *node, const char *var, int level, struct AST **retval)
+find_variable_helper(struct AST *node, const char *var, uint32_t level, struct AST **retval)
 {
 	if (level > 1) {
 		return AST_WALK_STOP;
@@ -351,7 +352,7 @@ find_variable_helper(struct AST *node, const char *var, int level, struct AST **
 }
 
 struct AST *
-find_variable(struct AST *root, const char *var, int level)
+find_variable(struct AST *root, const char *var, uint32_t level)
 {
 	struct AST *node = NULL;
 	find_variable_helper(root, var, level, &node);
@@ -359,7 +360,7 @@ find_variable(struct AST *root, const char *var, int level)
 }
 
 enum ASTWalkState
-edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
+edit_merge_walker(struct AST *node, struct WalkerData *this, uint32_t level)
 {
 	if (level > 1) {
 		return AST_WALK_STOP;
@@ -386,14 +387,14 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				ARRAY_FOREACH(node->variable.words, const char *, word) {
 					array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
 				}
-				mergenode->edited = 1;
+				mergenode->edited = true;
 				return AST_WALK_CONTINUE;
 			case AST_VARIABLE_MODIFIER_APPEND:
 				if ((!mergenode->variable.comment || strlen(mergenode->variable.comment) == 0)) {
 					ARRAY_FOREACH(node->variable.words, const char *, word) {
 						array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
 					}
-					mergenode->edited = 1;
+					mergenode->edited = true;
 					return AST_WALK_CONTINUE;
 				}
 				break;
@@ -402,7 +403,7 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				ARRAY_FOREACH(node->variable.words, const char *, word) {
 					array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
 				}
-				mergenode->edited = 1;
+				mergenode->edited = true;
 				mergenode->variable.modifier = AST_VARIABLE_MODIFIER_EXPAND;
 				return AST_WALK_CONTINUE;
 			case AST_VARIABLE_MODIFIER_OPTIONAL:
@@ -410,7 +411,7 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				ARRAY_FOREACH(node->variable.words, const char *, word) {
 					array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
 				}
-				mergenode->edited = 1;
+				mergenode->edited = true;
 				mergenode->variable.modifier = AST_VARIABLE_MODIFIER_OPTIONAL;
 				return AST_WALK_CONTINUE;
 			case AST_VARIABLE_MODIFIER_SHELL:
@@ -418,7 +419,7 @@ edit_merge_walker(struct AST *node, struct WalkerData *this, int level)
 				ARRAY_FOREACH(node->variable.words, const char *, word) {
 					array_append(mergenode->variable.words, str_dup(mergenode->pool, word));
 				}
-				mergenode->edited = 1;
+				mergenode->edited = true;
 				mergenode->variable.modifier = AST_VARIABLE_MODIFIER_SHELL;
 				return AST_WALK_CONTINUE;
 			}

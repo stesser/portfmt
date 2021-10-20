@@ -28,8 +28,10 @@
 
 #include "config.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libias/array.h>
@@ -109,7 +111,7 @@ refactor_dedup_tokens_walker(struct AST *node, struct WalkerData *this)
 				}
 			}
 			if (array_len(words) < array_len(node->variable.words)) {
-				node->edited = 1;
+				node->edited = true;
 				array_truncate(node->variable.words);
 				ARRAY_JOIN(node->variable.words, words);
 			}

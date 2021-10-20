@@ -29,8 +29,10 @@
 #include "config.h"
 
 #include <ctype.h>
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libias/array.h>
@@ -61,7 +63,7 @@ struct UnknownVariable {
 static struct UnknownVariable *var_new(const char *, const char *);
 static void var_free(struct UnknownVariable *);
 static int var_compare(const void *, const void *, void *);
-static void check_opthelper(struct WalkerData *, const char *, int, int);
+static void check_opthelper(struct WalkerData *, const char *, bool, bool);
 static enum ASTWalkState output_unknown_variables_walker(struct AST *, struct WalkerData *);
 
 struct UnknownVariable *
@@ -105,7 +107,7 @@ var_compare(const void *ap, const void *bp, void *userdata)
 }
 
 void
-check_opthelper(struct WalkerData *this, const char *option, int optuse, int optoff)
+check_opthelper(struct WalkerData *this, const char *option, bool optuse, bool optoff)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -165,7 +167,7 @@ output_unknown_variables_walker(struct AST *node, struct WalkerData *this)
 		    !set_contains(this->vars, &varskey) &&
 		    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
 			set_add(this->vars, var_new(name, NULL));
-			this->param->found = 1;
+			this->param->found = true;
 			if (this->param->callback) {
 				this->param->callback(this->pool, name, name, NULL, this->param->callbackuserdata);
 			}
@@ -190,7 +192,7 @@ PARSER_EDIT(output_unknown_variables)
 		return;
 	}
 
-	param->found = 0;
+	param->found = false;
 	struct WalkerData this = {
 		.parser = parser,
 		.pool = extpool,
@@ -201,10 +203,10 @@ PARSER_EDIT(output_unknown_variables)
 
 	struct Set *options = parser_metadata(parser, PARSER_METADATA_OPTIONS);
 	SET_FOREACH (options, const char *, option) {
-		check_opthelper(&this, option, 1, 0);
-		check_opthelper(&this, option, 0, 0);
-		check_opthelper(&this, option, 1, 1);
-		check_opthelper(&this, option, 0, 1);
+		check_opthelper(&this, option, true, false);
+		check_opthelper(&this, option, false, false);
+		check_opthelper(&this, option, true, true);
+		check_opthelper(&this, option, false, true);
 	}
 }
 

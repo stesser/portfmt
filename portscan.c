@@ -40,6 +40,7 @@
 #include <pthread.h>
 #include <regex.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -165,9 +166,9 @@ struct PortReaderResult {
 // Prototypes
 static void add_error(struct Set *, char *);
 static void lookup_subdirs(int, const char *, const char *, enum ScanFlags, struct Mempool *, struct Array *, struct Array *, struct Array *, struct Array *, struct Array *, struct Array *);
-static int variable_value_filter(struct Parser *, const char *, void *);
-static int unknown_targets_filter(struct Parser *, const char *, void *);
-static int unknown_variables_filter(struct Parser *, const char *, void *);
+static bool variable_value_filter(struct Parser *, const char *, void *);
+static bool unknown_targets_filter(struct Parser *, const char *, void *);
+static bool unknown_variables_filter(struct Parser *, const char *, void *);
 static int char_cmp(const void *, const void *, void *);
 static ssize_t edit_distance(const char *, const char *);
 static void collect_output_unknowns(struct Mempool *, const char *, const char *, const char *, void *);
@@ -184,7 +185,7 @@ static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, str
 static void usage(void);
 
 // Constants
-static const unsigned int DEFAULT_PROGRESSINTERVAL = 1;
+static const uint32_t DEFAULT_PROGRESSINTERVAL = 1;
 static struct option longopts[SCAN_LONGOPT__N + 1] = {
 	[SCAN_LONGOPT_CATEGORIES] = { "categories", no_argument, NULL, 1 },
 	[SCAN_LONGOPT_CLONES] = { "clones", no_argument, NULL, 1 },
@@ -290,21 +291,21 @@ lookup_subdirs(int portsdir, const char *category, const char *path, enum ScanFl
 	}
 }
 
-int
+bool
 variable_value_filter(struct Parser *parser, const char *value, void *userdata)
 {
 	struct Regexp *query = userdata;
 	return !query || regexp_exec(query, value) == 0;
 }
 
-int
+bool
 unknown_targets_filter(struct Parser *parser, const char *value, void *userdata)
 {
 	struct Regexp *query = userdata;
 	return !query || regexp_exec(query, value) == 0;
 }
 
-int
+bool
 unknown_variables_filter(struct Parser *parser, const char *value, void *userdata)
 {
 	struct Regexp *query = userdata;
@@ -768,7 +769,7 @@ main(int argc, char *argv[])
 	const char *logdir_path = NULL;
 	const char *keyquery = NULL;
 	const char *query = NULL;
-	unsigned int progressinterval = 0;
+	uint32_t progressinterval = 0;
 
 	struct ScanLongoptsState opts[SCAN_LONGOPT__N] = {};
 	for (enum ScanLongopts i = 0; i < SCAN_LONGOPT__N; i++) {
@@ -787,20 +788,20 @@ main(int argc, char *argv[])
 			query = optarg;
 			break;
 		case 'o': {
-			int found = 0;
+			bool found = false;
 			const char *name = NULL;
 			for (enum ScanLongopts i = 0; !found && i < SCAN_LONGOPT__N; i++) {
 				name = longopts[i].name;
 				if (strcasecmp(optarg, name) == 0) {
 					opts[i].flag = 1;
 					opts[i].optarg = NULL;
-					found = 1;
+					found = true;
 				} else if (longopts[i].has_arg != no_argument) {
 					char *buf = str_printf(pool, "%s=", name);
 					if (strncasecmp(optarg, buf, strlen(buf)) == 0) {
 						opts[i].flag = 1;
 						opts[i].optarg = optarg + strlen(buf);
-						found = 1;
+						found = true;
 					}
 				}
 			}
@@ -826,7 +827,7 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	int strict_variables = 0;
+	bool strict_variables = false;
 	for (enum ScanLongopts i = 0; i < SCAN_LONGOPT__N; i++) {
 		if (!opts[i].flag) {
 			continue;
@@ -851,7 +852,7 @@ main(int argc, char *argv[])
 			progressinterval = DEFAULT_PROGRESSINTERVAL;
 			break;
 		case SCAN_LONGOPT_STRICT:
-			strict_variables = 1;
+			strict_variables = true;
 			break;
 		case SCAN_LONGOPT_UNKNOWN_TARGETS:
 			flags |= SCAN_UNKNOWN_TARGETS;

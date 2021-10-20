@@ -191,8 +191,8 @@ struct ASTInclude {
 	const char *comment;
 	size_t indent;
 	const char *path;
-	int sys;
-	int loaded;
+	bool sys;
+	bool loaded;
 };
 
 struct ASTTarget {
@@ -232,7 +232,7 @@ struct AST {
 	struct Mempool *pool;
 	struct ASTLineRange line_start;
 	struct ASTLineRange line_end;
-	int edited;
+	bool edited;
 	struct {
 		size_t goalcol;
 	} meta;
@@ -253,12 +253,12 @@ void ast_free(struct AST *);
 struct AST *ast_new(struct Mempool *, enum ASTType, struct ASTLineRange *, void *);
 struct AST *ast_clone(struct Mempool *, struct AST *);
 struct Array *ast_siblings(struct Mempool *, struct AST *);
-void ast_parent_append_sibling(struct AST *, struct AST *, int);
+void ast_parent_append_sibling(struct AST *, struct AST *, bool);
 void ast_parent_insert_before_sibling(struct AST *, struct AST *);
 void ast_print(struct AST *, FILE *);
 void ast_balance(struct AST *);
 
-char *ast_line_range_tostring(struct ASTLineRange *, int, struct Mempool *);
+char *ast_line_range_tostring(struct ASTLineRange *, bool, struct Mempool *);
 
 #define AST_WALK_RECUR(x) \
 	if ((x) == AST_WALK_STOP) { \

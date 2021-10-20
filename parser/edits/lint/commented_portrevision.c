@@ -28,8 +28,10 @@
 
 #include "config.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libias/array.h>
@@ -100,7 +102,7 @@ PARSER_EDIT(lint_commented_portrevision)
 	lint_commented_portrevision_walker(root, &this);
 
 	struct Set **retval = userdata;
-	int no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
+	bool no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
 	if (retval == NULL && set_len(this.comments) > 0) {
 		if (!no_color) {
 			parser_enqueue_output(parser, ANSI_COLOR_CYAN);

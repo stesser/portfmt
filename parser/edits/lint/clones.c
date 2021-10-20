@@ -28,8 +28,10 @@
 
 #include "config.h"
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <libias/array.h>
 #include <libias/color.h>
@@ -50,7 +52,7 @@ struct WalkerData {
 
 // Prototypes
 static void add_clones(struct WalkerData *);
-static enum ASTWalkState lint_clones_walker(struct AST *, struct WalkerData *, int);
+static enum ASTWalkState lint_clones_walker(struct AST *, struct WalkerData *, uint32_t);
 
 void
 add_clones(struct WalkerData *this)
@@ -64,7 +66,7 @@ add_clones(struct WalkerData *this)
 }
 
 enum ASTWalkState
-lint_clones_walker(struct AST *node, struct WalkerData *this, int in_conditional)
+lint_clones_walker(struct AST *node, struct WalkerData *this, uint32_t in_conditional)
 {
 	switch (node->type) {
 	case AST_FOR:
@@ -91,7 +93,7 @@ lint_clones_walker(struct AST *node, struct WalkerData *this, int in_conditional
 
 	AST_WALK_DEFAULT(lint_clones_walker, node, this, in_conditional);
 
-	if (in_conditional <= 0) {
+	if (in_conditional == 0) {
 		add_clones(this);
 	}
 
@@ -103,7 +105,7 @@ PARSER_EDIT(lint_clones)
 	SCOPE_MEMPOOL(pool);
 
 	struct Set **clones_ret = userdata;
-	int no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
+	bool no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
 
 	struct WalkerData this = {
 		.seen = mempool_set(pool, str_compare, NULL, NULL),

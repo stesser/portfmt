@@ -36,6 +36,7 @@
 #endif
 #include <fcntl.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -53,18 +54,18 @@
 // Prototypes
 static FILE *open_file_helper(struct Mempool *, const char *, const char *, const char **);
 
-int
+bool
 can_use_colors(FILE *fp)
 {
 	if (getenv("CLICOLOR_FORCE") != NULL) {
-		return 1;
+		return true;
 	}
 
 	if (getenv("NO_COLOR") != NULL || isatty(fileno(fp)) == 0) {
-		return 0;
+		return false;
 	}
 
-	return 1;
+	return true;
 }
 
 void
@@ -86,7 +87,7 @@ enter_sandbox()
 #endif
 }
 
-int
+bool
 read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const char *optstr, struct Mempool *pool, struct Array *expressions)
 {
 	int ch;
@@ -110,7 +111,7 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 			if (expressions && optarg) {
 				array_append(expressions, str_dup(pool, optarg));
 			} else {
-				return 0;
+				return false;
 			}
 			break;
 		case 'i':
@@ -134,11 +135,11 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 					errx(1, "-w%s is %s", optarg, errstr);
 				}
 			} else {
-				return 0;
+				return false;
 			}
 			break;
 		default:
-			return 0;
+			return false;
 		}
 	}
 	*argc -= optind;
@@ -150,7 +151,7 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 		settings->behavior &= ~PARSER_OUTPUT_INPLACE;
 	}
 
-	return 1;
+	return true;
 }
 
 FILE *
@@ -189,7 +190,7 @@ open_file_helper(struct Mempool *extpool, const char *path, const char *mode, co
 	return mempool_add(extpool, mempool_forget(pool, f), fclose);
 }
 
-int
+bool
 open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, struct Mempool *pool, FILE **fp_in, FILE **fp_out, const char **filename)
 {
 #if HAVE_CAPSICUM
@@ -197,7 +198,7 @@ open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, stru
 #endif
 
 	if (*argc > 1 || ((behavior & MAINUTILS_OPEN_FILE_INPLACE) && *argc == 0)) {
-		return 0;
+		return false;
 	} else if (*argc == 1) {
 		if (behavior & MAINUTILS_OPEN_FILE_INPLACE) {
 			if (!(behavior & MAINUTILS_OPEN_FILE_KEEP_STDIN)) {
@@ -208,11 +209,11 @@ open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, stru
 			*fp_in = open_file_helper(pool, *argv[0], "r+", filename);
 			*fp_out = *fp_in;
 			if (*fp_in == NULL) {
-				return 0;
+				return false;
 			}
 #if HAVE_CAPSICUM
 			if (caph_limit_stream(fileno(*fp_in), CAPH_READ | CAPH_WRITE | CAPH_FTRUNCATE) < 0) {
-				return 0;
+				return false;
 			}
 #endif
 		} else  {
@@ -221,21 +222,21 @@ open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, stru
 			}
 			*fp_in = open_file_helper(pool, *argv[0], "r", filename);
 			if (*fp_in == NULL) {
-				return 0;
+				return false;
 			}
 #if HAVE_CAPSICUM
 			if (caph_limit_stream(fileno(*fp_in), CAPH_READ) < 0) {
-				return 0;
+				return false;
 			}
 			if (caph_limit_stdio() < 0) {
-				return 0;
+				return false;
 			}
 #endif
 		}
 	} else {
 #if HAVE_CAPSICUM
 		if (caph_limit_stdio() < 0) {
-			return 0;
+			return false;
 		}
 #endif
 	}
@@ -243,5 +244,5 @@ open_file(enum MainutilsOpenFileBehavior behavior, int *argc, char ***argv, stru
 	*argc -= 1;
 	*argv += 1;
 
-	return 1;
+	return true;
 }

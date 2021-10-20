@@ -28,6 +28,8 @@
 
 #include "config.h"
 
+#include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -51,30 +53,30 @@ struct WalkerData {
 };
 
 // Prototypes
-static int add_target(struct WalkerData *, const char *, int);
+static bool add_target(struct WalkerData *, const char *, bool);
 static enum ASTWalkState output_unknown_targets_walker(struct AST *, struct WalkerData *);
 
-int
-add_target(struct WalkerData *this, const char *name, int deps)
+bool
+add_target(struct WalkerData *this, const char *name, bool deps)
 {
 	if (deps && is_special_source(name)) {
-		return 0;
+		return false;
 	}
 	if (is_special_target(name)) {
-		return 1;
+		return true;
 	}
 	if (!is_known_target(this->parser, name) &&
 	    !set_contains(this->post_plist_targets, name) &&
 	    !set_contains(this->targets, name) &&
 	    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
 		set_add(this->targets, name);
-		this->param->found = 1;
+		this->param->found = true;
 		if (this->param->callback) {
 			// XXX: provide option as hint for opthelper targets?
 			this->param->callback(this->pool, name, name, NULL, this->param->callbackuserdata);
 		}
 	}
-	return 0;
+	return false;
 }
 
 enum ASTWalkState
@@ -82,15 +84,15 @@ output_unknown_targets_walker(struct AST *node, struct WalkerData *this)
 {
 	switch (node->type) {
 	case AST_TARGET: {
-		int skip_deps = 0;
+		bool skip_deps = false;
 		ARRAY_FOREACH(node->target.sources, const char *, name) {
-			if (add_target(this, name, 0)) {
-				skip_deps = 1;
+			if (add_target(this, name, false)) {
+				skip_deps = true;
 			}
 		}
 		if (!skip_deps) {
 			ARRAY_FOREACH(node->target.dependencies, const char *, name) {
-				add_target(this, name, 1);
+				add_target(this, name, true);
 			}
 		}
 		break;
@@ -112,7 +114,7 @@ PARSER_EDIT(output_unknown_targets)
 		return;
 	}
 
-	param->found = 0;
+	param->found = true;
 	output_unknown_targets_walker(root, &(struct WalkerData){
 		.parser = parser,
 		.pool = extpool,
