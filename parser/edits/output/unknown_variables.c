@@ -52,6 +52,7 @@ struct WalkerData {
 	struct Mempool *pool;
 	struct ParserEditOutput *param;
 	struct Set *vars;
+	struct Mempool *vars_pool;
 };
 
 struct UnknownVariable {
@@ -60,21 +61,21 @@ struct UnknownVariable {
 };
 
 // Prototypes
-static struct UnknownVariable *var_new(const char *, const char *);
+static struct UnknownVariable *var_new(struct Mempool *, const char *, const char *);
 static void var_free(struct UnknownVariable *);
 static int var_compare(const void *, const void *, void *);
 static void check_opthelper(struct WalkerData *, const char *, bool, bool);
 static enum ASTWalkState output_unknown_variables_walker(struct AST *, struct WalkerData *);
 
 struct UnknownVariable *
-var_new(const char *name, const char *hint)
+var_new(struct Mempool *pool, const char *name, const char *hint)
 {
 	struct UnknownVariable *var = xmalloc(sizeof(struct UnknownVariable));
 	var->name = str_dup(NULL, name);
 	if (hint) {
 		var->hint = str_dup(NULL, hint);
 	}
-	return var;
+	return mempool_add(pool, var, var_free);
 }
 
 void
@@ -147,7 +148,7 @@ check_opthelper(struct WalkerData *this, const char *option, bool optuse, bool o
 		    !is_referenced_var(this->parser, name) &&
 		    !set_contains(this->vars, &varskey) &&
 		    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
-			set_add(this->vars, var_new(name, var));
+			set_add(this->vars, var_new(this->vars_pool, name, var));
 			if (this->param->callback) {
 				this->param->callback(this->pool, name, name, var, this->param->callbackuserdata);
 			}
@@ -166,7 +167,7 @@ output_unknown_variables_walker(struct AST *node, struct WalkerData *this)
 		    !is_referenced_var(this->parser, name) &&
 		    !set_contains(this->vars, &varskey) &&
 		    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
-			set_add(this->vars, var_new(name, NULL));
+			set_add(this->vars, var_new(this->vars_pool, name, NULL));
 			this->param->found = true;
 			if (this->param->callback) {
 				this->param->callback(this->pool, name, name, NULL, this->param->callbackuserdata);
@@ -197,7 +198,8 @@ PARSER_EDIT(output_unknown_variables)
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
-		.vars = mempool_set(pool, var_compare, NULL, var_free),
+		.vars_pool = pool,
+		.vars = mempool_set(pool, var_compare, NULL),
 	};
 	output_unknown_variables_walker(root, &this);
 

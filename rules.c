@@ -2278,7 +2278,7 @@ variable_order_block(struct Parser *parser, const char *var, struct Mempool *ext
 				return variable_order_[i].block;
 			} else if (count > 0 && uses_candidates) {
 				if (*uses_candidates == NULL) {
-					*uses_candidates = mempool_set(extpool, str_compare, NULL, NULL);
+					*uses_candidates = mempool_set(extpool, str_compare, NULL);
 				}
 				for (size_t j = 0; j < count; j++) {
 					set_add(*uses_candidates, variable_order_[i].uses[j]);

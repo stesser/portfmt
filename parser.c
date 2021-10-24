@@ -75,6 +75,7 @@ struct Parser {
 	struct Mempool *pool;
 	struct AST *ast;
 	struct Array *result;
+	struct Mempool *metadata_pool;
 	void *metadata[PARSER_METADATA_USES + 1];
 	int metadata_valid[PARSER_METADATA_USES + 1];
 
@@ -117,7 +118,6 @@ static void parser_port_options_add_from_group(struct Parser *, const char *);
 static void parser_port_options_add_from_var(struct Parser *, const char *);
 static void parser_metadata_port_options(struct Parser *);
 static void parser_metadata_alloc(struct Parser *);
-static void parser_metadata_free(struct Parser *);
 static enum ASTWalkState parser_lookup_target_walker(struct AST *, const char *, struct AST **);
 static enum ASTWalkState parser_lookup_variable_walker(struct AST *, struct Mempool *, const char *, enum ParserLookupVariableBehavior, struct Array *, struct Array *, struct AST **);
 
@@ -164,6 +164,7 @@ parser_new(struct Mempool *extpool, struct ParserSettings *settings)
 	struct Parser *parser = xmalloc(sizeof(struct Parser));
 
 	parser->pool = mempool_new();
+	parser->metadata_pool = mempool_new();
 	parser->rawlines = array_new();
 	parser->result = array_new();
 	parser_metadata_alloc(parser);
@@ -210,7 +211,7 @@ parser_free(struct Parser *parser)
 	array_free(parser->rawlines);
 
 	mempool_free(parser->pool);
-	parser_metadata_free(parser);
+	mempool_free(parser->metadata_pool);
 	free(parser->error_msg);
 
 	parser_tokenizer_free(parser->tokenizer);
@@ -487,7 +488,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 	const char *start = startlv0;
 
 	// Find the places we need to wrap to the next line.
-	struct Set *wraps = mempool_set(pool, NULL, NULL, NULL);
+	struct Set *wraps = mempool_set(pool, NULL, NULL);
 	size_t column = 8;
 	uint32_t complexity = 0;
 	size_t command_i = 0;
@@ -1644,14 +1645,14 @@ parser_port_options_add_from_group(struct Parser *parser, const char *groupname)
 	if (parser_lookup_variable(parser, groupname, PARSER_LOOKUP_DEFAULT, pool, &optmulti, NULL)) {
 		ARRAY_FOREACH(optmulti, char *, optgroupname) {
 			if (!set_contains(parser->metadata[PARSER_METADATA_OPTION_GROUPS], optgroupname)) {
-				set_add(parser->metadata[PARSER_METADATA_OPTION_GROUPS], str_dup(NULL, optgroupname));
+				set_add(parser->metadata[PARSER_METADATA_OPTION_GROUPS], str_dup(parser->metadata_pool, optgroupname));
 			}
 			char *optgroupvar = str_printf(pool, "%s_%s", groupname, optgroupname);
 			struct Array *opts = NULL;
 			if (parser_lookup_variable(parser, optgroupvar, PARSER_LOOKUP_DEFAULT, pool, &opts, NULL)) {
 				ARRAY_FOREACH(opts, char *, opt) {
 					if (!set_contains(parser->metadata[PARSER_METADATA_OPTIONS], opt)) {
-						set_add(parser->metadata[PARSER_METADATA_OPTIONS], str_dup(NULL, opt));
+						set_add(parser->metadata[PARSER_METADATA_OPTIONS], str_dup(parser->metadata_pool, opt));
 					}
 				}
 			}
@@ -1668,7 +1669,7 @@ parser_port_options_add_from_var(struct Parser *parser, const char *var)
 	if (parser_lookup_variable(parser, var, PARSER_LOOKUP_DEFAULT, pool, &optdefine, NULL)) {
 		ARRAY_FOREACH(optdefine, char *, opt) {
 			if (!set_contains(parser->metadata[PARSER_METADATA_OPTIONS], opt)) {
-				set_add(parser->metadata[PARSER_METADATA_OPTIONS], str_dup(NULL, opt));
+				set_add(parser->metadata[PARSER_METADATA_OPTIONS], str_dup(parser->metadata_pool, opt));
 			}
 		}
 	}
@@ -1717,7 +1718,7 @@ parser_metadata_port_options(struct Parser *parser)
 			if (!map_contains(parser->metadata[PARSER_METADATA_OPTION_DESCRIPTIONS], var)) {
 				char *desc;
 				if (parser_lookup_variable_str(parser, var, PARSER_LOOKUP_FIRST, pool, &desc, NULL)) {
-					map_add(parser->metadata[PARSER_METADATA_OPTION_DESCRIPTIONS], str_dup(NULL, var), str_dup(NULL, desc));
+					map_add(parser->metadata[PARSER_METADATA_OPTION_DESCRIPTIONS], str_dup(parser->metadata_pool, var), str_dup(parser->metadata_pool, desc));
 				}
 			}
 		}
@@ -1730,34 +1731,15 @@ parser_metadata_alloc(struct Parser *parser)
 	for (enum ParserMetadata meta = 0; meta <= PARSER_METADATA_USES; meta++) {
 		switch (meta) {
 		case PARSER_METADATA_OPTION_DESCRIPTIONS:
-			parser->metadata[meta] = map_new(str_compare, NULL, free, free);
+			parser->metadata[meta] = mempool_map(parser->metadata_pool, str_compare, NULL);
 			break;
 		case PARSER_METADATA_MASTERDIR:
 			parser->metadata[meta] = NULL;
 			break;
 		default:
-			parser->metadata[meta] = set_new(str_compare, NULL, free);
+			parser->metadata[meta] = mempool_set(parser->metadata_pool, str_compare, NULL);
 			break;
 		}
-	}
-}
-
-void
-parser_metadata_free(struct Parser *parser)
-{
-	for (enum ParserMetadata i = 0; i <= PARSER_METADATA_USES; i++) {
-		switch (i) {
-		case PARSER_METADATA_MASTERDIR:
-			free(parser->metadata[i]);
-			break;
-		case PARSER_METADATA_OPTION_DESCRIPTIONS:
-			map_free(parser->metadata[i]);
-			break;
-		default:
-			set_free(parser->metadata[i]);
-			break;
-		}
-		parser->metadata[i] = NULL;
 	}
 }
 
@@ -1776,7 +1758,7 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 					char *portname;
 					if (parser_lookup_variable_str(parser, "PORTNAME", PARSER_LOOKUP_FIRST, pool, &portname, NULL)) {
 						if (!set_contains(parser->metadata[PARSER_METADATA_CABAL_EXECUTABLES], portname)) {
-							set_add(parser->metadata[PARSER_METADATA_CABAL_EXECUTABLES], str_dup(NULL, portname));
+							set_add(parser->metadata[PARSER_METADATA_CABAL_EXECUTABLES], str_dup(parser->metadata_pool, portname));
 						}
 					}
 				}
@@ -1789,7 +1771,7 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 			for (size_t i = 0; i < static_flavors_len; i++) {
 				if (set_contains(uses, (void*)static_flavors[i].uses) &&
 				    !set_contains(parser->metadata[PARSER_METADATA_FLAVORS], (void*)static_flavors[i].flavor)) {
-					set_add(parser->metadata[PARSER_METADATA_FLAVORS], str_dup(NULL, static_flavors[i].flavor));
+					set_add(parser->metadata[PARSER_METADATA_FLAVORS], str_dup(parser->metadata_pool, static_flavors[i].flavor));
 				}
 			}
 			break;
@@ -1799,8 +1781,8 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 		case PARSER_METADATA_MASTERDIR: {
 			struct Array *tokens = NULL;
 			if (parser_lookup_variable(parser, "MASTERDIR", PARSER_LOOKUP_FIRST | PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS, pool, &tokens, NULL)) {
-				free(parser->metadata[meta]);
-				parser->metadata[meta] = str_join(NULL, tokens, " ");
+				mempool_release(parser->metadata_pool, parser->metadata[meta]);
+				parser->metadata[meta] = str_join(parser->metadata_pool, tokens, " ");
 			}
 			break;
 		} case PARSER_METADATA_SHEBANG_LANGS:
@@ -1818,7 +1800,7 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 		case PARSER_METADATA_SUBPACKAGES:
 			if (!set_contains(parser->metadata[PARSER_METADATA_SUBPACKAGES], "main")) {
 				// There is always a main subpackage
-				set_add(parser->metadata[PARSER_METADATA_SUBPACKAGES], str_dup(NULL, "main"));
+				set_add(parser->metadata[PARSER_METADATA_SUBPACKAGES], str_dup(parser->metadata_pool, "main"));
 			}
 			parser_meta_values(parser, "SUBPACKAGES", parser->metadata[PARSER_METADATA_SUBPACKAGES]);
 			break;

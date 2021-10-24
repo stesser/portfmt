@@ -48,6 +48,7 @@ struct WalkerData {
 	struct Set *seen;
 	struct Set *seen_in_cond;
 	struct Set *clones;
+	struct Mempool *clones_pool;
 };
 
 // Prototypes
@@ -59,7 +60,7 @@ add_clones(struct WalkerData *this)
 {
 	SET_FOREACH(this->seen_in_cond, const char *, name) {
 		if (set_contains(this->seen, name) && !set_contains(this->clones, name)) {
-			set_add(this->clones, str_dup(NULL, name));
+			set_add(this->clones, str_dup(this->clones_pool, name));
 		}
 	}
 	set_truncate(this->seen_in_cond);
@@ -80,7 +81,7 @@ lint_clones_walker(struct AST *node, struct WalkerData *this, uint32_t in_condit
 				set_add(this->seen_in_cond, node->variable.name);
 			} else if (set_contains(this->seen, node->variable.name)) {
 				if (!set_contains(this->clones, node->variable.name)) {
-					set_add(this->clones, str_dup(NULL, node->variable.name));
+					set_add(this->clones, str_dup(this->clones_pool, node->variable.name));
 				}
 			} else {
 				set_add(this->seen, node->variable.name);
@@ -107,10 +108,12 @@ PARSER_EDIT(lint_clones)
 	struct Set **clones_ret = userdata;
 	bool no_color = parser_settings(parser).behavior & PARSER_OUTPUT_NO_COLOR;
 
+	struct Mempool *clones_pool = mempool_pool(extpool);
 	struct WalkerData this = {
-		.seen = mempool_set(pool, str_compare, NULL, NULL),
-		.seen_in_cond = mempool_set(pool, str_compare, NULL, NULL),
-		.clones = mempool_set(pool, str_compare, NULL, free),
+		.seen = mempool_set(pool, str_compare, NULL),
+		.seen_in_cond = mempool_set(pool, str_compare, NULL),
+		.clones_pool = clones_pool,
+		.clones = mempool_set(clones_pool, str_compare, NULL),
 	};
 	lint_clones_walker(root, &this, 0);
 
@@ -128,7 +131,9 @@ PARSER_EDIT(lint_clones)
 		}
 	}
 
-	if (clones_ret != NULL) {
-		*clones_ret = mempool_move(pool, this.clones, extpool);
+	if (clones_ret) {
+		*clones_ret = this.clones;
+	} else {
+		mempool_release(extpool, clones_pool);
 	}
 }

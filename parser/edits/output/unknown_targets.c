@@ -119,7 +119,7 @@ PARSER_EDIT(output_unknown_targets)
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
-		.targets = mempool_set(pool, str_compare, NULL, NULL),
+		.targets = mempool_set(pool, str_compare, NULL),
 		.post_plist_targets = parser_metadata(parser, PARSER_METADATA_POST_PLIST_TARGETS),
 	});
 }

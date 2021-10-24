@@ -179,7 +179,7 @@ static void *scan_ports_worker(void *);
 static void *lookup_origins_worker(void *);
 static void *join_next_thread(pthread_t **, ssize_t *);
 static struct Array *lookup_origins(struct Mempool *, int, enum ScanFlags, struct PortscanLog *);
-static enum ASTWalkState get_default_option_descriptions_walker(struct AST *, struct Map *);
+static enum ASTWalkState get_default_option_descriptions_walker(struct AST *, struct Map *, struct Mempool *);
 static PARSER_EDIT(get_default_option_descriptions);
 static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, struct Regexp *, ssize_t, struct PortscanLog *);
 static void usage(void);
@@ -369,14 +369,14 @@ scan_port(struct ScanPortArgs *args)
 	SCOPE_MEMPOOL(pool);
 
 	struct ScanResult *retval = args->result;
-	retval->comments = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->errors = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->option_default_descriptions = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->option_groups = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->options = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->unknown_variables = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->unknown_targets = mempool_set(retval->pool, str_compare, NULL, free);
-	retval->variable_values = mempool_set(retval->pool, str_compare, NULL, free);
+	retval->comments = mempool_set(retval->pool, str_compare, NULL);
+	retval->errors = mempool_set(retval->pool, str_compare, NULL);
+	retval->option_default_descriptions = mempool_set(retval->pool, str_compare, NULL);
+	retval->option_groups = mempool_set(retval->pool, str_compare, NULL);
+	retval->options = mempool_set(retval->pool, str_compare, NULL);
+	retval->unknown_variables = mempool_set(retval->pool, str_compare, NULL);
+	retval->unknown_targets = mempool_set(retval->pool, str_compare, NULL);
+	retval->variable_values = mempool_set(retval->pool, str_compare, NULL);
 
 	struct ParserSettings settings;
 	parser_init_settings(&settings);
@@ -452,7 +452,7 @@ scan_port(struct ScanPortArgs *args)
 			if (!set_contains(retval->option_default_descriptions, var)) {
 				ssize_t editdist = edit_distance(default_desc, desc);
 				if (strcasecmp(default_desc, desc) == 0 || (editdist > 0 && editdist <= args->editdist)) {
-					set_add(retval->option_default_descriptions, str_dup(NULL, var));
+					set_add(retval->option_default_descriptions, str_dup(retval->pool, var));
 				}
 			}
 		}
@@ -463,14 +463,14 @@ scan_port(struct ScanPortArgs *args)
 		SET_FOREACH(groups, char *, group) {
 			if (!set_contains(retval->option_groups, group) &&
 			    (args->query == NULL || regexp_exec(args->query, group) == 0)) {
-				set_add(retval->option_groups, str_dup(NULL, group));
+				set_add(retval->option_groups, str_dup(retval->pool, group));
 			}
 		}
 		struct Set *options = parser_metadata(parser, PARSER_METADATA_OPTIONS);
 		SET_FOREACH(options, char *, option) {
 			if (!set_contains(retval->options, option) &&
 			    (args->query == NULL || regexp_exec(args->query, option) == 0)) {
-				set_add(retval->options, str_dup(NULL, option));
+				set_add(retval->options, str_dup(retval->pool, option));
 			}
 		}
 	}
@@ -494,7 +494,7 @@ scan_port(struct ScanPortArgs *args)
 		SET_FOREACH(commented_portrevision, char *, comment) {
 			char *msg = str_printf(pool, "commented revision or epoch: %s", comment);
 			if (!set_contains(retval->comments, msg)) {
-				set_add(retval->comments, str_dup(NULL, msg));
+				set_add(retval->comments, str_dup(retval->pool, msg));
 			}
 		}
 	}
@@ -646,27 +646,27 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 }
 
 enum ASTWalkState
-get_default_option_descriptions_walker(struct AST *node, struct Map *this)
+get_default_option_descriptions_walker(struct AST *node, struct Map *this, struct Mempool *pool)
 {
 	switch (node->type) {
 	case AST_VARIABLE:
 		if (str_endswith(node->variable.name, "_DESC") &&
 		    !map_contains(this, node->variable.name)) {
-			map_add(this, str_dup(NULL, node->variable.name), str_join(NULL, node->variable.words, " "));
+			map_add(this, str_dup(pool, node->variable.name), str_join(pool, node->variable.words, " "));
 		}
 		break;
 	default:
 		break;
 	}
 
-	AST_WALK_DEFAULT(get_default_option_descriptions_walker, node, this);
+	AST_WALK_DEFAULT(get_default_option_descriptions_walker, node, this, pool);
 	return AST_WALK_CONTINUE;
 }
 
 PARSER_EDIT(get_default_option_descriptions)
 {
-	struct Map *default_option_descriptions = mempool_map(extpool, str_compare, NULL, free, free);
-	get_default_option_descriptions_walker(root, default_option_descriptions);
+	struct Map *default_option_descriptions = mempool_map(extpool, str_compare, NULL);
+	get_default_option_descriptions_walker(root, default_option_descriptions, extpool);
 	struct Map **retval = (struct Map **)userdata;
 	*retval = default_option_descriptions;
 }

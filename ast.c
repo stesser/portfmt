@@ -330,7 +330,7 @@ struct AST *
 ast_clone(struct Mempool *extpool, struct AST *template)
 {
 	SCOPE_MEMPOOL(pool);
-	struct Map *ptrmap = mempool_map(pool, NULL, NULL, NULL, NULL);
+	struct Map *ptrmap = mempool_map(pool, NULL, NULL);
 	return ast_clone_helper(extpool, ptrmap, template, NULL);
 }
 

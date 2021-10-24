@@ -46,6 +46,7 @@
 #include "parser/edits.h"
 
 struct WalkerData {
+	struct Mempool *comments_pool;
 	struct Set *comments;
 };
 
@@ -79,7 +80,7 @@ lint_commented_portrevision_walker(struct AST *node, struct WalkerData *this)
 			if (parser_lookup_variable(subparser, "PORTEPOCH", PARSER_LOOKUP_FIRST, pool, &revnodes, NULL) ||
 			    parser_lookup_variable(subparser, "PORTREVISION", PARSER_LOOKUP_FIRST, pool, &revnodes, NULL)) {
 				if (array_len(revnodes) <= 1 && !set_contains(this->comments, comment)) {
-					set_add(this->comments, str_dup(NULL, comment));
+					set_add(this->comments, str_dup(this->comments_pool, comment));
 				}
 			}
 		}
@@ -94,10 +95,10 @@ lint_commented_portrevision_walker(struct AST *node, struct WalkerData *this)
 
 PARSER_EDIT(lint_commented_portrevision)
 {
-	SCOPE_MEMPOOL(pool);
-
+	struct Mempool *comments_pool = mempool_pool(extpool);
 	struct WalkerData this = {
-		.comments = mempool_set(pool, str_compare, NULL, free),
+		.comments_pool = comments_pool,
+		.comments = mempool_set(comments_pool, str_compare, NULL),
 	};
 	lint_commented_portrevision_walker(root, &this);
 
@@ -118,6 +119,8 @@ PARSER_EDIT(lint_commented_portrevision)
 	}
 
 	if (retval) {
-		*retval = mempool_move(pool, this.comments, extpool);
+		*retval = this.comments;
+	} else {
+		mempool_release(extpool, comments_pool);
 	}
 }

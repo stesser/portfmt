@@ -190,7 +190,7 @@ get_all_unknown_variables_helper(struct Mempool *extpool, const char *key, const
 		struct Row *row = xmalloc(sizeof(struct Row));
 		row->name = str_dup(NULL, key);
 		row->hint = str_dup(NULL, hint);
-		set_add(unknowns, row);
+		set_add(unknowns, mempool_add(extpool, row, row_free));
 	}
 }
 
@@ -203,7 +203,7 @@ get_all_unknown_variables_filter(struct Parser *parser, const char *key, void *u
 struct Set *
 get_all_unknown_variables(struct Mempool *pool, struct Parser *parser)
 {
-	struct Set *unknowns = mempool_set(pool, get_all_unknown_variables_row_compare, NULL, row_free);
+	struct Set *unknowns = mempool_set(pool, get_all_unknown_variables_row_compare, NULL);
 	struct ParserEditOutput param = { get_all_unknown_variables_filter, NULL, NULL, NULL, get_all_unknown_variables_helper, unknowns, 0 };
 	if (parser_edit(parser, pool, output_unknown_variables, &param) != PARSER_ERROR_OK) {
 		return unknowns;
@@ -378,7 +378,7 @@ check_variable_order(struct Parser *parser, struct AST *root, bool no_color)
 	enum OutputDiffResult retval = output_diff(parser, origin, target, no_color);
 
 	if (array_len(vars) > 0 && set_len(all_unknown_variables) > 0) {
-		struct Map *group = mempool_map(pool, str_compare, NULL, NULL, NULL);
+		struct Map *group = mempool_map(pool, str_compare, NULL);
 		size_t maxlen = 0;
 		SET_FOREACH(all_unknown_variables, struct Row *, var) {
 			struct Array *hints = map_get(group, var->name);
