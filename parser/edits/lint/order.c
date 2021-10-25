@@ -149,9 +149,14 @@ get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 		break;
 	case AST_VARIABLE:
 		// Ignore port local variables that start with an _
-		if (node->variable.name[0] != '_' && array_find(this->vars, node->variable.name, str_compare, NULL) == -1 &&
-		    !is_referenced_var(this->parser, node->variable.name)) {
-			array_append(this->vars, node->variable.name);
+		if (node->variable.name[0] != '_' && array_find(this->vars, node->variable.name, str_compare, NULL) == -1) {
+			if (is_referenced_var(this->parser, node->variable.name)) {
+				if (variable_order_block(this->parser, node->variable.name, NULL, NULL) != BLOCK_UNKNOWN) {
+					array_append(this->vars, node->variable.name);
+				}
+			} else {
+				array_append(this->vars, node->variable.name);
+			}
 		}
 		break;
 	default:

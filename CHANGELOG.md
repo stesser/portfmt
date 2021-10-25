@@ -50,6 +50,11 @@ Summary
 - portscan: The `--all` option has been removed
 - portclippy: Ignore blocks wrapped in `.ifnmake portclippy`
 
+### Fixed
+
+- portclippy: Report ordering problems of known but referenced
+  variables again
+
 ## [1.0.0] - 2021-09-01
 
 ### Added
