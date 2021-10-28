@@ -89,7 +89,8 @@ struct ParserFindGoalcolsState {
 };
 
 // Prototypes
-static enum ASTWalkState parser_is_category_makefile(struct AST *, struct Parser *);
+static enum ASTWalkState parser_is_category_makefile_walker(struct AST *, bool *);
+static bool parser_is_category_makefile(struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
 static enum ASTWalkState parser_find_goalcols_walker(struct AST *, struct ParserFindGoalcolsState *);
 static void parser_find_goalcols(struct Parser *);
@@ -122,16 +123,13 @@ static enum ASTWalkState parser_lookup_target_walker(struct AST *, const char *,
 static enum ASTWalkState parser_lookup_variable_walker(struct AST *, struct Mempool *, const char *, enum ParserLookupVariableBehavior, struct Array *, struct Array *, struct AST **);
 
 enum ASTWalkState
-parser_is_category_makefile(struct AST *node, struct Parser *parser)
+parser_is_category_makefile_walker(struct AST *node, bool *is_category)
 {
-	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
-		return 0;
-	}
-
 	switch (node->type) {
 	case AST_INCLUDE:
 		if (node->include.type == AST_INCLUDE_BMAKE && node->include.sys &&
 		    strcmp(node->include.path, "bsd.port.subdir.mk") == 0) {
+			*is_category = true;
 			return AST_WALK_STOP;
 		}
 		break;
@@ -139,9 +137,20 @@ parser_is_category_makefile(struct AST *node, struct Parser *parser)
 		break;
 	}
 
-	AST_WALK_DEFAULT(parser_is_category_makefile, node, parser);
+	AST_WALK_DEFAULT(parser_is_category_makefile_walker, node, is_category);
+	return AST_WALK_CONTINUE;
+}
 
-	return 0;
+bool
+parser_is_category_makefile(struct Parser *parser)
+{
+	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
+		return false;
+	}
+
+	bool is_category = false;
+	parser_is_category_makefile_walker(parser->ast, &is_category);
+	return is_category;
 }
 
 void
@@ -1129,7 +1138,7 @@ parser_output_reformatted(struct Parser *parser)
 		return;
 	}
 
-	if (parser_is_category_makefile(parser->ast, parser)) {
+	if (parser_is_category_makefile(parser)) {
 		parser_output_category_makefile_reformatted(parser, parser->ast);
 	} else {
 		parser_output_reformatted_walker(parser, parser->ast);
@@ -1278,7 +1287,7 @@ parser_read_finish(struct Parser *parser)
 	// To properly support editing category Makefiles always
 	// collapse all the SUBDIR into one assignment regardless
 	// of settings.
-	if ((parser_is_category_makefile(parser->ast, parser) ||
+	if ((parser_is_category_makefile(parser) ||
 	     parser->settings.behavior & PARSER_COLLAPSE_ADJACENT_VARIABLES) &&
 	    PARSER_ERROR_OK != parser_edit(parser, NULL, refactor_collapse_adjacent_variables, NULL)) {
 		return parser->error;
@@ -1932,7 +1941,7 @@ enum ParserError
 parser_merge(struct Parser *parser, struct Parser *subparser, enum ParserMergeBehavior settings)
 {
 	SCOPE_MEMPOOL(pool);
-	if (parser_is_category_makefile(parser->ast, parser)) {
+	if (parser_is_category_makefile(parser)) {
 		settings &= ~PARSER_MERGE_AFTER_LAST_IN_GROUP;
 	}
 	struct ParserEdit params = { subparser, NULL, settings };
