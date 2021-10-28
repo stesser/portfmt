@@ -154,7 +154,7 @@ consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, bo
 	}
 }
 
-int
+bool
 parse_target(struct Mempool *extpool, const char *buf, struct Array **ret_sources, struct Array **ret_deps, const char **ret_comment)
 {
 	SCOPE_MEMPOOL(pool);
@@ -164,7 +164,7 @@ parse_target(struct Mempool *extpool, const char *buf, struct Array **ret_source
 
 	const char *after_target = consume_sources(pool, buf, sources, false);
 	if (after_target == NULL) {
-		return 0;
+		return false;
 	}
 
 	const char *comment = consume_sources(pool, after_target, deps, true);
@@ -178,5 +178,5 @@ parse_target(struct Mempool *extpool, const char *buf, struct Array **ret_source
 	*ret_deps = deps;
 
 	mempool_inherit(extpool, pool);
-	return 1;
+	return true;
 }

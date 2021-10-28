@@ -77,9 +77,9 @@ struct Parser {
 	struct Array *result;
 	struct Mempool *metadata_pool;
 	void *metadata[PARSER_METADATA_USES + 1];
-	int metadata_valid[PARSER_METADATA_USES + 1];
+	bool metadata_valid[PARSER_METADATA_USES + 1];
 
-	int read_finished;
+	bool read_finished;
 };
 
 struct ParserFindGoalcolsState {
@@ -89,7 +89,7 @@ struct ParserFindGoalcolsState {
 };
 
 // Prototypes
-static int parser_is_category_makefile(struct AST *, struct Parser *);
+static enum ASTWalkState parser_is_category_makefile(struct AST *, struct Parser *);
 static void parser_propagate_goalcol(struct ParserFindGoalcolsState *);
 static enum ASTWalkState parser_find_goalcols_walker(struct AST *, struct ParserFindGoalcolsState *);
 static void parser_find_goalcols(struct Parser *);
@@ -98,8 +98,8 @@ static void print_token_array(struct Parser *, struct AST *, struct Array *);
 static void parser_output_print_rawlines(struct Parser *, struct ASTLineRange *);
 static void parser_output_print_target_command(struct Parser *, struct AST *);
 static void parser_output_prepare(struct Parser *);
-static int matches_opt_use_prefix_helper(char);
-static int matches_opt_use_prefix(const char *);
+static bool matches_opt_use_prefix_helper(char);
+static bool matches_opt_use_prefix(const char *);
 static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
 static void parser_output_print_for(struct Parser *, struct AST *);
 static void parser_output_print_if(struct Parser *, struct AST *);
@@ -121,7 +121,7 @@ static void parser_metadata_alloc(struct Parser *);
 static enum ASTWalkState parser_lookup_target_walker(struct AST *, const char *, struct AST **);
 static enum ASTWalkState parser_lookup_variable_walker(struct AST *, struct Mempool *, const char *, enum ParserLookupVariableBehavior, struct Array *, struct Array *, struct AST **);
 
-int
+enum ASTWalkState
 parser_is_category_makefile(struct AST *node, struct Parser *parser)
 {
 	if (parser->error != PARSER_ERROR_OK || !parser->read_finished) {
@@ -440,7 +440,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 	struct Array *commands = mempool_array(pool);
 	struct Array *merge = mempool_array(pool);
 	const char *command = NULL;
-	int wrap_after = 0;
+	bool wrap_after = false;
 	ARRAY_FOREACH(node->targetcommand.words, const char *, word) {
 		panic_unless(word && strlen(word) != 0, "target command token is empty");
 
@@ -456,7 +456,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 		     strcmp(command, "${REINPLACE_CMD}") == 0)) {
 			if (strcmp(word, "-e") == 0 || strcmp(word, "-i") == 0) {
 				array_append(merge, word);
-				wrap_after = 1;
+				wrap_after = true;
 				continue;
 			}
 		}
@@ -466,7 +466,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 		if (wrap_after) {
 			// An empty string is abused as a "wrap line here" marker
 			array_append(commands, str_dup(pool, ""));
-			wrap_after = 0;
+			wrap_after = false;
 		}
 		array_truncate(merge);
 	}
@@ -475,7 +475,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 		if (wrap_after) {
 			// An empty string is abused as a "wrap line here" marker
 			array_append(commands, str_dup(pool, ""));
-			wrap_after = 0;
+			wrap_after = false;
 		}
 	}
 	merge = NULL;
@@ -556,7 +556,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 	}
 
 	parser_enqueue_output(parser, startlv1);
-	int wrapped = 0;
+	bool wrapped = false;
 	ARRAY_FOREACH(commands, const char *, word) {
 		if (word_index == 0 && node->targetcommand.flags) {
 			struct Array *tokens = mempool_array(pool);
@@ -623,18 +623,18 @@ parser_output_prepare(struct Parser *parser)
 	}
 }
 
-int
+bool
 matches_opt_use_prefix_helper(char c)
 {
 	return isupper(c) || islower(c) || isdigit(c) || c == '-' || c == '_';
 }
 
-int
+bool
 matches_opt_use_prefix(const char *s)
 {
 	// ^([-_[:upper:][:lower:][:digit:]]+)
 	if (!matches_opt_use_prefix_helper(*s)) {
-		return 0;
+		return false;
 	}
 	size_t len = strlen(s);
 	size_t i;
@@ -647,10 +647,10 @@ matches_opt_use_prefix(const char *s)
 
 	// =
 	if (s[i] == '=') {
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
 
 struct Array *
@@ -660,13 +660,13 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 		return arr;
 	}
 
-	int opt_use = 0;
+	bool opt_use = false;
 	char *helper = NULL;
 	if (is_options_helper(pool, parser, var->name, NULL, &helper, NULL)) {
 		if (strcmp(helper, "USE") == 0 || strcmp(helper, "USE_OFF") == 0)  {
-			opt_use = 1;
+			opt_use = true;
 		} else if (strcmp(helper, "VARS") == 0 || strcmp(helper, "VARS_OFF") == 0) {
-			opt_use = 0;
+			opt_use = false;
 		} else {
 			return arr;
 		}
@@ -778,12 +778,12 @@ parser_output_print_if(struct Parser *parser, struct AST *node)
 	// Group words ("!", "defined(", "foo", ")" should be one word "!defined(foo)")
 	struct Array *word_groups = mempool_array(pool);
 	ARRAY_FOREACH(node->ifexpr.test, const char *, word) {
-		int merge = 0;
+		bool merge = false;
 		if (word_index < array_len(node->ifexpr.test) - 1) {
-			merge = 1;
+			merge = true;
 			for (size_t i = 0; i < nitems(merge_with_next); i++) {
 				if (strcmp(word, merge_with_next[i]) == 0) {
-					merge = 0;
+					merge = false;
 					break;
 				}
 			}
@@ -791,7 +791,7 @@ parser_output_print_if(struct Parser *parser, struct AST *node)
 				// No merge yet when ) next
 				const char *next = array_get(node->ifexpr.test, word_index + 1);
 				if (next && strcmp(next, ")") == 0) {
-					merge = 0;
+					merge = false;
 				}
 			}
 		}
@@ -812,10 +812,10 @@ parser_output_print_if(struct Parser *parser, struct AST *node)
 	ARRAY_FOREACH(word_groups, struct Array *, group) {
 		const char *word = str_join(pool, group, "");
 		if ((linelen + strlen(word)) > parser->settings.if_wrapcol) {
-			int ok = 1;
+			bool ok = true;
 			for (size_t i = 0; i < nitems(line_breaks_after); i++) {
 				if (strcmp(word, line_breaks_after[i]) == 0) {
-					ok = 0;
+					ok = false;
 					break;
 				}
 			}
@@ -1169,7 +1169,7 @@ parser_output_diff(struct Parser *parser)
 		const char *color_add = ANSI_COLOR_GREEN;
 		const char *color_delete = ANSI_COLOR_RED;
 		const char *color_reset = ANSI_COLOR_RESET;
-		int nocolor = parser->settings.behavior & PARSER_OUTPUT_NO_COLOR;
+		bool nocolor = parser->settings.behavior & PARSER_OUTPUT_NO_COLOR;
 		if (nocolor) {
 			color_add = "";
 			color_delete = "";
@@ -1243,10 +1243,10 @@ parser_read_finish(struct Parser *parser)
 	}
 
 	for (size_t i = 0; i <= PARSER_METADATA_USES; i++) {
-		parser->metadata_valid[i] = 0;
+		parser->metadata_valid[i] = false;
 	}
 
-	parser->read_finished = 1;
+	parser->read_finished = true;
 	ast_free(parser->ast);
 	parser->ast = parser_astbuilder_finish(parser->builder);
 	if (parser->error != PARSER_ERROR_OK) {
@@ -1684,9 +1684,9 @@ parser_metadata_port_options(struct Parser *parser)
 		return;
 	}
 
-	parser->metadata_valid[PARSER_METADATA_OPTION_DESCRIPTIONS] = 1;
-	parser->metadata_valid[PARSER_METADATA_OPTION_GROUPS] = 1;
-	parser->metadata_valid[PARSER_METADATA_OPTIONS] = 1;
+	parser->metadata_valid[PARSER_METADATA_OPTION_DESCRIPTIONS] = true;
+	parser->metadata_valid[PARSER_METADATA_OPTION_GROUPS] = true;
+	parser->metadata_valid[PARSER_METADATA_OPTIONS] = true;
 
 #define FOR_EACH_ARCH(f, var) \
 	for (size_t i = 0; i < known_architectures_len; i++) { \
@@ -1809,7 +1809,7 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 			parser_meta_values(parser, "USES", parser->metadata[PARSER_METADATA_USES]);
 			break;
 		}
-		parser->metadata_valid[meta] = 1;
+		parser->metadata_valid[meta] = true;
 	}
 
 	return parser->metadata[meta];

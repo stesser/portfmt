@@ -30,4 +30,4 @@
 struct Array;
 struct Mempool;
 
-int parse_target(struct Mempool *, const char *, struct Array **, struct Array **, const char **);
+bool parse_target(struct Mempool *, const char *, struct Array **, struct Array **, const char **);
