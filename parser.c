@@ -112,7 +112,7 @@ static void parser_output_dump_tokens(struct Parser *);
 static const char *process_include(struct Parser *, struct Mempool *, const char *, const char *);
 static enum ASTWalkState parser_load_includes_walker(struct AST *, struct Parser *, int);
 static enum ParserError parser_load_includes(struct Parser *);
-static void parser_meta_values_helper(struct Set *, const char *, char *);
+static void parser_meta_values_helper(struct Parser *, struct Set *, const char *, char *);
 static void parser_meta_values(struct Parser *, const char *, struct Set *);
 static void parser_port_options_add_from_group(struct Parser *, const char *);
 static void parser_port_options_add_from_var(struct Parser *, const char *);
@@ -1544,7 +1544,7 @@ struct ParserSettings parser_settings(struct Parser *parser)
 }
 
 void
-parser_meta_values_helper(struct Set *set, const char *var, char *value)
+parser_meta_values_helper(struct Parser *parser, struct Set *set, const char *var, char *value)
 {
 	if (strcmp(var, "USES") == 0) {
 		char *buf = strchr(value, ':');
@@ -1553,14 +1553,14 @@ parser_meta_values_helper(struct Set *set, const char *var, char *value)
 			if (set_contains(set, val)) {
 				free(val);
 			} else {
-				set_add(set, val);
+				set_add(set, mempool_take(parser->metadata_pool, val));
 			}
 			return;
 		}
 	}
 
 	if (!set_contains(set, value)) {
-		set_add(set, str_dup(NULL, value));
+		set_add(set, str_dup(parser->metadata_pool, value));
 	}
 }
 
@@ -1572,7 +1572,7 @@ parser_meta_values(struct Parser *parser, const char *var, struct Set *set)
 	struct Array *tmp = NULL;
 	if (parser_lookup_variable(parser, var, PARSER_LOOKUP_DEFAULT, pool, &tmp, NULL)) {
 		ARRAY_FOREACH(tmp, char *, value) {
-			parser_meta_values_helper(set, var, value);
+			parser_meta_values_helper(parser, set, var, value);
 		}
 	}
 
@@ -1592,7 +1592,7 @@ parser_meta_values(struct Parser *parser, const char *var, struct Set *set)
 						continue;
 					}
 				}
-				parser_meta_values_helper(set, var, value);
+				parser_meta_values_helper(parser, set, var, value);
 			}
 		}
 
@@ -1610,7 +1610,7 @@ parser_meta_values(struct Parser *parser, const char *var, struct Set *set)
 						continue;
 					}
 				}
-				parser_meta_values_helper(set, var, value);
+				parser_meta_values_helper(parser, set, var, value);
 			}
 		}
 
@@ -1622,14 +1622,14 @@ parser_meta_values(struct Parser *parser, const char *var, struct Set *set)
 			buf = str_printf(pool, "%s_%s", opt, var);
 			if (parser_lookup_variable(parser, buf, PARSER_LOOKUP_DEFAULT, pool, &tmp, NULL)) {
 				ARRAY_FOREACH(tmp, char *, value) {
-					parser_meta_values_helper(set, var, value);
+					parser_meta_values_helper(parser, set, var, value);
 				}
 			}
 
 			buf = str_printf(pool, "%s_%s_OFF", opt, var);
 			if (parser_lookup_variable(parser, buf, PARSER_LOOKUP_DEFAULT, pool, &tmp, NULL)) {
 				ARRAY_FOREACH(tmp, char *, value) {
-					parser_meta_values_helper(set, var, value);
+					parser_meta_values_helper(parser, set, var, value);
 				}
 			}
 		}
