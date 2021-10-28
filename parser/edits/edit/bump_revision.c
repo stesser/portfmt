@@ -29,6 +29,7 @@
 #include "config.h"
 
 #include <sys/param.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -44,11 +45,55 @@
 #include "parser.h"
 #include "parser/edits.h"
 
+struct ShouldDeleteVariableWalkerData {
+	struct AST *previous;
+	bool delete_variable;
+};
+
 // Prototypes
-static char *get_merge_script(struct Mempool *, struct Parser *, const char *);
+static bool is_empty_line(const char *);
+static enum ASTWalkState should_delete_variable_walker(struct AST *, const char *, struct ShouldDeleteVariableWalkerData *);
+static char *get_merge_script(struct Mempool *, struct Parser *, struct AST *, const char *);
+
+bool
+is_empty_line(const char *s)
+{
+	for (const char *p = s; *p != 0; p++) {
+		if (!isspace(*p)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+enum ASTWalkState
+should_delete_variable_walker(struct AST *node, const char *variable, struct ShouldDeleteVariableWalkerData *this)
+{
+	switch (node->type) {
+	case AST_VARIABLE:
+		if (strcmp(node->variable.name, variable) == 0) {
+			if (this->previous && this->previous->type == AST_COMMENT) {
+				this->delete_variable = true;
+				ARRAY_FOREACH(this->previous->comment.lines, const char *, line) {
+					this->delete_variable = this->delete_variable && is_empty_line(line);
+					unless (this->delete_variable) {
+						break;
+					}
+				}
+			}
+			return AST_WALK_STOP;
+		}
+		break;
+	default:
+		break;
+	}
+	this->previous = node;
+	AST_WALK_DEFAULT(should_delete_variable_walker, node, variable, this);
+	return AST_WALK_CONTINUE;
+}
 
 char *
-get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *variable)
+get_merge_script(struct Mempool *extpool, struct Parser *parser, struct AST *root, const char *variable)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *script = mempool_array(pool);
@@ -78,10 +123,19 @@ get_merge_script(struct Mempool *extpool, struct Parser *parser, const char *var
 			// In slave ports we do not delete the variable first since
 			// they have a non-uniform structure and edit_merge will probably
 			// insert it into a non-optimal position.
-			//
-			// In normal ports we can safely remove it.
-			array_append(script, variable);
-			array_append(script, "!=\n");
+
+			// If the variable appears after a non-empty comment
+			// block we do not delete it either since the comment
+			// is probably about the variable and it is natural
+			// to have the comment above the variable.
+			struct ShouldDeleteVariableWalkerData this = { NULL, true };
+			should_delete_variable_walker(root, variable, &this);
+
+			// Otherwise we can safely remove it.
+			if (this.delete_variable) {
+				array_append(script, variable);
+				array_append(script, "!=\n");
+			}
 		}
 		array_append(script, str_printf(pool, "%s%s", var->variable.name, ASTVariableModifier_human(var->variable.modifier)));
 		array_append(script, str_printf(pool, "%" PRIu32 " %s\n", rev, comment));
@@ -110,7 +164,7 @@ PARSER_EDIT(edit_bump_revision)
 		variable = "PORTREVISION";
 	}
 
-	char *script = get_merge_script(pool, parser, variable);
+	char *script = get_merge_script(pool, parser, root, variable);
 	unless (script) {
 		return;
 	}
