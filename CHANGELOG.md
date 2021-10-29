@@ -54,6 +54,11 @@ Summary
 
 - portclippy: Report ordering problems of known but referenced
   variables again
+- portedit bump-revision: Keep PORTREVISION location intact when
+  there is a comment above it and stop inserting it before the
+  comment. It is normally deleted and readded in a cleanup and
+  reordering attempt since some ports have it in unexpected
+  locations
 
 ## [1.0.0] - 2021-09-01
 
