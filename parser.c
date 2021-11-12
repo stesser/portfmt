@@ -102,6 +102,7 @@ static void parser_output_prepare(struct Parser *);
 static bool matches_opt_use_prefix_helper(char);
 static bool matches_opt_use_prefix(const char *);
 static struct Array *parser_output_sort_opt_use(struct Parser *, struct Mempool *, struct ASTVariable *, struct Array *);
+static size_t parser_output_print_for_helper(struct Parser *, struct Array *, size_t);
 static void parser_output_print_for(struct Parser *, struct AST *);
 static void parser_output_print_if(struct Parser *, struct AST *);
 static void parser_output_print_variable(struct Parser *, struct Mempool *, struct AST *);
@@ -161,6 +162,7 @@ parser_init_settings(struct ParserSettings *settings)
 	settings->behavior = PARSER_DEFAULT;
 	settings->diff_context = 3;
 	settings->if_wrapcol = 80;
+	settings->for_wrapcol = 80;
 	settings->target_command_format_threshold = 8;
 	settings->target_command_format_wrapcol = 65;
 	settings->variable_wrapcol = 80;
@@ -733,16 +735,35 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 	return up;
 }
 
+size_t
+parser_output_print_for_helper(struct Parser *parser, struct Array *words, size_t linelen)
+{
+	ARRAY_FOREACH(words, const char *, word) {
+		size_t wordlen = strlen(word);
+		if ((linelen + wordlen) > parser->settings.for_wrapcol) {
+			parser_enqueue_output(parser, "\\\n\t");
+			linelen = 8;
+		}
+		parser_enqueue_output(parser, word);
+		linelen += wordlen;
+		if (word_index < (array_len(words) - 1)) {
+			parser_enqueue_output(parser, " ");
+			linelen++;
+		}
+	}
+	return linelen;
+}
+
 void
 parser_output_print_for(struct Parser *parser, struct AST *node)
 {
 	SCOPE_MEMPOOL(pool);
 	const char *indent = str_repeat(pool, " ", node->forexpr.indent);
-	// TODO: Apply some formatting like line breaks instead of just one long forever line???
-	parser_enqueue_output(parser, str_printf(pool, ".%sfor %s in %s",
-		indent,
-		str_join(pool, node->forexpr.bindings, " "),
-		str_join(pool, node->forexpr.words, " ")));
+	const char *start = str_printf(pool, ".%sfor ", indent);
+	parser_enqueue_output(parser, start);
+	size_t linelen = parser_output_print_for_helper(parser, node->forexpr.bindings, strlen(start));
+	parser_enqueue_output(parser, " in ");
+	parser_output_print_for_helper(parser, node->forexpr.words, linelen + strlen(" in "));
 	if (node->forexpr.comment && strlen(node->forexpr.comment) > 0) {
 		parser_enqueue_output(parser, " ");
 		parser_enqueue_output(parser, node->forexpr.comment);

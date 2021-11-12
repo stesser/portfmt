@@ -114,6 +114,7 @@ struct ParserSettings {
 	size_t target_command_format_wrapcol;
 	size_t variable_wrapcol;
 	size_t if_wrapcol;
+	size_t for_wrapcol;
 	uint32_t debug_level;
 };
 

@@ -131,6 +131,7 @@ read_common_args(int *argc, char ***argv, struct ParserSettings *settings, const
 				const char *errstr = NULL;
 				settings->variable_wrapcol = strtonum(optarg, -1, INT_MAX, &errstr);
 				settings->if_wrapcol = settings->variable_wrapcol;
+				settings->for_wrapcol = settings->variable_wrapcol;
 				if (errstr != NULL) {
 					errx(1, "-w%s is %s", optarg, errstr);
 				}
