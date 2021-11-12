@@ -72,18 +72,18 @@ refactor_dedup_tokens_walker(struct AST *node, struct WalkerData *this)
 			struct Set *seen = mempool_set(pool, str_compare, NULL);
 			struct Set *uses = mempool_set(pool, str_compare, NULL);
 			enum DedupAction action = DEFAULT;
+			char *helper = NULL;
+			if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {
+				if (strcmp(helper, "USES") == 0 || strcmp(helper, "USES_OFF") == 0) {
+					action = USES;
+				}
+			} else if (strcmp(node->variable.name, "USES") == 0) {
+				action = USES;
+			}
 			struct Array *words = mempool_array(pool);
 			ARRAY_FOREACH(node->variable.words, const char *, word) {
 				// XXX: Handle *_DEPENDS (turn 'RUN_DEPENDS=foo>=1.5.6:misc/foo foo>0:misc/foo'
 				// into 'RUN_DEPENDS=foo>=1.5.6:misc/foo')?
-				char *helper = NULL;
-				if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {
-					if (strcmp(helper, "USES") == 0 || strcmp(helper, "USES_OFF") == 0) {
-						action = USES;
-					}
-				} else if (strcmp(node->variable.name, "USES") == 0) {
-					action = USES;
-				}
 				switch (action) {
 				case USES: {
 					char *buf = str_dup(pool, word);
