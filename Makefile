@@ -206,7 +206,7 @@ tag:
 		rm -f RELNOTES.md.new; \
 	fi; \
 	git commit -m "Release ${V}" CHANGELOG.md; \
-	git tag v${V}
+	git tag -F RELNOTES.md v${V}
 
 release:
 	@tag=$$(git tag --points-at HEAD); \
