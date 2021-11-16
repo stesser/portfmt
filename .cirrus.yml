@@ -1,12 +1,11 @@
 freebsd_task:
   freebsd_instance:
     image_family: freebsd-12-2
-  clone_script:
+  env:
+    CIRRUS_CLONE_SUBMODULES: true
+  deps_script:
     - sed -i.bak -e 's,/quarterly,/latest,' /etc/pkg/FreeBSD.conf
-    - pkg install -y git-lite
-    - git clone --recurse-submodules --branch=$CIRRUS_BRANCH https://github.com/${CIRRUS_REPO_FULL_NAME}.git $CIRRUS_WORKING_DIR
-  cppcheck_script:
-    - pkg install -y cppcheck
+    - pkg install -y samurai
   matrix:
     - name: freebsd_clang
     - name: freebsd_gcc
@@ -15,15 +14,15 @@ freebsd_task:
         CC: gcc
   test_script:
     - ./configure
-    - make test
+    - samu -C_build test
 
 linux_task:
   container:
     image: gcc:latest
-  clone_script:
-    - git clone --recurse-submodules --branch=$CIRRUS_BRANCH https://github.com/${CIRRUS_REPO_FULL_NAME}.git $CIRRUS_WORKING_DIR
+  env:
+    CIRRUS_CLONE_SUBMODULES: true
   deps_script:
-    - apt-get update && apt-get -y install bash cppcheck mandoc
+    - apt-get update && apt-get -y install bash ninja-build
   matrix:
     - name: linux_clang
       env:
@@ -33,12 +32,13 @@ linux_task:
     - name: linux_gcc
   test_script:
     - ./configure
-# for -o pipefail
-    - make SH=bash test
+    - SH=bash ninja -C_build test # bash for -o pipefail
 
 macos_task:
   osx_instance:
     image: catalina-base
+  env:
+    CIRRUS_CLONE_SUBMODULES: true
   matrix:
     - name: macos_clang
       env:
@@ -46,8 +46,8 @@ macos_task:
     - name: macos_gcc
       env:
         CC: gcc
-  clone_script:
-    - git clone --recurse-submodules --branch=$CIRRUS_BRANCH https://github.com/${CIRRUS_REPO_FULL_NAME}.git $CIRRUS_WORKING_DIR
+  deps_script:
+    - brew install samurai coreutils
   test_script:
     - ./configure
-    - make test
+    - samu -C_build test

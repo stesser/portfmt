@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+mkdir -p "$1"
+BUILDDIR="$(readlink -f "$1" 2>/dev/null || realpath "$1")"
+: ${PORTFMT_SUBPACKAGES=1}
+echo "PORTFMT_SUBPACKAGES = ${PORTFMT_SUBPACKAGES}" >"${BUILDDIR}/features.ninja"
+exec libias/mkbuild "$@"
