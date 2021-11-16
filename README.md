@@ -1,9 +1,22 @@
 # portfmt
 
-Portfmt is a tool for formatting FreeBSD Ports Collection Makefiles.
+Portfmt is a collection of tools for editing, formatting, and linting FreeBSD Ports Collection Makefiles.
 
-For the time being portfmt concentrates on formatting individual
-variables as such it does not move variables to preferred positions.
+It comes with several tools:
+
+- `portfmt` formats Makefiles
+- `portclippy` is a linter that checks if variables are in the correct order in a more comprehensive way than `portlint`
+- `portedit` edits Makefiles.  It comes with several commands that can be used as a basis for your own port update scripts:
+  - `bump-epoch`: bumps `PORTEPOCH` or inserts it at the right place
+  - `bump-revision`: bumps `PORTREVISION` or inserts it at the right place
+  - `set-version`: resets `PORTREVISION`, sets `DISTVERSION` or `PORTVERSION`
+  - `get`: lookup unevaluated variable values
+  - `merge`: Generic command to set/update variables while also formatting the updated variables properly and inserting them in the right places if necessary.  Useful for merging output of other tools like make cargo-crates, modules2tuple, or make stage-qa.  For example to mark a port deprecated:
+```
+	printf "DEPRECATED=%s\nEXPIRATION_DATE=%s" \
+		Abandonware 2019-08-15 | portedit merge -i Makefile
+```
+- `portscan` checks the entire Ports Collection for mistakes like unreferenced variables, etc.
 
 ## Example
 
@@ -57,25 +70,15 @@ USE_QT=		concurrent core dbus gui imageformats network opengl sql widgets \
 FOOBAR_CXXFLAGS=	-DBLA=foo
 ```
 
-### But it does not format things like I want to...
+## Building portfmt
 
-Please create an example Makefile and put it into
-`tests/${your_example}.in` and create a corresponding
-`tests/${your_example}.expected` showing what it should look like
-according to you.  Then open a PR.  Some actual code to fix it is
-appreciated but not required.  The important thing is to have a
-test case for it.  Even if it currently fails.  In the commit message
-try to write down and provide some evidence why you think the current
-behavior is bad or wrong.
+If you want to build `portfmt` from the repository make sure to also clone the submodules: `git clone --recurse-submodules https://github.com/t6/portfmt`
 
-## Usage
+Building `portfmt` requires Ninja (packaged often as `ninja` or `ninja-build`) or Samurai (package `samurai`).
 
-Please see `portfmt(1)`. The basic usage is
-```
-$ portfmt Makefile
-```
-Portfmt reads from stdin if no Makefile is given on the command
-line which facilitates integrating it into your favourite editor.
+- Prepare the build: `./configure PREFIX=/usr/local`
+- Build it: `ninja`
+- The binaries are available under `_build/.bin/` and can be run directly or optionally installed with: `ninja install`
 
 ## Editor integration
 
