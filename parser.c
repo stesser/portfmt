@@ -29,7 +29,6 @@
 #include "config.h"
 
 #include <sys/param.h>
-#include <sys/uio.h>
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
@@ -1354,8 +1353,8 @@ parser_output_write_to_file(struct Parser *parser, FILE *fp)
 		return parser->error;
 	}
 
-	int fd = fileno(fp);
 	if (parser->settings.behavior & PARSER_OUTPUT_INPLACE) {
+		int fd = fileno(fp);
 		if (lseek(fd, 0, SEEK_SET) < 0) {
 			parser_set_error(parser, PARSER_ERROR_IO,
 					 str_printf(pool, "lseek: %s", strerror(errno)));
@@ -1368,29 +1367,12 @@ parser_output_write_to_file(struct Parser *parser, FILE *fp)
 		}
 	}
 
-	size_t len = array_len(parser->result);
-	if (len == 0) {
-		return parser->error;
-	}
-
-	size_t iov_len = MIN(len, IOV_MAX);
-	struct iovec *iov = mempool_take(pool, xrecallocarray(NULL, 0, iov_len, sizeof(struct iovec)));
-	for (size_t i = 0; i < len;) {
-		size_t j = 0;
-		for (; i < len && j < iov_len; j++) {
-			char *s = array_get(parser->result, i++);
-			iov[j].iov_base = s;
-			iov[j].iov_len = strlen(s);
-		}
-		if (writev(fd, iov, j) < 0) {
+	ARRAY_FOREACH(parser->result, char *, line) {
+		if (fputs(line, fp) == EOF) {
 			parser_set_error(parser, PARSER_ERROR_IO,
-					 str_printf(pool, "writev: %s", strerror(errno)));
+					 str_printf(pool, "fputs: %s", strerror(errno)));
 			return parser->error;
 		}
-	}
-
-	/* Collect garbage */
-	ARRAY_FOREACH(parser->result, char *, line) {
 		free(line);
 	}
 	array_truncate(parser->result);
