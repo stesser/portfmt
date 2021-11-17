@@ -27,6 +27,7 @@
  */
 #pragma once
 
+struct Mempool;
 struct PortscanLog;
 struct PortscanLogDir;
 struct Set;
