@@ -8,13 +8,14 @@ freebsd_task:
     - pkg install -y samurai
   matrix:
     - name: freebsd_clang
+      test_script:
+        - ./configure CC=cc
+        - samu -C_build test
     - name: freebsd_gcc
-      gcc_script: pkg install -y gcc
-      env:
-        CC: gcc
-  test_script:
-    - ./configure
-    - samu -C_build test
+      gcc_script: pkg install -y gcc11
+      test_script:
+        - ./configure CC=gcc11
+        - samu -C_build test
 
 linux_task:
   container:
@@ -25,29 +26,29 @@ linux_task:
     - apt-get update && apt-get -y install bash ninja-build
   matrix:
     - name: linux_clang
-      env:
-        CC: clang
       clang_script:
         - apt-get -y install clang llvm
+      test_script:
+        - ./configure CC=clang
+        - SH=bash ninja -C_build test # bash for -o pipefail
     - name: linux_gcc
-  test_script:
-    - ./configure
-    - SH=bash ninja -C_build test # bash for -o pipefail
+      test_script:
+        - ./configure CC=gcc
+        - SH=bash ninja -C_build test # bash for -o pipefail
 
 macos_task:
   osx_instance:
-    image: catalina-base
+    image: monterey-base
   env:
     CIRRUS_CLONE_SUBMODULES: true
-  matrix:
-    - name: macos_clang
-      env:
-        CC: clang
-    - name: macos_gcc
-      env:
-        CC: gcc
   deps_script:
     - brew install samurai coreutils
-  test_script:
-    - ./configure
-    - samu -C_build test
+  matrix:
+    - name: macos_clang
+      test_script:
+        - ./configure CC=clang
+        - samu -C_build test
+    - name: macos_gcc
+      test_script:
+        - ./configure CC=gcc
+        - samu -C_build test
