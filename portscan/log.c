@@ -222,15 +222,15 @@ log_entry_parse(struct Mempool *pool, const char *s)
 		return NULL;
 	}
 
-	while (*s != 0 && isspace(*s)) {
+	while (*s != 0 && isspace((unsigned char)*s)) {
 		s++;
 	}
 	const char *origin_start = s;
-	while (*s != 0 && !isspace(*s)) {
+	while (*s != 0 && !isspace((unsigned char)*s)) {
 		s++;
 	}
 	const char *value = s;
-	while (*value != 0 && isspace(*value)) {
+	while (*value != 0 && isspace((unsigned char)*value)) {
 		value++;
 	}
 	size_t value_len = strlen(value);

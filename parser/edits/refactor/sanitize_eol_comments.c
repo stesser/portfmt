@@ -62,7 +62,7 @@ preserve_eol_comment(const char *word)
 	char *token = mempool_alloc(pool, strlen(word) + 1);
 	const char *datap = word;
 	for (char *tokenp = token; *datap != 0; datap++) {
-		if (!isspace(*datap)) {
+		if (!isspace((unsigned char)*datap)) {
 			*tokenp++ = *datap;
 		}
 	}

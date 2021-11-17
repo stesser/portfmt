@@ -1449,7 +1449,7 @@ is_valid_license(struct Parser *parser, const char *license)
 			case '+':
 				break;
 			default:
-				if (!isalnum(c)) {
+				if (!isalnum((unsigned char)c)) {
 					return false;
 				}
 				break;
@@ -1527,7 +1527,7 @@ is_comment(const char *token)
 	}
 
 	const char *datap = token;
-	for (; *datap != 0 && isspace(*datap); datap++);
+	for (; *datap != 0 && isspace((unsigned char)*datap); datap++);
 	return *datap == '#';
 }
 
@@ -1688,7 +1688,7 @@ remove_plist_keyword(const char *s, struct Mempool *pool)
 	ptr++;
 
 	const char *prev = ptr;
-	for (; *ptr != 0 && (islower(*ptr) || *ptr == '-'); ptr++);
+	for (; *ptr != 0 && (islower((unsigned char)*ptr) || *ptr == '-'); ptr++);
 	if (*ptr == 0 || prev == ptr || *ptr != ' ') {
 		return str_dup(pool, s);
 	}
@@ -1807,7 +1807,7 @@ is_flavors_helper(struct Mempool *pool, struct Parser *parser, const char *var, 
 	}
 	for (size_t i = 0; i < len; i++) {
 		char c = var[i];
-		if (c != '-' && c != '_' && !islower(c) && !isdigit(c)) {
+		if (c != '-' && c != '_' && !islower((unsigned char)c) && !isdigit((unsigned char)c)) {
 			return false;
 		}
 	}
@@ -1845,7 +1845,7 @@ extract_subpkg(struct Mempool *pool, struct Parser *parser, const char *var_, ch
 	const char *subpkg = NULL;
 	for (ssize_t i = strlen(var_) - 1; i > -1; i--) {
 		char c = var_[i];
-		if (c != '-' && c != '_' && !islower(c) && !isdigit(c)) {
+		if (c != '-' && c != '_' && !islower((unsigned char)c) && !isdigit((unsigned char)c)) {
 			if (c == '.') {
 				subpkg = var_ + i + 1;
 				var = str_ndup(pool, var_, i);
@@ -1952,7 +1952,7 @@ is_options_helper(struct Mempool *pool, struct Parser *parser, const char *var_,
 	}
 	for (size_t i = 0; i < len; i++) {
 		char c = var[i];
-		if (c != '-' && c != '_' && !isupper(c) && !isdigit(c)) {
+		if (c != '-' && c != '_' && !isupper((unsigned char)c) && !isdigit((unsigned char)c)) {
 			return false;
 		}
 	}
@@ -2032,11 +2032,11 @@ matches_options_group(struct Mempool *pool, struct Parser *parser, const char *s
 
 	if (parser_settings(parser).behavior & PARSER_ALLOW_FUZZY_MATCHING) {
 		// [-_[:upper:][:digit:]]+
-		if (!(isupper(s[i]) || isdigit(s[i]) || s[i] == '-' || s[i] == '_')) {
+		if (!(isupper((unsigned char)s[i]) || isdigit((unsigned char)s[i]) || s[i] == '-' || s[i] == '_')) {
 			return false;
 		}
 		for (size_t len = strlen(s); i < len; i++) {
-			if (!(isupper(s[i]) || isdigit(s[i]) || s[i] == '-' || s[i] == '_')) {
+			if (!(isupper((unsigned char)s[i]) || isdigit((unsigned char)s[i]) || s[i] == '-' || s[i] == '_')) {
 				return false;
 			}
 		}
@@ -2584,7 +2584,7 @@ target_extract_opt(struct Mempool *pool, struct Parser *parser, const char *targ
 	if ((colon && ((on = str_endswith(target, "-on:")) || str_endswith(target, "-off:"))) ||
 	    (!colon && ((on = str_endswith(target, "-on")) || str_endswith(target, "-off")))) {
 		const char *p = target;
-		for (; *p == '-' || (islower(*p) && isalpha(*p)); p++);
+		for (; *p == '-' || (islower((unsigned char)*p) && isalpha((unsigned char)*p)); p++);
 		size_t opt_suffix_len;
 		if (on) {
 			opt_suffix_len = strlen("-on");

@@ -53,7 +53,7 @@ bool
 is_empty_line(const char *s)
 {
 	for (const char *p = s; *p != 0; p++) {
-		if (!isspace(*p)) {
+		if (!isspace((unsigned char)*p)) {
 			return false;
 		}
 	}

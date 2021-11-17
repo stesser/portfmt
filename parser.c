@@ -636,7 +636,7 @@ parser_output_prepare(struct Parser *parser)
 bool
 matches_opt_use_prefix_helper(char c)
 {
-	return isupper(c) || islower(c) || isdigit(c) || c == '-' || c == '_';
+	return isupper((unsigned char)c) || islower((unsigned char)c) || isdigit((unsigned char)c) || c == '-' || c == '_';
 }
 
 bool

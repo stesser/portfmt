@@ -121,7 +121,7 @@ consume_comment(const char *buf)
 	for (const char *bufp = buf; *bufp != 0; bufp++) {
 		if (*bufp == '#') {
 			return strlen(buf);
-		} else if (!isspace(*bufp)) {
+		} else if (!isspace((unsigned char)*bufp)) {
 			break;
 		}
 	}
@@ -142,12 +142,12 @@ consume_conditional(const char *buf)
 	size_t pos = 0;
 	if (*buf == '.') {
 		pos++;
-		for (; isspace(buf[pos]); pos++);
+		for (; isspace((unsigned char)buf[pos]); pos++);
 		for (size_t i = 0; i < nitems(conditionals); i++) {
 			if (str_startswith(buf + pos, conditionals[i])) {
 				pos += strlen(conditionals[i]);
 				size_t origpos = pos;
-				for (; isspace(buf[pos]); pos++);
+				for (; isspace((unsigned char)buf[pos]); pos++);
 				if (buf[pos] == 0 || pos > origpos) {
 					return pos;
 				} else if (buf[pos] == '(' || buf[pos] == '<' || buf[pos] == '!') {
@@ -158,14 +158,14 @@ consume_conditional(const char *buf)
 	} else if (str_startswith(buf, "include")) {
 		pos += strlen("include");
 		bool space = false;
-		for (; isspace(buf[pos]); pos++, space = true);
+		for (; isspace((unsigned char)buf[pos]); pos++, space = true);
 		if (space) {
 			return pos;
 		}
 	} else if (str_startswith(buf, "-include") || str_startswith(buf, "sinclude")) {
 		pos += strlen("-include");
 		bool space = false;
-		for (; isspace(buf[pos]); pos++, space = true);
+		for (; isspace((unsigned char)buf[pos]); pos++, space = true);
 		if (space) {
 			return pos;
 		}
@@ -258,14 +258,14 @@ consume_var(const char *buf)
 
 	// [^[:space:]=]+
 	size_t i;
-	for (i = pos; i < len && !(isspace(buf[i]) || buf[i] == '='); i++);
+	for (i = pos; i < len && !(isspace((unsigned char)buf[i]) || buf[i] == '='); i++);
 	if (pos == i) {
 		return 0;
 	}
 	pos = i;
 
 	// [[:space:]]*
-	for (; pos < len && isspace(buf[pos]); pos++);
+	for (; pos < len && isspace((unsigned char)buf[pos]); pos++);
 
 	// [+!?:]?
 	switch (buf[pos]) {
@@ -292,7 +292,7 @@ bool
 is_empty_line(const char *buf)
 {
 	for (const char *p = buf; *p != 0; p++) {
-		if (!isspace(*p)) {
+		if (!isspace((unsigned char)*p)) {
 			return false;
 		}
 	}
@@ -331,7 +331,7 @@ consume_expansion(struct ParserTokenizeData *this)
 	} else if (c == '(') {
 		this->i = consume_token(this, this->i, '(', ')', false);
 		this->dollar = 0;
-	} else if (isalnum(c) || c == '@' || c == '<' || c == '>' || c == '/' ||
+	} else if (isalnum((unsigned char)c) || c == '@' || c == '<' || c == '>' || c == '/' ||
 		   c == '?' || c == '*' || c == '^' || c == '-' || c == '_' ||
 		   c == ')') {
 		this->dollar = 0;
@@ -405,7 +405,7 @@ parser_tokenize_helper(struct ParserTokenizeData *this)
 		char c = this->line[this->i];
 		if (this->escape) {
 			this->escape = 0;
-			if (c == '#' || c == '"' || c == '\'' || c == '\\' || c == '$' || isspace(c)) {
+			if (c == '#' || c == '"' || c == '\'' || c == '\\' || c == '$' || isspace((unsigned char)c)) {
 				continue;
 			}
 		}
@@ -494,7 +494,7 @@ parser_tokenizer_feed_line(struct ParserTokenizer *tokenizer, const char *inputl
  		if (linelen > 2 && line[linelen - 2] == '$' && line[linelen - 3] != '$') {
 			/* Hack to "handle" things like $\ in variable values */
 			line[linelen - 1] = 1;
-		} else if (linelen > 1 && !isspace(line[linelen - 2])) {
+		} else if (linelen > 1 && !isspace((unsigned char)line[linelen - 2])) {
 			/* "Handle" lines that end without a preceding space before '\'. */
 			line[linelen - 1] = ' ';
 		} else {

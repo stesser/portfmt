@@ -110,7 +110,7 @@ consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, bo
 			size_t pos = consume_token(buf, i, '{', '}');
 			if (pos == 0) {
 				i++;
-				if (i >= strlen(buf) || !isalnum(buf[i])) {
+				if (i >= strlen(buf) || !isalnum((unsigned char)buf[i])) {
 					return NULL;
 				}
 			} else {
@@ -149,7 +149,7 @@ consume_sources(struct Mempool *pool, const char *buf, struct Array *sources, bo
 	if (after_target == NULL || after_target < buf) {
 		return NULL;
 	} else {
-		for (; *after_target && isspace(*after_target); ++after_target);
+		for (; *after_target && isspace((unsigned char)*after_target); ++after_target);
 		return after_target;
 	}
 }

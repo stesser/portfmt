@@ -75,7 +75,7 @@ extract_git_describe_suffix(const char *ver)
 				return -1;
 			}
 		default:
-			if (!isdigit(ver[i])) {
+			if (!isdigit((unsigned char)ver[i])) {
 				return -1;
 			}
 		}
@@ -87,12 +87,12 @@ extract_git_describe_suffix(const char *ver)
 ssize_t
 extract_git_describe_prefix(const char *ver)
 {
-	if (*ver == 0 || isdigit(*ver)) {
+	if (*ver == 0 || isdigit((unsigned char)*ver)) {
 		return -1;
 	}
 
 	for (size_t i = 0; i < strlen(ver); i++) {
-		if (i > 0 && isdigit(ver[i])) {
+		if (i > 0 && isdigit((unsigned char)ver[i])) {
 			return i - 1;
 		}
 	}
