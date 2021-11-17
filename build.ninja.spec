@@ -104,10 +104,4 @@ install-man
 	man/portfmt.1
 	man/portscan.1
 
-ninja
-	rule portfmt-test
-	  command = cd $srcdir && $in $builddir
-	build $builddir/tests/.stamp: portfmt-test $srcdir/tests/run.sh | $builddir/.tool/tests/split_test $builddir/.bin/portclippy $builddir/.bin/portedit $builddir/.bin/portfmt $builddir/.bin/portscan
-	  pool = console
-	  description = TESTS
-	build test: phony $builddir/tests/.stamp
+include $builddir/tests.ninja

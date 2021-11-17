@@ -1,7 +1,31 @@
 #!/bin/sh
 set -eu
+: ${AWK=awk}
 mkdir -p "$1"
 BUILDDIR="$(readlink -f "$1" 2>/dev/null || realpath "$1")"
 : ${PORTFMT_SUBPACKAGES=1}
 echo "PORTFMT_SUBPACKAGES = ${PORTFMT_SUBPACKAGES}" >"${BUILDDIR}/features.ninja"
+cat <<EOF >"${BUILDDIR}/tests.ninja"
+rule portfmt-test
+  command = cd \$srcdir && \$srcdir/tests/run.sh \$builddir \$test && touch \$builddir/\$test.stamp
+EOF
+(
+	find tests/parser \( -name '*.sh' -o -name 'ast*.t' -o -name 'token*.t' \) -type f
+	find tests/format -name '*.t' -type f
+	find tests/edit -name '*.t' -type f
+	find tests/clippy -name '*.t' -type f
+	find tests/reject -name '*.in' -type f
+	find tests/portscan -name '*.sh' -type f
+) | ${AWK} '
+{
+	printf("build $builddir/%s.stamp: portfmt-test $srcdir/%s | $srcdir/tests/run.sh $builddir/.tool/tests/split_test $builddir/.bin/portclippy $builddir/.bin/portedit $builddir/.bin/portfmt $builddir/.bin/portscan\n", $0, $0)
+	printf("  description = TEST %s\n", $0)
+	printf("  test = %s\n", $0)
+	printf("build %s: phony $builddir/%s.stamp\n", $0, $0)
+	tests = tests " $builddir/" $0 ".stamp"
+}
+END {
+	printf("build test: phony%s\n", tests)
+}
+' >>"${BUILDDIR}/tests.ninja"
 exec libias/mkbuild "$@"

@@ -46,10 +46,13 @@ int
 main(int argc, char *argv[])
 {
 	SCOPE_MEMPOOL(pool);
-	if (argc != 2) {
+	if (argc != 4) {
 		errx(1, "invalid argument");
 	}
-	const char *testfile = argv[1];
+	const char *srcdir = argv[1];
+	const char *builddir = argv[2];
+	const char *testname = argv[3];
+	const char *testfile = str_printf(pool, "%s/%s", srcdir, testname);
 	FILE *f = mempool_fopenat(pool, AT_FDCWD, testfile, "r", 0);
 	unless (f) {
 		err(1, "%s: fopen", testfile);
@@ -82,7 +85,7 @@ main(int argc, char *argv[])
 		unless (suffix) {
 			errx(1, "%s: no suffix set", testfile);
 		}
-		FILE *in = mempool_fopenat(pool, AT_FDCWD, str_printf(pool, "%s.%s", testfile, suffix), "w", 0644);
+		FILE *in = mempool_fopenat(pool, AT_FDCWD, str_printf(pool, "%s/%s.%s", builddir, testname, suffix), "w", 0644);
 		fputs(test, in);
 		if (ferror(in)) {
 			err(1, "%s: ferror", testfile);
