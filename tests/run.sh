@@ -85,7 +85,7 @@ tests/clippy/*.t)
 	fi
 	;;
 tests/reject/*.in)
-	if ${PORTFMT} "$t"; then
+	if ${PORTFMT} "$t" 2>/dev/null; then
 		fail
 	fi
 	;;

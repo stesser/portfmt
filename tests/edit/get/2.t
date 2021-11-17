@@ -2,8 +2,6 @@
 if ${PORTEDIT} get '^DISTVERSION$' </dev/null; then
 	echo "status: $? expected: 1"
 	exit 1
-else
-	echo "error ok"
 fi
 <<<<<<<<<
 <<<<<<<<<
