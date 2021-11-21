@@ -90,6 +90,9 @@ tests/reject/*.in)
 	fi
 	;;
 tests/portscan/*.sh)
+	export logdir="${BUILDDIR}/.tests/portscan/$(basename "$t")"
+	rm -rf "${logdir}"
+	mkdir -p "${logdir}"
 	if ! (cd "${ROOT}/tests/portscan"; ${SH} -o pipefail -eu "$(basename "$t")"); then
 		fail
 	fi
