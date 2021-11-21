@@ -9,12 +9,12 @@ freebsd_task:
   matrix:
     - name: freebsd_clang
       test_script:
-        - ./configure CC=cc
+        - ./configure CC=cc || cat _build/.mkbuild/config.log
         - samu -C_build test
     - name: freebsd_gcc
       gcc_script: pkg install -y gcc11
       test_script:
-        - ./configure CC=gcc11
+        - ./configure CC=gcc11 || cat _build/.mkbuild/config.log
         - samu -C_build test
 
 linux_task:
@@ -29,11 +29,11 @@ linux_task:
       clang_script:
         - apt-get -y install clang llvm
       test_script:
-        - ./configure CC=clang
+        - ./configure CC=clang || cat _build/.mkbuild/config.log
         - SH=bash ninja -C_build test # bash for -o pipefail
     - name: linux_gcc
       test_script:
-        - ./configure CC=gcc
+        - ./configure CC=gcc || cat _build/.mkbuild/config.log
         - SH=bash ninja -C_build test # bash for -o pipefail
 
 macos_task:
@@ -46,9 +46,9 @@ macos_task:
   matrix:
     - name: macos_clang
       test_script:
-        - ./configure CC=clang
+        - ./configure CC=clang || cat _build/.mkbuild/config.log
         - samu -C_build test
     - name: macos_gcc
       test_script:
-        - ./configure CC=gcc
+        - ./configure CC=gcc || cat _build/.mkbuild/config.log
         - samu -C_build test

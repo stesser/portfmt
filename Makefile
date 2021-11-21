@@ -1,10 +1,6 @@
 AWK?=		awk
 
-all: _build/Makefile.configure
-	@./mkbuild _build && samu -C_build
-
-_build/Makefile.configure:
-	@./configure LTO=0
+all:
 
 clean:
 	@rm -r _build
@@ -48,4 +44,4 @@ publish:
 		-a portfmt-$${V}.tar.lz \
 		-a portfmt-$${V}.tar.lz.SHA256
 
-.PHONY: all publish release tag
+.PHONY: all clean publish release tag

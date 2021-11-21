@@ -1,8 +1,12 @@
-include $builddir/features.ninja
-
 CSTD = gnu99
-CPPFLAGS = $CPPFLAGS -DPORTFMT_SUBPACKAGES=$PORTFMT_SUBPACKAGES
-LDADD = $LDADD -lm $LDADD_EXECINFO
+LDADD += -lm $LDADD_EXECINFO
+
+default-features
+	subpackages
+if subpackages
+	CPPFLAGS += -DPORTFMT_SUBPACKAGES=1
+if !subpackages
+	CPPFLAGS += -DPORTFMT_SUBPACKAGES=0
 
 bundle libias.a
 	subdir = $srcdir/libias
@@ -87,7 +91,7 @@ bin portfmt
 	portfmt.c
 
 bin portscan
-	LDFLAGS = $LDFLAGS -pthread
+	LDFLAGS += -pthread
 	libias.a
 	libportfmt.a
 	portscan.c

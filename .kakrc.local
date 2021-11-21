@@ -1,1 +1,1 @@
-set global makecmd "./mkbuild _build && samu -C_build"
+set global makecmd "samu"
