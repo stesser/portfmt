@@ -39,7 +39,6 @@ enum MainutilsOpenFileBehavior {
 
 const char *MainutilsOpenFileBehavior_tostring(enum MainutilsOpenFileBehavior);
 
-bool can_use_colors(FILE *);
 void enter_sandbox(void);
 bool open_file(enum MainutilsOpenFileBehavior, int *, char ***, struct Mempool *, FILE **, FILE **, const char **filename);
 bool read_common_args(int *, char ***, struct ParserSettings *, const char *, struct Mempool *, struct Array *);

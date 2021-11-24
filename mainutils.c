@@ -54,20 +54,6 @@
 // Prototypes
 static FILE *open_file_helper(struct Mempool *, const char *, const char *, const char **);
 
-bool
-can_use_colors(FILE *fp)
-{
-	if (getenv("CLICOLOR_FORCE") != NULL) {
-		return true;
-	}
-
-	if (getenv("NO_COLOR") != NULL || isatty(fileno(fp)) == 0) {
-		return false;
-	}
-
-	return true;
-}
-
 void
 enter_sandbox()
 {

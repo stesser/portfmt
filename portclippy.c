@@ -41,6 +41,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 
+#include <libias/io.h>
 #include <libias/mempool.h>
 
 #include "mainutils.h"

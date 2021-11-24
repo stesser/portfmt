@@ -43,6 +43,7 @@
 
 #include <libias/array.h>
 #include <libias/flow.h>
+#include <libias/io.h>
 #include <libias/mempool.h>
 #include <libias/set.h>
 #include <libias/str.h>
