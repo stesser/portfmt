@@ -395,7 +395,7 @@ portscan_log_dir_open(struct Mempool *extpool, const char *logdir_path, int port
 	int logdir;
 	while ((logdir = open(logdir_path, O_DIRECTORY)) == -1) {
 		if (errno == ENOENT) {
-			if (mkdir(logdir_path, 0777) == -1) {
+			unless (mkdirp(logdir_path)) {
 				return NULL;
 			}
 			created_dir = 1;

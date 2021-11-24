@@ -17,6 +17,7 @@ bundle libias.a
 	libias/flow.c
 	libias/io.c
 	libias/io/dir.c
+	libias/io/mkdirp.c
 	libias/map.c
 	libias/mem.c
 	libias/mempool.c
