@@ -783,6 +783,7 @@ static struct VariableOrderEntry variable_order_[] = {
 	{ BLOCK_CARGO, "CARGO_BUILDDEP", VAR_DEFAULT, { "cargo" } },
 	{ BLOCK_CARGO, "CARGO_BUILD", VAR_DEFAULT, { "cargo" } },
 	{ BLOCK_CARGO, "CARGO_BUILD_ARGS", VAR_SORTED, { "cargo" } },
+	{ BLOCK_CARGO, "CARGO_BUILD_TARGET", VAR_SKIP_GOALCOL, { "cargo" } },
 	{ BLOCK_CARGO, "CARGO_INSTALL", VAR_DEFAULT, { "cargo" } },
 	{ BLOCK_CARGO, "CARGO_INSTALL_ARGS", VAR_SORTED, { "cargo" } },
 	{ BLOCK_CARGO, "CARGO_INSTALL_PATH", VAR_DEFAULT, { "cargo" } },
@@ -1179,6 +1180,7 @@ static struct VariableOrderEntry variable_order_[] = {
 static struct VariableOrderEntry special_variables_[] = {
 	{ BLOCK_UNKNOWN, "_DISABLE_TESTS", VAR_SORTED, {} },
 	{ BLOCK_UNKNOWN, "_IPXE_BUILDCFG", VAR_PRINT_AS_NEWLINES, {} },
+	{ BLOCK_UNKNOWN, "_PARFETCH_ENV", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
 	{ BLOCK_UNKNOWN, "_SRHT_TUPLE", VAR_PRINT_AS_NEWLINES | VAR_SORTED, {} },
 	{ BLOCK_UNKNOWN, "CARGO_CARGO_RUN", VAR_IGNORE_WRAPCOL, { "cargo" } },
 	{ BLOCK_UNKNOWN, "CFLAGS_clang", VAR_DEFAULT, {} },
