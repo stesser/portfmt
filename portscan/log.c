@@ -37,6 +37,7 @@
 # include <err.h>
 #endif
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <fcntl.h>
 #include <stdbool.h>

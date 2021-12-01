@@ -30,6 +30,7 @@
 
 #include <sys/param.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>

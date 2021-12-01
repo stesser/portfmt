@@ -31,6 +31,7 @@
 #if HAVE_ERR
 # include <err.h>
 #endif
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>

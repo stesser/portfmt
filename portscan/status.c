@@ -32,6 +32,7 @@
 #if HAVE_ERR
 # include <err.h>
 #endif
+#include <inttypes.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdatomic.h>

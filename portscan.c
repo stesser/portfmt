@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <regex.h>
 #include <stdatomic.h>
