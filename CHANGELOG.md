@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - portfmt: Format `EXTRACT_ONLY` the same way as `DISTFILES`. Typically `EXTRACT_ONLY` will contain a subset of `DISTFILES` (thanks @driesmp)
+- portclippy: Do not flag targets as unknown when they are a source for a known target
 
 ## [1.1.0] - 2021-11-12
 

@@ -49,34 +49,51 @@ struct WalkerData {
 	struct Mempool *pool;
 	struct ParserEditOutput *param;
 	struct Set *targets;
+	struct Set *deps;
 	struct Set *post_plist_targets;
 };
 
 // Prototypes
-static bool add_target(struct WalkerData *, const char *, bool);
+static void check_target(struct WalkerData *, const char *, bool);
 static enum ASTWalkState output_unknown_targets_walker(struct AST *, struct WalkerData *);
 
-bool
-add_target(struct WalkerData *this, const char *name, bool deps)
+void
+check_target(struct WalkerData *this, const char *name, bool deps)
 {
-	if (deps && is_special_source(name)) {
-		return false;
+	if (deps) {
+		if (is_special_source(name)) {
+			return;
+		}
+		if (is_known_target(this->parser, name)) {
+			return;
+		}
+		if (set_contains(this->targets, name)) {
+			return;
+		}
+		if (set_contains(this->post_plist_targets, name)) {
+			return;
+		}
+	} else {
+		if (is_special_target(name)) {
+			return;
+		}
+		if (is_known_target(this->parser, name)) {
+			return;
+		}
+		if (set_contains(this->deps, name)) {
+			return;
+		}
+		if (set_contains(this->post_plist_targets, name)) {
+			return;
+		}
 	}
-	if (is_special_target(name)) {
-		return true;
-	}
-	if (!is_known_target(this->parser, name) &&
-	    !set_contains(this->post_plist_targets, name) &&
-	    !set_contains(this->targets, name) &&
-	    (this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
-		set_add(this->targets, name);
+	if ((this->param->keyfilter == NULL || this->param->keyfilter(this->parser, name, this->param->keyuserdata))) {
 		this->param->found = true;
 		if (this->param->callback) {
 			// XXX: provide option as hint for opthelper targets?
 			this->param->callback(this->pool, name, name, NULL, this->param->callbackuserdata);
 		}
 	}
-	return false;
 }
 
 enum ASTWalkState
@@ -86,13 +103,14 @@ output_unknown_targets_walker(struct AST *node, struct WalkerData *this)
 	case AST_TARGET: {
 		bool skip_deps = false;
 		ARRAY_FOREACH(node->target.sources, const char *, name) {
-			if (add_target(this, name, false)) {
+			if (is_special_target(name)) {
 				skip_deps = true;
 			}
+			set_add(this->targets, name);
 		}
-		if (!skip_deps) {
+		unless (skip_deps) {
 			ARRAY_FOREACH(node->target.dependencies, const char *, name) {
-				add_target(this, name, true);
+				set_add(this->deps, name);
 			}
 		}
 		break;
@@ -115,11 +133,20 @@ PARSER_EDIT(output_unknown_targets)
 	}
 
 	param->found = true;
-	output_unknown_targets_walker(root, &(struct WalkerData){
+	struct WalkerData this = {
 		.parser = parser,
 		.pool = extpool,
 		.param = param,
 		.targets = mempool_set(pool, str_compare, NULL),
+		.deps = mempool_set(pool, str_compare, NULL),
 		.post_plist_targets = parser_metadata(parser, PARSER_METADATA_POST_PLIST_TARGETS),
-	});
+	};
+	output_unknown_targets_walker(root, &this);
+
+	SET_FOREACH(this.targets, const char *, name) {
+		check_target(&this, name, false);
+	}
+	SET_FOREACH(this.deps, const char *, name) {
+		check_target(&this, name, true);
+	}
 }
