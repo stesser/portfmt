@@ -40,6 +40,7 @@
 #include <libias/mempool.h>
 #include <libias/stack.h>
 #include <libias/str.h>
+#include <libias/trait/compare.h>
 
 #include "ast.h"
 
@@ -330,7 +331,7 @@ struct AST *
 ast_clone(struct Mempool *extpool, struct AST *template)
 {
 	SCOPE_MEMPOOL(pool);
-	struct Map *ptrmap = mempool_map(pool, NULL, NULL);
+	struct Map *ptrmap = mempool_map(pool, id_compare);
 	return ast_clone_helper(extpool, ptrmap, template, NULL);
 }
 
@@ -389,9 +390,9 @@ ast_siblings_helper(struct AST *node)
 	case AST_DELETED:
 		panic("cannot return siblings of deleted node");
 	case AST_IF:
-		index = array_find(parent->ifexpr.body, node, NULL, NULL);
+		index = array_find(parent->ifexpr.body, node, id_compare);
 		if (index < 0) {
-			index = array_find(parent->ifexpr.orelse, node, NULL, NULL);
+			index = array_find(parent->ifexpr.orelse, node, id_compare);
 			if (index < 0) {
 				panic("node does not appear in parent nodelist");
 			}
@@ -434,7 +435,7 @@ ast_parent_insert_before_sibling(struct AST *node, struct AST *new_sibling)
 
 	struct Array *nodelist = ast_siblings_helper(node);
 	ssize_t index = -1;
-	index = array_find(nodelist, node, NULL, NULL);
+	index = array_find(nodelist, node, id_compare);
 	if (index < 0) {
 		panic("node does not appear in parent nodelist");
 	}

@@ -53,6 +53,7 @@
 #include <libias/path.h>
 #include <libias/set.h>
 #include <libias/str.h>
+#include <libias/trait/compare.h>
 
 #include "ast.h"
 #include "constants.h"
@@ -499,7 +500,7 @@ parser_output_print_target_command(struct Parser *parser, struct AST *node)
 	const char *start = startlv0;
 
 	// Find the places we need to wrap to the next line.
-	struct Set *wraps = mempool_set(pool, NULL, NULL);
+	struct Set *wraps = mempool_set(pool, id_compare);
 	size_t column = 8;
 	uint32_t complexity = 0;
 	size_t command_i = 0;
@@ -717,7 +718,7 @@ parser_output_sort_opt_use(struct Parser *parser, struct Mempool *pool, struct A
 				.var = var,
 			};
 			struct Array *values = str_split(pool, suffix, ",");
-			array_sort(values, compare_tokens, &data);
+			array_sort(values, &(struct CompareTrait){compare_tokens, &data});
 			ARRAY_FOREACH(values, const char *, t2) {
 				array_append(buf, t2);
 				if (t2_index < array_len(values) - 1) {
@@ -897,7 +898,7 @@ parser_output_print_variable(struct Parser *parser, struct Mempool *pool, struct
 			.parser = parser,
 			.var = node->variable.name,
 		};
-		array_sort(words, compare_tokens, &data);
+		array_sort(words, &(struct CompareTrait){compare_tokens, &data});
 	}
 
 	if (print_as_newlines(parser, node->variable.name)) {
@@ -961,7 +962,7 @@ parser_output_category_makefile_reformatted(struct Parser *parser, struct AST *n
 			}
 			parser_enqueue_output(parser, "\n");
 		} else if (strcmp(node->variable.name, "SUBDIR") == 0) {
-			array_sort(node->variable.words, str_compare, NULL);
+			array_sort(node->variable.words, str_compare);
 			ARRAY_FOREACH(node->variable.words, const char *, word) {
 				parser_enqueue_output(parser, indent);
 				parser_enqueue_output(parser, "SUBDIR += ");
@@ -1179,7 +1180,7 @@ parser_output_diff(struct Parser *parser)
 	struct Array *lines = str_split(pool, str_join(pool, parser->result, ""), "\n");
 	array_pop(lines);
 
-	struct diff *p = array_diff(parser->rawlines, lines, pool, str_compare, NULL);
+	struct diff *p = array_diff(parser->rawlines, lines, pool, str_compare);
 	if (p == NULL) {
 		parser_set_error(parser, PARSER_ERROR_UNSPECIFIED,
 				 str_printf(pool, "could not create diff"));
@@ -1744,13 +1745,13 @@ parser_metadata_alloc(struct Parser *parser)
 	for (enum ParserMetadata meta = 0; meta <= PARSER_METADATA_USES; meta++) {
 		switch (meta) {
 		case PARSER_METADATA_OPTION_DESCRIPTIONS:
-			parser->metadata[meta] = mempool_map(parser->metadata_pool, str_compare, NULL);
+			parser->metadata[meta] = mempool_map(parser->metadata_pool, str_compare);
 			break;
 		case PARSER_METADATA_MASTERDIR:
 			parser->metadata[meta] = NULL;
 			break;
 		default:
-			parser->metadata[meta] = mempool_set(parser->metadata_pool, str_compare, NULL);
+			parser->metadata[meta] = mempool_set(parser->metadata_pool, str_compare);
 			break;
 		}
 	}

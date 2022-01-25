@@ -69,8 +69,8 @@ refactor_dedup_tokens_walker(struct AST *node, struct WalkerData *this)
 		} else if (skip_dedup(this->parser, node->variable.name, node->variable.modifier)) {
 			return AST_WALK_CONTINUE;
 		} else {
-			struct Set *seen = mempool_set(pool, str_compare, NULL);
-			struct Set *uses = mempool_set(pool, str_compare, NULL);
+			struct Set *seen = mempool_set(pool, str_compare);
+			struct Set *uses = mempool_set(pool, str_compare);
 			enum DedupAction action = DEFAULT;
 			char *helper = NULL;
 			if (is_options_helper(pool, this->parser, node->variable.name, NULL, &helper, NULL)) {

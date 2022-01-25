@@ -41,6 +41,7 @@
 #include <libias/mempool.h>
 #include <libias/set.h>
 #include <libias/str.h>
+#include <libias/trait/compare.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -63,9 +64,15 @@ struct UnknownVariable {
 // Prototypes
 static struct UnknownVariable *var_new(struct Mempool *, const char *, const char *);
 static void var_free(struct UnknownVariable *);
-static int var_compare(const void *, const void *, void *);
+static DECLARE_COMPARE(compare_var);
 static void check_opthelper(struct WalkerData *, const char *, bool, bool);
 static enum ASTWalkState output_unknown_variables_walker(struct AST *, struct WalkerData *);
+
+// Constants
+static struct CompareTrait *var_compare = &(struct CompareTrait){
+	.compare = compare_var,
+	.compare_userdata = NULL,
+};
 
 struct UnknownVariable *
 var_new(struct Mempool *pool, const char *name, const char *hint)
@@ -88,11 +95,8 @@ var_free(struct UnknownVariable *var)
 	}
 }
 
-int
-var_compare(const void *ap, const void *bp, void *userdata)
+DEFINE_COMPARE(compare_var, struct UnknownVariable, void)
 {
-	struct UnknownVariable *a = *(struct UnknownVariable **)ap;
-	struct UnknownVariable *b = *(struct UnknownVariable **)bp;
 	int retval = strcmp(a->name, b->name);
 	if (retval == 0) {
 		if (a->hint && b->hint) {
@@ -199,7 +203,7 @@ PARSER_EDIT(output_unknown_variables)
 		.pool = extpool,
 		.param = param,
 		.vars_pool = pool,
-		.vars = mempool_set(pool, var_compare, NULL),
+		.vars = mempool_set(pool, var_compare),
 	};
 	output_unknown_variables_walker(root, &this);
 

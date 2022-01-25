@@ -56,6 +56,7 @@
 #include <libias/mempool/file.h>
 #include <libias/set.h>
 #include <libias/str.h>
+#include <libias/trait/compare.h>
 
 #include "capsicum_helpers.h"
 #include "portscan/log.h"
@@ -79,10 +80,10 @@ struct PortscanLogEntry {
 };
 
 // Prototypes
+static DECLARE_COMPARE(compare_log_entry);
 static void portscan_log_sort(struct PortscanLog *);
 static char *log_entry_tostring(const struct PortscanLogEntry *, struct Mempool *);
 static struct PortscanLogEntry *log_entry_parse(struct Mempool *, const char *);
-static int log_entry_compare(const void *, const void *, void *);
 static int log_update_latest(struct PortscanLogDir *, const char *);
 static char *log_filename(const char *, struct Mempool *);
 static char *log_commit(int, struct Mempool *);
@@ -90,6 +91,10 @@ static char *log_commit(int, struct Mempool *);
 // Constants
 static const char *PORTSCAN_LOG_DATE_FORMAT = "portscan-%Y%m%d%H%M%S";
 static const char *PORTSCAN_LOG_INIT = "/dev/null";
+static struct CompareTrait *log_entry_compare = &(struct CompareTrait){
+	.compare = compare_log_entry,
+	.compare_userdata = NULL,
+};
 
 struct PortscanLog *
 portscan_log_new(struct Mempool *extpool)
@@ -113,7 +118,7 @@ portscan_log_free(struct PortscanLog *log)
 void
 portscan_log_sort(struct PortscanLog *log)
 {
-	array_sort(log->entries, log_entry_compare, NULL);
+	array_sort(log->entries, log_entry_compare);
 }
 
 size_t
@@ -251,12 +256,8 @@ log_entry_parse(struct Mempool *pool, const char *s)
 	return e;
 }
 
-int
-log_entry_compare(const void *ap, const void *bp, void *userdata)
+DEFINE_COMPARE(compare_log_entry, struct PortscanLogEntry, void)
 {
-	const struct PortscanLogEntry *a = *(const struct PortscanLogEntry **)ap;
-	const struct PortscanLogEntry *b = *(const struct PortscanLogEntry **)bp;
-
 	int retval = strcmp(a->origin, b->origin);
 	if (retval == 0) {
 		if (a->type > b->type) {
@@ -279,7 +280,7 @@ portscan_log_compare(struct PortscanLog *prev, struct PortscanLog *log)
 	portscan_log_sort(prev);
 	portscan_log_sort(log);
 
-	struct diff *p = array_diff(prev->entries, log->entries, pool, log_entry_compare, NULL);
+	struct diff *p = array_diff(prev->entries, log->entries, pool, log_entry_compare);
 	if (p == NULL) {
 		errx(1, "array_diff failed");
 	}

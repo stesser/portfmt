@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## Unreleased
 
+### Changed
+
+- Portfmt requires C11 now
+- General performance improvements due to some optimizations in libias
+
 ### Fixed
 
 - portfmt: Format `EXTRACT_ONLY` the same way as `DISTFILES`. Typically `EXTRACT_ONLY` will contain a subset of `DISTFILES` (thanks @driesmp)

@@ -261,7 +261,7 @@ lookup_subdirs(int portsdir, const char *category, const char *path, enum ScanFl
 				    !S_ISDIR(sb.st_mode)) {
 					continue;
 				}
-				if (array_find(tmp, dp->d_name, str_compare, NULL) == -1) {
+				if (array_find(tmp, dp->d_name, str_compare) == -1) {
 					array_append(unhooked, str_dup(extpool, path));
 				}
 			}
@@ -370,14 +370,14 @@ scan_port(struct ScanPortArgs *args)
 	SCOPE_MEMPOOL(pool);
 
 	struct ScanResult *retval = args->result;
-	retval->comments = mempool_set(retval->pool, str_compare, NULL);
-	retval->errors = mempool_set(retval->pool, str_compare, NULL);
-	retval->option_default_descriptions = mempool_set(retval->pool, str_compare, NULL);
-	retval->option_groups = mempool_set(retval->pool, str_compare, NULL);
-	retval->options = mempool_set(retval->pool, str_compare, NULL);
-	retval->unknown_variables = mempool_set(retval->pool, str_compare, NULL);
-	retval->unknown_targets = mempool_set(retval->pool, str_compare, NULL);
-	retval->variable_values = mempool_set(retval->pool, str_compare, NULL);
+	retval->comments = mempool_set(retval->pool, str_compare);
+	retval->errors = mempool_set(retval->pool, str_compare);
+	retval->option_default_descriptions = mempool_set(retval->pool, str_compare);
+	retval->option_groups = mempool_set(retval->pool, str_compare);
+	retval->options = mempool_set(retval->pool, str_compare);
+	retval->unknown_variables = mempool_set(retval->pool, str_compare);
+	retval->unknown_targets = mempool_set(retval->pool, str_compare);
+	retval->variable_values = mempool_set(retval->pool, str_compare);
 
 	struct ParserSettings settings;
 	parser_init_settings(&settings);
@@ -641,7 +641,7 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 
 	// Get consistent output even when category Makefiles are
 	// not sorted correctly
-	array_sort(retval, str_compare, NULL);
+	array_sort(retval, str_compare);
 
 	return retval;
 }
@@ -666,7 +666,7 @@ get_default_option_descriptions_walker(struct AST *node, struct Map *this, struc
 
 PARSER_EDIT(get_default_option_descriptions)
 {
-	struct Map *default_option_descriptions = mempool_map(extpool, str_compare, NULL);
+	struct Map *default_option_descriptions = mempool_map(extpool, str_compare);
 	get_default_option_descriptions_walker(root, default_option_descriptions, extpool);
 	struct Map **retval = (struct Map **)userdata;
 	*retval = default_option_descriptions;

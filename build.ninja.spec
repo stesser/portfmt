@@ -1,4 +1,4 @@
-CSTD = gnu99
+CSTD = gnu11
 LDADD += -lm $LDADD_EXECINFO
 
 default-features
@@ -28,6 +28,7 @@ bundle libias.a
 	libias/set.c
 	libias/stack.c
 	libias/str.c
+	libias/trait/compare.c
 	libias/util.c
 
 bundle libportfmt.a

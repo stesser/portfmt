@@ -110,10 +110,10 @@ PARSER_EDIT(lint_clones)
 
 	struct Mempool *clones_pool = mempool_pool(extpool);
 	struct WalkerData this = {
-		.seen = mempool_set(pool, str_compare, NULL),
-		.seen_in_cond = mempool_set(pool, str_compare, NULL),
+		.seen = mempool_set(pool, str_compare),
+		.seen_in_cond = mempool_set(pool, str_compare),
 		.clones_pool = clones_pool,
-		.clones = mempool_set(clones_pool, str_compare, NULL),
+		.clones = mempool_set(clones_pool, str_compare),
 	};
 	lint_clones_walker(root, &this, 0);
 

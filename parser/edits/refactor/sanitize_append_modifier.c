@@ -100,6 +100,6 @@ PARSER_EDIT(refactor_sanitize_append_modifier)
 
 	/* Sanitize += before bsd.options.mk */
 	refactor_sanitize_append_modifier_walker(root, &(struct WalkerData){
-		.seen = mempool_set(pool, str_compare, NULL),
+		.seen = mempool_set(pool, str_compare),
 	});
 }

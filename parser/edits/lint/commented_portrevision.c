@@ -98,7 +98,7 @@ PARSER_EDIT(lint_commented_portrevision)
 	struct Mempool *comments_pool = mempool_pool(extpool);
 	struct WalkerData this = {
 		.comments_pool = comments_pool,
-		.comments = mempool_set(comments_pool, str_compare, NULL),
+		.comments = mempool_set(comments_pool, str_compare),
 	};
 	lint_commented_portrevision_walker(root, &this);
 

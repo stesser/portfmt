@@ -45,6 +45,7 @@
 #include <libias/mempool.h>
 #include <libias/set.h>
 #include <libias/str.h>
+#include <libias/trait/compare.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -72,11 +73,11 @@ struct Row {
 };
 
 // Prototypes
+static DECLARE_COMPARE(compare_get_all_unknown_variables_row);
+static DECLARE_COMPARE(compare_row);
 static void row_free(struct Row *);
 static void row(struct Mempool *, struct Array *, const char *, const char *);
-static int row_compare(const void *, const void *, void *);
 static enum ASTWalkState get_variables(struct AST *, struct GetVariablesWalkerData *);
-static int get_all_unknown_variables_row_compare(const void *, const void *, void *);
 static void get_all_unknown_variables_helper(struct Mempool *, const char *, const char *, const char *, void *);
 static bool get_all_unknown_variables_filter(struct Parser *, const char *, void *);
 static struct Set *get_all_unknown_variables(struct Mempool *, struct Parser *);
@@ -87,6 +88,16 @@ static enum OutputDiffResult check_variable_order(struct Parser *, struct AST *,
 static enum OutputDiffResult check_target_order(struct Parser *, struct AST *, bool, enum OutputDiffResult);
 static void output_row(struct Parser *, struct Row *, size_t);
 static enum OutputDiffResult output_diff(struct Parser *, struct Array *, struct Array *, bool);
+
+// Constants
+static struct CompareTrait *row_compare = &(struct CompareTrait){
+	.compare = compare_row,
+	.compare_userdata = NULL,
+};
+static struct CompareTrait *get_all_unknown_variables_compare = &(struct CompareTrait){
+	.compare = compare_get_all_unknown_variables_row,
+	.compare_userdata = NULL,
+};
 
 void
 row_free(struct Row *row)
@@ -110,11 +121,8 @@ row(struct Mempool *pool, struct Array *output, const char *name, const char *hi
 	array_append(output, row);
 }
 
-int
-row_compare(const void *ap, const void *bp, void *userdata)
+DEFINE_COMPARE(compare_row, struct Row, void)
 {
-	struct Row *a = *(struct Row **)ap;
-	struct Row *b = *(struct Row **)bp;
 	return strcmp(a->name, b->name);
 }
 
@@ -150,7 +158,7 @@ get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 		break;
 	case AST_VARIABLE:
 		// Ignore port local variables that start with an _
-		if (node->variable.name[0] != '_' && array_find(this->vars, node->variable.name, str_compare, NULL) == -1) {
+		if (node->variable.name[0] != '_' && array_find(this->vars, node->variable.name, str_compare) == -1) {
 			if (is_referenced_var(this->parser, node->variable.name)) {
 				if (variable_order_block(this->parser, node->variable.name, NULL, NULL) != BLOCK_UNKNOWN) {
 					array_append(this->vars, node->variable.name);
@@ -168,11 +176,8 @@ get_variables(struct AST *node, struct GetVariablesWalkerData *this)
 	return AST_WALK_CONTINUE;
 }
 
-int
-get_all_unknown_variables_row_compare(const void *ap, const void *bp, void *userdata)
+DEFINE_COMPARE(compare_get_all_unknown_variables_row, struct Row, void)
 {
-	struct Row *a = *(struct Row **)ap;
-	struct Row *b = *(struct Row **)bp;
 	int retval = strcmp(a->name, b->name);
 	if (retval == 0) {
 		if (a->hint && b->hint) {
@@ -209,7 +214,7 @@ get_all_unknown_variables_filter(struct Parser *parser, const char *key, void *u
 struct Set *
 get_all_unknown_variables(struct Mempool *pool, struct Parser *parser)
 {
-	struct Set *unknowns = mempool_set(pool, get_all_unknown_variables_row_compare, NULL);
+	struct Set *unknowns = mempool_set(pool, get_all_unknown_variables_compare);
 	struct ParserEditOutput param = { get_all_unknown_variables_filter, NULL, NULL, NULL, get_all_unknown_variables_helper, unknowns, 0 };
 	if (parser_edit(parser, pool, output_unknown_variables, &param) != PARSER_ERROR_OK) {
 		return unknowns;
@@ -304,7 +309,7 @@ target_list(struct AST *node, struct TargetListWalkData *this)
 		ARRAY_FOREACH(node->target.sources, const char *, target) {
 			// Ignore port local targets that start with an _
 			if (target[0] != '_' && !is_special_target(target) &&
-			    array_find(this->targets, target, str_compare, NULL) == -1) {
+			    array_find(this->targets, target, str_compare) == -1) {
 				array_append(this->targets, target);
 			}
 		}
@@ -327,7 +332,7 @@ check_variable_order(struct Parser *parser, struct AST *root, bool no_color)
 		.parser = parser,
 		.vars = vars,
 	});
-	array_sort(vars, compare_order, parser);
+	array_sort(vars, &(struct CompareTrait){compare_order, parser});
 
 	struct Set *uses_candidates = NULL;
 	struct Array *target = mempool_array(pool);
@@ -352,7 +357,7 @@ check_variable_order(struct Parser *parser, struct AST *root, bool no_color)
 		}
 	}
 
-	array_sort(unknowns, str_compare, NULL);
+	array_sort(unknowns, str_compare);
 
 	struct Set *all_unknown_variables = get_all_unknown_variables(pool, parser);
 	ARRAY_FOREACH(unknowns, char *, var) {
@@ -384,7 +389,7 @@ check_variable_order(struct Parser *parser, struct AST *root, bool no_color)
 	enum OutputDiffResult retval = output_diff(parser, origin, target, no_color);
 
 	if (array_len(vars) > 0 && set_len(all_unknown_variables) > 0) {
-		struct Map *group = mempool_map(pool, str_compare, NULL);
+		struct Map *group = mempool_map(pool, str_compare);
 		size_t maxlen = 0;
 		SET_FOREACH(all_unknown_variables, struct Row *, var) {
 			struct Array *hints = map_get(group, var->name);
@@ -459,7 +464,7 @@ check_target_order(struct Parser *parser, struct AST *root, bool no_color, enum 
 		}
 	}
 
-	array_sort(targets, compare_target_order, parser);
+	array_sort(targets, &(struct CompareTrait){compare_target_order, parser});
 
 	struct Array *target = mempool_array(pool);
 	if (status_var == OUTPUT_DIFF_OK) {
@@ -526,7 +531,7 @@ output_diff(struct Parser *parser, struct Array *origin, struct Array *target, b
 {
 	SCOPE_MEMPOOL(pool);
 
-	struct diff *p = array_diff(origin, target, pool, row_compare, NULL);
+	struct diff *p = array_diff(origin, target, pool, row_compare);
 	if (p == NULL) {
 		return OUTPUT_DIFF_ERROR;
 	}

@@ -37,6 +37,7 @@
 #include <libias/array.h>
 #include <libias/flow.h>
 #include <libias/mempool.h>
+#include <libias/trait/compare.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -99,7 +100,7 @@ merge_variables(struct Array *nodelist, struct Array *group)
 	struct Array *newnodelist = mempool_array(pool);
 	ARRAY_FOREACH(nodelist, struct AST *, node) {
 		if (node->type == AST_VARIABLE) {
-			if (array_find(group, node, NULL, NULL) < 1) {
+			if (array_find(group, node, id_compare) < 1) {
 				array_append(newnodelist, node);
 			}
 		} else {
