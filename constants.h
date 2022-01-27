@@ -22,7 +22,8 @@ extern size_t static_shebang_langs_len;
 #define VAR_BROKEN_RUBY(block, flags, uses) \
 	{ block, "BROKEN_RUBY26", flags, uses }, \
 	{ block, "BROKEN_RUBY27", flags, uses }, \
-	{ block, "BROKEN_RUBY30", flags, uses }
+	{ block, "BROKEN_RUBY30", flags, uses }, \
+	{ block, "BROKEN_RUBY31", flags, uses }
 #define VAR_FOR_EACH_ARCH(block, var, flags, uses) \
 	{ block, var "aarch64", flags, uses }, \
 	{ block, var "amd64", flags, uses }, \
