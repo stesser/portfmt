@@ -1828,14 +1828,7 @@ is_flavors_helper(struct Mempool *pool, struct Parser *parser, const char *var, 
 	}
 
 	char *prefix = str_ndup(pool, var, len - 1);
-	bool found = false;
-	SET_FOREACH(parser_metadata(parser, PARSER_METADATA_FLAVORS), const char *, flavor) {
-		if (strcmp(prefix, flavor) == 0) {
-			found = true;
-			break;
-		}
-	}
-	if (!found) {
+	unless (set_contains(parser_metadata(parser, PARSER_METADATA_FLAVORS), prefix)) {
 		return false;
 	}
 done:
@@ -1877,13 +1870,7 @@ extract_subpkg(struct Mempool *pool, struct Parser *parser, const char *var_, ch
 	if (subpkg && !(parser_settings(parser).behavior & PARSER_ALLOW_FUZZY_MATCHING)) {
 		bool found = false;
 #if PORTFMT_SUBPACKAGES
-		struct Set *subpkgs = parser_metadata(parser, PARSER_METADATA_SUBPACKAGES);
-		SET_FOREACH (subpkgs, const char *, pkg) {
-			if (strcmp(subpkg, pkg) == 0) {
-				found = true;
-				break;
-			}
-		}
+		found = set_contains(parser_metadata(parser, PARSER_METADATA_SUBPACKAGES), subpkg);
 #endif
 		if (!found) {
 			if (subpkg_ret) {
@@ -1976,20 +1963,11 @@ is_options_helper(struct Mempool *pool, struct Parser *parser, const char *var_,
 	struct Set *groups = parser_metadata(parser, PARSER_METADATA_OPTION_GROUPS);
 	struct Set *options = parser_metadata(parser, PARSER_METADATA_OPTIONS);
 	if (strcmp(suffix, "DESC") == 0) {
-		SET_FOREACH (groups, const char *, group) {
-			if (strcmp(prefix, group) == 0) {
-				goto done;
-			}
+		if (set_contains(groups, prefix)) {
+			goto done;
 		}
 	}
-	bool found = false;
-	SET_FOREACH (options, const char *, option) {
-		if (strcmp(prefix, option) == 0) {
-			found = true;
-			break;
-		}
-	}
-	if (!found) {
+	unless (set_contains(options, prefix)) {
 		return false;
 	}
 
@@ -2058,15 +2036,14 @@ matches_options_group(struct Mempool *pool, struct Parser *parser, const char *s
 	} else {
 		struct Set *groups = parser_metadata(parser, PARSER_METADATA_OPTION_GROUPS);
 		// XXX: This could be stricter by checking the group type too
-		SET_FOREACH (groups, const char *, group) {
-			if (strcmp(s + i, group) == 0) {
-				if (prefix) {
-					*prefix = str_ndup(pool, var, strlen(var) - 1);
-				}
-				return true;
+		if (set_contains(groups, s + i)) {
+			if (prefix) {
+				*prefix = str_ndup(pool, var, strlen(var) - 1);
 			}
+			return true;
+		} else {
+			return false;
 		}
-		return false;
 	}
 }
 
@@ -2408,15 +2385,13 @@ compare_order(const void *ap, const void *bp, void *userdata)
 					bscore = i;
 				}
 			}
-			size_t i = 0;
-			SET_FOREACH (parser_metadata(parser, PARSER_METADATA_SHEBANG_LANGS), const char *, lang) {
+			SET_FOREACH(parser_metadata(parser, PARSER_METADATA_SHEBANG_LANGS), const char *, lang) {
 				if (strcmp(alang, lang) == 0) {
-					ascore = i;
+					ascore = lang_index;
 				}
 				if (strcmp(blang, lang) == 0) {
-					bscore = i;
+					bscore = lang_index;
 				}
-				i++;
 			}
 
 			bool aold = strcmp(asuffix, "OLD_CMD") == 0;
@@ -2457,15 +2432,13 @@ compare_order(const void *ap, const void *bp, void *userdata)
 
 			ssize_t ascore = -1;
 			ssize_t bscore = -1;
-			size_t i = 0;
-			SET_FOREACH (parser_metadata(parser, PARSER_METADATA_CABAL_EXECUTABLES), const char *, exe) {
+			SET_FOREACH(parser_metadata(parser, PARSER_METADATA_CABAL_EXECUTABLES), const char *, exe) {
 				if (strcmp(aexe, exe) == 0) {
-					ascore = i;
+					ascore = exe_index;
 				}
 				if (strcmp(bexe, exe) == 0) {
-					bscore = i;
+					bscore = exe_index;
 				}
-				i++;
 			}
 
 			bool aold = strcmp(asuffix, "DATADIR_VARS") == 0;
