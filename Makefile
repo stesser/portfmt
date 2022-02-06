@@ -40,8 +40,8 @@ publish:
 	if [ -z "$$tag" ]; then echo "create a tag first"; exit 1; fi; \
 	V=$$(echo $${tag} | sed 's,^v,,'); \
 	git push --follow-tags origin; \
-	hub release create -F RELNOTES.md $${tag} \
-		-a portfmt-$${V}.tar.lz \
-		-a portfmt-$${V}.tar.lz.SHA256
+	gh release create $${tag} -F RELNOTES.md \
+		portfmt-$${V}.tar.lz \
+		portfmt-$${V}.tar.lz.SHA256
 
 .PHONY: all clean publish release tag
