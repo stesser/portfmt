@@ -72,6 +72,7 @@ main(int argc, char *argv[])
 	int strict = 0;
 	struct option longopts[] = {
 		{ "strict", no_argument, &strict, 1 },
+		{ NULL, 0, NULL, 0 },
 	};
 	int ch;
 	while ((ch = getopt_long(argc, argv, "", longopts, NULL)) != -1) {
