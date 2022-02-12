@@ -53,6 +53,7 @@
 // Prototypes
 static bool variable_has_flag(struct Parser *, const char *, int);
 static bool extract_arch_prefix(struct Mempool *, const char *, char **, char **);
+static bool extract_osrel_prefix(struct Mempool *, const char *, char **);
 static void is_referenced_var_cb(struct Mempool *, const char *, const char *, const char *, void *);
 static void add_referenced_var_candidates(struct Mempool *, struct Array *, struct Array *, const char *, const char *);
 static bool is_valid_license(struct Parser *, const char *);
@@ -1328,6 +1329,19 @@ extract_arch_prefix(struct Mempool *pool, const char *var, char **prefix_without
 	return false;
 }
 
+bool
+extract_osrel_prefix(struct Mempool *pool, const char *var, char **prefix)
+{
+	for (size_t i = 0; i < freebsd_versions_len; i++) {
+		char *suffix = str_printf(pool, "_%s_%" PRIu32, "FreeBSD", freebsd_versions[i]);
+		if (str_endswith(var, suffix)) {
+			*prefix = str_ndup(pool, var, strlen(var) - strlen(suffix));
+			return true;
+		}
+	}
+	return false;
+}
+
 void
 is_referenced_var_cb(struct Mempool *extpool, const char *key, const char *value, const char *hint, void *userdata)
 {
@@ -1385,6 +1399,13 @@ is_referenced_var(struct Parser *parser, const char *var)
 			if (var_without_arch_osrel) {
 				add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_arch, "ARCH}_${OSREL:R");
 			}
+		}
+	}
+
+	{
+		char *prefix = NULL;
+		if (extract_osrel_prefix(pool, var, &prefix)) {
+			add_referenced_var_candidates(pool, candidates, cond_candidates, prefix, "OPSYS}_${OSREL:R");
 		}
 	}
 
