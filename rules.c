@@ -1398,6 +1398,7 @@ is_referenced_var(struct Parser *parser, const char *var)
 			add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_arch, "ARCH");
 			if (var_without_arch_osrel) {
 				add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_arch, "ARCH}_${OSREL:R");
+				add_referenced_var_candidates(pool, candidates, cond_candidates, var_without_arch_osrel, "OSREL:R");
 			}
 		}
 	}
