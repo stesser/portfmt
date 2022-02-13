@@ -46,7 +46,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-#include <unistd.h>
 
 #include <libias/array.h>
 #include <libias/diff.h>
@@ -60,6 +59,7 @@
 #include <libias/mempool/file.h>
 #include <libias/set.h>
 #include <libias/str.h>
+#include <libias/workqueue.h>
 
 #include "ast.h"
 #include "capsicum_helpers.h"
@@ -105,40 +105,13 @@ struct ScanLongoptsState {
 	const char *optarg;
 };
 
-struct ScanResult {
-	struct Mempool *pool;
-	char *origin;
-	struct Set *comments;
-	struct Set *errors;
-	struct Set *unknown_variables;
-	struct Set *unknown_targets;
-	struct Set *clones;
-	struct Set *option_default_descriptions;
-	struct Set *option_groups;
-	struct Set *options;
-	struct Set *variable_values;
-	enum ScanFlags flags;
-};
-
-struct ScanPortArgs {
-	enum ScanFlags flags;
+struct CategoryReaderState {
+	// Input
+	const char *category;
 	int portsdir;
-	const char *path;
-	struct Regexp *keyquery;
-	struct Regexp *query;
-	ssize_t editdist;
-	struct Map *default_option_descriptions;
-	struct ScanResult *result;
-};
-
-struct CategoryReaderData {
-	int portsdir;
-	struct Array *categories;
-	atomic_size_t *categories_index;
 	enum ScanFlags flags;
-};
 
-struct CategoryReaderResult {
+	// Output
 	struct Mempool *pool;
 	struct Array *error_origins;
 	struct Array *error_msgs;
@@ -148,20 +121,28 @@ struct CategoryReaderResult {
 	struct Array *unsorted;
 };
 
-struct PortReaderData {
+struct PortReaderState {
+	// Input
 	int portsdir;
-	struct Array *origins;
-	atomic_size_t *origins_index;
+	const char *origin;
 	struct Regexp *keyquery;
 	struct Regexp *query;
 	ssize_t editdist;
 	enum ScanFlags flags;
 	struct Map *default_option_descriptions;
-};
 
-struct PortReaderResult {
+	// Output
 	struct Mempool *pool;
-	struct Array *scan_results;
+	const char *path;
+	struct Set *comments;
+	struct Set *errors;
+	struct Set *unknown_variables;
+	struct Set *unknown_targets;
+	struct Set *clones;
+	struct Set *option_default_descriptions;
+	struct Set *option_groups;
+	struct Set *options;
+	struct Set *variable_values;
 };
 
 // Prototypes
@@ -174,15 +155,12 @@ static int char_cmp(const void *, const void *, void *);
 static ssize_t edit_distance(const char *, const char *);
 static void collect_output_unknowns(struct Mempool *, const char *, const char *, const char *, void *);
 static void collect_output_variable_values(struct Mempool *, const char *, const char *, const char *, void *);
-static void scan_port(struct ScanPortArgs *);
-static char *next_workitem(struct Array *, atomic_size_t *);
-static void *scan_ports_worker(void *);
-static void *lookup_origins_worker(void *);
-static void *join_next_thread(pthread_t **, ssize_t *);
-static struct Array *lookup_origins(struct Mempool *, int, enum ScanFlags, struct PortscanLog *);
+static void scan_port_worker(int, void *);
+static void lookup_origins_worker(int, void *);
+static struct Array *lookup_origins(struct Mempool *, struct Workqueue *, int, enum ScanFlags, struct PortscanLog *);
 static enum ASTWalkState get_default_option_descriptions_walker(struct AST *, struct Map *, struct Mempool *);
 static PARSER_EDIT(get_default_option_descriptions);
-static void scan_ports(int, struct Array *, enum ScanFlags, struct Regexp *, struct Regexp *, ssize_t, struct PortscanLog *);
+static void scan_ports(struct Workqueue *, int, struct Array *, enum ScanFlags, struct Regexp *, struct Regexp *, ssize_t, struct PortscanLog *);
 static void usage(void);
 
 // Constants
@@ -365,227 +343,179 @@ collect_output_variable_values(struct Mempool *extpool, const char *key, const c
 }
 
 void
-scan_port(struct ScanPortArgs *args)
+scan_port_worker(int tid, void *userdata)
 {
 	SCOPE_MEMPOOL(pool);
 
-	struct ScanResult *retval = args->result;
-	retval->comments = mempool_set(retval->pool, str_compare);
-	retval->errors = mempool_set(retval->pool, str_compare);
-	retval->option_default_descriptions = mempool_set(retval->pool, str_compare);
-	retval->option_groups = mempool_set(retval->pool, str_compare);
-	retval->options = mempool_set(retval->pool, str_compare);
-	retval->unknown_variables = mempool_set(retval->pool, str_compare);
-	retval->unknown_targets = mempool_set(retval->pool, str_compare);
-	retval->variable_values = mempool_set(retval->pool, str_compare);
+	struct PortReaderState *this = userdata;
+	this->pool = mempool_new();
+	this->origin = str_dup(this->pool, this->origin);
+	portscan_status_print(this->origin);
+	this->path = str_printf(this->pool, "%s/Makefile", this->origin);
+
+	this->comments = mempool_set(this->pool, str_compare);
+	this->errors = mempool_set(this->pool, str_compare);
+	this->option_default_descriptions = mempool_set(this->pool, str_compare);
+	this->option_groups = mempool_set(this->pool, str_compare);
+	this->options = mempool_set(this->pool, str_compare);
+	this->unknown_variables = mempool_set(this->pool, str_compare);
+	this->unknown_targets = mempool_set(this->pool, str_compare);
+	this->variable_values = mempool_set(this->pool, str_compare);
 
 	struct ParserSettings settings;
 	parser_init_settings(&settings);
 	settings.behavior = PARSER_OUTPUT_RAWLINES | PARSER_LOAD_LOCAL_INCLUDES;
-	settings.filename = args->path;
-	settings.portsdir = args->portsdir;
+	settings.filename = this->path;
+	settings.portsdir = this->portsdir;
 
-	if (!(args->flags & SCAN_STRICT_VARIABLES)) {
+	if (!(this->flags & SCAN_STRICT_VARIABLES)) {
 		settings.behavior |= PARSER_CHECK_VARIABLE_REFERENCES;
 	}
 
-	FILE *in = fileopenat(pool, args->portsdir, args->path);
+	FILE *in = fileopenat(pool, this->portsdir, this->path);
 	if (in == NULL) {
-		add_error(retval->errors, str_printf(pool, "fileopenat: %s", strerror(errno)));
+		add_error(this->errors, str_printf(pool, "fileopenat: %s", strerror(errno)));
+		portscan_status_inc();
 		return;
 	}
 
 	struct Parser *parser = parser_new(pool, &settings);
 	enum ParserError error = parser_read_from_file(parser, in);
 	if (error != PARSER_ERROR_OK) {
-		add_error(retval->errors, parser_error_tostring(parser, pool));
+		add_error(this->errors, parser_error_tostring(parser, pool));
+		portscan_status_inc();
 		return;
 	}
 
 	error = parser_read_finish(parser);
 	if (error != PARSER_ERROR_OK) {
-		add_error(retval->errors, parser_error_tostring(parser, pool));
+		add_error(this->errors, parser_error_tostring(parser, pool));
+		portscan_status_inc();
 		return;
 	}
 
-	if (args->flags & SCAN_PARTIAL) {
+	if (this->flags & SCAN_PARTIAL) {
 		error = parser_edit(parser, pool, lint_bsd_port, NULL);
 		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, parser_error_tostring(parser, pool));
+			add_error(this->errors, parser_error_tostring(parser, pool));
+			portscan_status_inc();
 			return;
 		}
 	}
 
-	if (retval->flags & SCAN_UNKNOWN_VARIABLES) {
-		struct ParserEditOutput param = { unknown_variables_filter, args->query, NULL, NULL, collect_output_unknowns, retval->unknown_variables, 0 };
+	if (this->flags & SCAN_UNKNOWN_VARIABLES) {
+		struct ParserEditOutput param = { unknown_variables_filter, this->query, NULL, NULL, collect_output_unknowns, this->unknown_variables, 0 };
 		error = parser_edit(parser, pool, output_unknown_variables, &param);
 		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, str_printf(pool, "output.unknown-variables: %s", parser_error_tostring(parser, pool)));
+			add_error(this->errors, str_printf(pool, "output.unknown-variables: %s", parser_error_tostring(parser, pool)));
+			portscan_status_inc();
 			return;
 		}
 	}
 
-	if (retval->flags & SCAN_UNKNOWN_TARGETS) {
-		struct ParserEditOutput param = { unknown_targets_filter, args->query, NULL, NULL, collect_output_unknowns, retval->unknown_targets, 0 };
+	if (this->flags & SCAN_UNKNOWN_TARGETS) {
+		struct ParserEditOutput param = { unknown_targets_filter, this->query, NULL, NULL, collect_output_unknowns, this->unknown_targets, 0 };
 		error = parser_edit(parser, pool, output_unknown_targets, &param);
 		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, str_printf(pool, "output.unknown-targets: %s", parser_error_tostring(parser, pool)));
+			add_error(this->errors, str_printf(pool, "output.unknown-targets: %s", parser_error_tostring(parser, pool)));
+			portscan_status_inc();
 			return;
 		}
 	}
 
-	if (retval->flags & SCAN_CLONES) {
+	if (this->flags & SCAN_CLONES) {
 		// XXX: Limit by query?
-		error = parser_edit(parser, retval->pool, lint_clones, &retval->clones);
+		error = parser_edit(parser, this->pool, lint_clones, &this->clones);
 		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, str_printf(pool, "lint.clones: %s", parser_error_tostring(parser, pool)));
+			add_error(this->errors, str_printf(pool, "lint.clones: %s", parser_error_tostring(parser, pool)));
+			portscan_status_inc();
 			return;
 		}
 	}
 
-	if (retval->flags & SCAN_OPTION_DEFAULT_DESCRIPTIONS) {
+	if (this->flags & SCAN_OPTION_DEFAULT_DESCRIPTIONS) {
 		struct Map *descs = parser_metadata(parser, PARSER_METADATA_OPTION_DESCRIPTIONS);
 		MAP_FOREACH(descs, char *, var, char *, desc) {
-			char *default_desc = map_get(args->default_option_descriptions, var);
+			char *default_desc = map_get(this->default_option_descriptions, var);
 			if (!default_desc) {
 				continue;
 			}
-			if (!set_contains(retval->option_default_descriptions, var)) {
+			if (!set_contains(this->option_default_descriptions, var)) {
 				ssize_t editdist = edit_distance(default_desc, desc);
-				if (strcasecmp(default_desc, desc) == 0 || (editdist > 0 && editdist <= args->editdist)) {
-					set_add(retval->option_default_descriptions, str_dup(retval->pool, var));
+				if (strcasecmp(default_desc, desc) == 0 || (editdist > 0 && editdist <= this->editdist)) {
+					set_add(this->option_default_descriptions, str_dup(this->pool, var));
 				}
 			}
 		}
 	}
 
-	if (retval->flags & SCAN_OPTIONS) {
+	if (this->flags & SCAN_OPTIONS) {
 		struct Set *groups = parser_metadata(parser, PARSER_METADATA_OPTION_GROUPS);
 		SET_FOREACH(groups, char *, group) {
-			if (!set_contains(retval->option_groups, group) &&
-			    (args->query == NULL || regexp_exec(args->query, group) == 0)) {
-				set_add(retval->option_groups, str_dup(retval->pool, group));
+			if (!set_contains(this->option_groups, group) &&
+			    (this->query == NULL || regexp_exec(this->query, group) == 0)) {
+				set_add(this->option_groups, str_dup(this->pool, group));
 			}
 		}
 		struct Set *options = parser_metadata(parser, PARSER_METADATA_OPTIONS);
 		SET_FOREACH(options, char *, option) {
-			if (!set_contains(retval->options, option) &&
-			    (args->query == NULL || regexp_exec(args->query, option) == 0)) {
-				set_add(retval->options, str_dup(retval->pool, option));
+			if (!set_contains(this->options, option) &&
+			    (this->query == NULL || regexp_exec(this->query, option) == 0)) {
+				set_add(this->options, str_dup(this->pool, option));
 			}
 		}
 	}
 
-	if (retval->flags & SCAN_VARIABLE_VALUES) {
-		struct ParserEditOutput param = { variable_value_filter, args->keyquery, variable_value_filter, args->query, collect_output_variable_values, retval->variable_values, 0 };
+	if (this->flags & SCAN_VARIABLE_VALUES) {
+		struct ParserEditOutput param = { variable_value_filter, this->keyquery, variable_value_filter, this->query, collect_output_variable_values, this->variable_values, 0 };
 		error = parser_edit(parser, pool, output_variable_value, &param);
 		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, str_printf(pool, "output.variable-value: %s", parser_error_tostring(parser, pool)));
+			add_error(this->errors, str_printf(pool, "output.variable-value: %s", parser_error_tostring(parser, pool)));
+			portscan_status_inc();
 			return;
 		}
 	}
 
-	if (retval->flags & SCAN_COMMENTS) {
+	if (this->flags & SCAN_COMMENTS) {
 		struct Set *commented_portrevision = NULL;
 		error = parser_edit(parser, pool, lint_commented_portrevision, &commented_portrevision);
 		if (error != PARSER_ERROR_OK) {
-			add_error(retval->errors, str_printf(pool, "lint.commented-portrevision: %s", parser_error_tostring(parser, pool)));
+			add_error(this->errors, str_printf(pool, "lint.commented-portrevision: %s", parser_error_tostring(parser, pool)));
+			portscan_status_inc();
 			return;
 		}
 		SET_FOREACH(commented_portrevision, char *, comment) {
 			char *msg = str_printf(pool, "commented revision or epoch: %s", comment);
-			if (!set_contains(retval->comments, msg)) {
-				set_add(retval->comments, str_dup(retval->pool, msg));
+			if (!set_contains(this->comments, msg)) {
+				set_add(this->comments, str_dup(this->pool, msg));
 			}
 		}
 	}
+
+	portscan_status_inc();
 }
 
-char *
-next_workitem(struct Array *items, atomic_size_t *items_index)
+void
+lookup_origins_worker(int tid, void *userdata)
 {
-	return array_get(items, (*items_index)++);
-}
-
-void *
-scan_ports_worker(void *userdata)
-{
-	struct PortReaderData *data = userdata;
+	struct CategoryReaderState *this = userdata;
 	struct Mempool *pool = mempool_new();
-	struct PortReaderResult *result = mempool_alloc(pool, sizeof(struct PortReaderResult));
-	result->pool = pool;
-	result->scan_results = mempool_array(pool);
+	this->pool = pool;
+	this->error_origins = mempool_array(pool);
+	this->error_msgs = mempool_array(pool);
+	this->nonexistent = mempool_array(pool);
+	this->unhooked = mempool_array(pool);
+	this->unsorted = mempool_array(pool);
+	this->origins = mempool_array(pool);
 
-	char *origin;
-	while ((origin = next_workitem(data->origins, data->origins_index))) {
-		portscan_status_print(origin);
-		const char *path = str_printf(pool, "%s/Makefile", origin);
-		struct ScanResult *scan_result = mempool_alloc(pool, sizeof(struct ScanResult));
-		scan_result->pool = pool;
-		scan_result->origin = str_dup(pool, origin);
-		scan_result->flags = data->flags;
-		struct ScanPortArgs scan_port_args = {
-			.flags = data->flags,
-			.portsdir = data->portsdir,
-			.path = path,
-			.keyquery = data->keyquery,
-			.query = data->query,
-			.editdist = data->editdist,
-			.result = scan_result,
-			.default_option_descriptions = data->default_option_descriptions,
-		};
-		scan_port(&scan_port_args);
-		portscan_status_inc();
-		array_append(result->scan_results, scan_result);
-	}
-
-	return result;
-}
-
-void *
-lookup_origins_worker(void *userdata)
-{
-	struct CategoryReaderData *data = userdata;
-	struct Mempool *pool = mempool_new();
-	struct CategoryReaderResult *result = mempool_alloc(pool, sizeof(struct CategoryReaderResult));
-	result->pool = pool;
-	result->error_origins = mempool_array(pool);
-	result->error_msgs = mempool_array(pool);
-	result->nonexistent = mempool_array(pool);
-	result->unhooked = mempool_array(pool);
-	result->unsorted = mempool_array(pool);
-	result->origins = mempool_array(pool);
-
-	char *category;
-	while ((category = next_workitem(data->categories, data->categories_index))) {
-		portscan_status_print(category);
-		char *path = str_printf(pool, "%s/Makefile", category);
-		lookup_subdirs(data->portsdir, category, path, data->flags, result->pool, result->origins, result->nonexistent, result->unhooked, result->unsorted, result->error_origins, result->error_msgs);
-		portscan_status_inc();
-	}
-
-	return result;
-}
-
-void *
-join_next_thread(pthread_t **tid, ssize_t *n_threads)
-{
-	if (*n_threads > 0) {
-		void *data;
-		if (pthread_join(**tid, &data) != 0) {
-			err(1, "pthread_join");
-		} else {
-			(*n_threads)--;
-			(*tid)++;
-			return data;
-		}
-	} else {
-		return NULL;
-	}
+	portscan_status_print(this->category);
+	char *path = str_printf(pool, "%s/Makefile", this->category);
+	lookup_subdirs(this->portsdir, this->category, path, this->flags, this->pool, this->origins, this->nonexistent, this->unhooked, this->unsorted, this->error_origins, this->error_msgs);
+	portscan_status_inc();
 }
 
 struct Array *
-lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, struct PortscanLog *log)
+lookup_origins(struct Mempool *extpool, struct Workqueue *workqueue, int portsdir, enum ScanFlags flags, struct PortscanLog *log)
 {
 	SCOPE_MEMPOOL(pool);
 	struct Array *retval = mempool_array(extpool);
@@ -601,25 +531,17 @@ lookup_origins(struct Mempool *extpool, int portsdir, enum ScanFlags flags, stru
 	}
 
 	portscan_status_reset(PORTSCAN_STATUS_CATEGORIES, array_len(categories));
-	ssize_t n_threads = sysconf(_SC_NPROCESSORS_ONLN);
-	if (n_threads < 0) {
-		err(1, "sysconf");
+	struct Array *results = mempool_array(pool);
+	ARRAY_FOREACH(categories, char *, category) {
+		struct CategoryReaderState *this = mempool_alloc(pool, sizeof(struct CategoryReaderState));
+		this->category = category;
+		this->portsdir = portsdir;
+		this->flags = flags;
+		workqueue_push(workqueue, lookup_origins_worker, this);
+		array_append(results, this);
 	}
-	atomic_size_t categories_index = 0;
-	struct CategoryReaderData data = {
-		.portsdir = portsdir,
-		.categories = categories,
-		.categories_index = &categories_index,
-		.flags = flags,
-	};
-	pthread_t *tid = mempool_take(pool, xrecallocarray(NULL, 0, n_threads, sizeof(pthread_t)));
-	for (ssize_t i = 0; i < n_threads; i++) {
-		if (pthread_create(&tid[i], NULL, lookup_origins_worker, &data) != 0) {
-			err(1, "pthread_create");
-		}
-	}
-
-	for (struct CategoryReaderResult *result = lookup_origins_worker(&data); result; result = join_next_thread(&tid, &n_threads)) {
+	workqueue_wait(workqueue);
+	ARRAY_FOREACH(results, struct CategoryReaderState *, result) {
 		ARRAY_FOREACH(result->error_origins, char *, origin) {
 			char *msg = array_get(result->error_msgs, origin_index);
 			portscan_log_add_entry(log, PORTSCAN_LOG_ENTRY_ERROR, origin, msg);
@@ -673,7 +595,7 @@ PARSER_EDIT(get_default_option_descriptions)
 }
 
 void
-scan_ports(int portsdir, struct Array *origins, enum ScanFlags flags, struct Regexp *keyquery, struct Regexp *query, ssize_t editdist, struct PortscanLog *retval)
+scan_ports(struct Workqueue *workqueue, int portsdir, struct Array *origins, enum ScanFlags flags, struct Regexp *keyquery, struct Regexp *query, ssize_t editdist, struct PortscanLog *retval)
 {
 	SCOPE_MEMPOOL(pool);
 
@@ -715,42 +637,32 @@ scan_ports(int portsdir, struct Array *origins, enum ScanFlags flags, struct Reg
 	}
 	panic_unless(default_option_descriptions, "no default option descriptions found");
 
-	ssize_t n_threads = sysconf(_SC_NPROCESSORS_ONLN);
-	if (n_threads < 0) {
-		err(1, "sysconf");
+	struct Array *results = mempool_array(pool);
+	ARRAY_FOREACH(origins, const char *, origin) {
+		struct PortReaderState *this = mempool_alloc(pool, sizeof(struct PortReaderState));
+		this->portsdir = portsdir;
+		this->origin = origin;
+		this->keyquery = keyquery;
+		this->query = query;
+		this->editdist = editdist;
+		this->flags = flags;
+		this->default_option_descriptions = default_option_descriptions;
+		workqueue_push(workqueue, scan_port_worker, this);
+		array_append(results, this);
 	}
-	pthread_t *tid = mempool_take(pool, xrecallocarray(NULL, 0, n_threads, sizeof(pthread_t)));
-	atomic_size_t origins_index = 0;
-	struct PortReaderData data = {
-		.portsdir = portsdir,
-		.origins = origins,
-		.origins_index = &origins_index,
-		.keyquery = keyquery,
-		.query = query,
-		.editdist = editdist,
-		.flags = flags,
-		.default_option_descriptions = default_option_descriptions,
-	};
-	for (ssize_t i = 0; i < n_threads; i++) {
-		if (pthread_create(&tid[i], NULL, scan_ports_worker, &data) != 0) {
-			err(1, "pthread_create");
-		}
-	}
-
-	for (struct PortReaderResult *result = scan_ports_worker(&data); result; result = join_next_thread(&tid, &n_threads)) {
-		ARRAY_FOREACH(result->scan_results, struct ScanResult *, r) {
-			portscan_status_print(NULL);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_ERROR, r->origin, r->errors);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_UNKNOWN_VAR, r->origin, r->unknown_variables);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_UNKNOWN_TARGET, r->origin, r->unknown_targets);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_DUPLICATE_VAR, r->origin, r->clones);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_OPTION_DEFAULT_DESCRIPTION, r->origin, r->option_default_descriptions);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_OPTION_GROUP, r->origin, r->option_groups);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_OPTION, r->origin, r->options);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_VARIABLE_VALUE, r->origin, r->variable_values);
-			portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_COMMENT, r->origin, r->comments);
-		}
-		mempool_free(result->pool);
+	workqueue_wait(workqueue);
+	ARRAY_FOREACH(results, struct PortReaderState *, this) {
+		portscan_status_print(NULL);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_ERROR, this->origin, this->errors);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_UNKNOWN_VAR, this->origin, this->unknown_variables);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_UNKNOWN_TARGET, this->origin, this->unknown_targets);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_DUPLICATE_VAR, this->origin, this->clones);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_OPTION_DEFAULT_DESCRIPTION, this->origin, this->option_default_descriptions);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_OPTION_GROUP, this->origin, this->option_groups);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_OPTION, this->origin, this->options);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_VARIABLE_VALUE, this->origin, this->variable_values);
+		portscan_log_add_entries(retval, PORTSCAN_LOG_ENTRY_COMMENT, this->origin, this->comments);
+		mempool_free(this->pool);
 	}
 }
 
@@ -955,10 +867,11 @@ main(int argc, char *argv[])
 		}
 	}
 
+	struct Workqueue *workqueue = mempool_workqueue(pool, 0);
 	struct PortscanLog *result = portscan_log_new(pool);
 	struct Array *origins = NULL;
 	if (argc == 0) {
-		origins = lookup_origins(pool, portsdir, flags, result);
+		origins = lookup_origins(pool, workqueue, portsdir, flags, result);
 	} else {
 		flags |= SCAN_PARTIAL;
 		origins = mempool_array(pool);
@@ -968,7 +881,7 @@ main(int argc, char *argv[])
 	}
 
 	portscan_status_reset(PORTSCAN_STATUS_PORTS, array_len(origins));
-	scan_ports(portsdir, origins, flags, keyquery_regexp, query_regexp, editdist, result);
+	scan_ports(workqueue, portsdir, origins, flags, keyquery_regexp, query_regexp, editdist, result);
 	if (portscan_log_len(result) > 0) {
 		if (logdir != NULL) {
 			struct PortscanLog *prev_result = portscan_log_read_all(pool, logdir, PORTSCAN_LOG_LATEST);

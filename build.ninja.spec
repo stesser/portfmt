@@ -30,6 +30,7 @@ bundle libias.a
 	libias/str.c
 	libias/trait/compare.c
 	libias/util.c
+	libias/workqueue.c
 
 bundle libportfmt.a
 	ast.c
