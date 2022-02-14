@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <unistd.h>
 
 #include <libias/array.h>
 #include <libias/diff.h>
