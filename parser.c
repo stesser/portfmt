@@ -1416,6 +1416,14 @@ process_include(struct Parser *parser, struct Mempool *extpool, const char *curd
 		filename = str_printf(pool, "%s/%s", masterdir, filename);
 	}
 
+	if (strstr(filename, "${PORTNAME}")) {
+		const char *portname = parser_metadata(parser, PARSER_METADATA_PORTNAME);
+		if (portname) {
+			// XXX: implement a str_replace()
+			filename = str_join(pool, str_split(pool, filename, "${PORTNAME}"), portname);
+		}
+	}
+
 	struct Array *path = mempool_array(pool);
 	if (str_startswith(filename, "${.PARSEDIR}/")) {
 		array_append(path, curdir);
@@ -1748,6 +1756,7 @@ parser_metadata_alloc(struct Parser *parser)
 			parser->metadata[meta] = mempool_map(parser->metadata_pool, str_compare);
 			break;
 		case PARSER_METADATA_MASTERDIR:
+		case PARSER_METADATA_PORTNAME:
 			parser->metadata[meta] = NULL;
 			break;
 		default:
@@ -1795,6 +1804,13 @@ parser_metadata(struct Parser *parser, enum ParserMetadata meta)
 		case PARSER_METADATA_MASTERDIR: {
 			struct Array *tokens = NULL;
 			if (parser_lookup_variable(parser, "MASTERDIR", PARSER_LOOKUP_FIRST | PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS, pool, &tokens, NULL)) {
+				mempool_release(parser->metadata_pool, parser->metadata[meta]);
+				parser->metadata[meta] = str_join(parser->metadata_pool, tokens, " ");
+			}
+			break;
+		} case PARSER_METADATA_PORTNAME: {
+			struct Array *tokens = NULL;
+			if (parser_lookup_variable(parser, "PORTNAME", PARSER_LOOKUP_FIRST | PARSER_LOOKUP_IGNORE_VARIABLES_IN_CONDITIIONALS, pool, &tokens, NULL)) {
 				mempool_release(parser->metadata_pool, parser->metadata[meta]);
 				parser->metadata[meta] = str_join(parser->metadata_pool, tokens, " ");
 			}
