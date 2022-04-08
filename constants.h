@@ -20,7 +20,6 @@ extern size_t use_pyqt_rel_len;
 extern size_t use_qt_rel_len;
 extern size_t static_shebang_langs_len;
 #define VAR_BROKEN_RUBY(block, flags, uses) \
-	{ block, "BROKEN_RUBY26", flags, uses }, \
 	{ block, "BROKEN_RUBY27", flags, uses }, \
 	{ block, "BROKEN_RUBY30", flags, uses }, \
 	{ block, "BROKEN_RUBY31", flags, uses }
