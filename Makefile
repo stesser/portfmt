@@ -39,7 +39,7 @@ publish:
 	@tag=$$(git tag --points-at HEAD); \
 	if [ -z "$$tag" ]; then echo "create a tag first"; exit 1; fi; \
 	V=$$(echo $${tag} | sed 's,^v,,'); \
-	git push --follow-tags origin; \
+	git push --follow-tags github; \
 	gh release create $${tag} -F RELNOTES.md \
 		portfmt-$${V}.tar.lz \
 		portfmt-$${V}.tar.lz.SHA256
