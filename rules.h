@@ -32,6 +32,7 @@ enum BlockType {
 	BLOCK_PORTNAME,		// human:"PORTNAME block"
 	BLOCK_PATCHFILES,	// human:"Patch files"
 	BLOCK_MAINTAINER,	// human:"Maintainer block"
+	BLOCK_WWW,		// human:"Project website"
 	BLOCK_LICENSE,		// human:"License block"
 	BLOCK_LICENSE_OLD,	// human:"Old-school license block (please replace with LICENSE)"
 	BLOCK_BROKEN,		// human:"BROKEN/IGNORE/DEPRECATED messages"
